@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Allow: /legal/
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /calendar
+Disallow: /tasks
+Disallow: /focus
+Disallow: /habits
+Disallow: /journal
+Disallow: /settings
+Disallow: /achievements
+Disallow: /analytics
+Disallow: /ai
+Disallow: /family
+Disallow: /auth/reset-password
+Disallow: /auth/callback
+Disallow: /maintenance
+
+# [À COMPLÉTER] une fois le domaine de production connu (doit correspondre
+# à SITE_URL dans app/layout.tsx) :
+# Sitemap: https://votredomaine.com/sitemap.xml

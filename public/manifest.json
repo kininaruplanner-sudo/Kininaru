@@ -1,0 +1,27 @@
+{
+  "name": "Kininaru Planner",
+  "short_name": "Kininaru",
+  "description": "Planificateur premium : calendrier, tâches, habitudes, journal et plus.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#FFF9FC",
+  "theme_color": "#F7F9FC",
+  "icons": [
+    {
+      "src": "/icon-light-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
