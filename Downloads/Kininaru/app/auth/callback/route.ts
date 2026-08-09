@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // After a password-recovery email the session is already established;
+      // send the user straight to the reset-password form.
+      if (next === '/auth/reset-password') {
+        return NextResponse.redirect(`${origin}/auth/reset-password`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

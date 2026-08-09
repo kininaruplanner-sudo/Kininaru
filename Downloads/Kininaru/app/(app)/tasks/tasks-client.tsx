@@ -20,6 +20,7 @@ import {
   ArrowUpDown,
   GripVertical,
   ListChecks,
+  Pencil,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
 import { palette } from '@/lib/palette'
+import { PageHeader } from '@/components/page-header'
 
 type Priority = 'low' | 'medium' | 'high' | 'urgent'
 type Status = 'todo' | 'in_progress' | 'done'
@@ -129,6 +131,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [view, setView] = useState<ViewMode>('list')
   const [showModal, setShowModal] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -156,12 +159,19 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
   const [dragTaskId, setDragTaskId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<Status | null>(null)
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    title: string
+    description: string
+    priority: Priority
+    due_date: string
+    tags: string[]
+    color: string
+  }>({
     title: '',
     description: '',
-    priority: 'medium' as Priority,
+    priority: 'medium',
     due_date: '',
-    tags: [] as string[],
+    tags: [],
     color: palette('sage'),
   })
 
@@ -246,42 +256,78 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     setTagInput('')
   }
 
+  const openNewTask = () => {
+    setEditingTask(null)
+    setForm({ title: '', description: '', priority: 'medium', due_date: '', tags: [], color: palette('sage') })
+    setShowModal(true)
+  }
+
+  const openEditTask = (task: Task) => {
+    setEditingTask(task)
+    setForm({
+      title: task.title,
+      description: task.description ?? '',
+      priority: task.priority,
+      due_date: task.due_date ?? '',
+      tags: task.tags ?? [],
+      color: task.color ?? palette('sage'),
+    })
+    setShowModal(true)
+  }
+
   const saveTask = async () => {
     if (!form.title.trim()) return
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({
-        user_id: userId,
-        title: form.title,
-        description: form.description,
-        priority: form.priority,
-        due_date: form.due_date || null,
-        tags: form.tags,
-        color: form.color,
-        status: 'todo',
-      })
-      .select()
-      .single()
+    const payload = {
+      title: form.title,
+      description: form.description,
+      priority: form.priority,
+      due_date: form.due_date || null,
+      tags: form.tags,
+      color: form.color,
+    }
 
-    if (data) {
-      setTasks((prev) => [data, ...prev])
-      setShowModal(false)
-      setForm({ title: '', description: '', priority: 'medium', due_date: '', tags: [], color: palette('sage') })
+    if (editingTask) {
+      const { data } = await supabase
+        .from('tasks')
+        .update(payload)
+        .eq('id', editingTask.id)
+        .select()
+        .single()
+      if (data) {
+        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)))
+        setShowModal(false)
+      }
+    } else {
+      const { data } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: userId,
+          ...payload,
+          status: 'todo',
+        })
+        .select()
+        .single()
+
+      if (data) {
+        setTasks((prev) => [data, ...prev])
+        setShowModal(false)
+      }
     }
     setLoading(false)
   }
 
   const updateStatus = async (id: string, status: Status) => {
+    const completedAt = status === 'done' ? new Date().toISOString() : null
     await supabase
       .from('tasks')
       .update({
         status,
-        completed_at: status === 'done' ? new Date().toISOString() : null,
+        completed_at: completedAt,
       })
       .eq('id', id)
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)))
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status, completed_at: completedAt ?? undefined } : t)))
   }
 
   const deleteTask = async (id: string) => {
@@ -323,53 +369,54 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Tasks</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {doneTasks} of {topLevelTasks.length} completed &middot; {completionRate}%
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input
-              placeholder="Search tasks..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 w-40 sm:w-52 pl-8 transition-smooth"
-            />
-          </div>
-          <div className="flex bg-muted rounded-xl p-1 gap-1">
-            <button
-              onClick={() => setView('list')}
-              className={cn(
-                'p-2 rounded-lg transition-smooth',
-                view === 'list' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
+      <PageHeader
+        icon={CheckSquare}
+        title="Tâches"
+        subtitle={`${doneTasks} terminées sur ${topLevelTasks.length} · ${completionRate} %`}
+        actions={
+          <>
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Rechercher une tâche..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 w-40 sm:w-52 pl-8 transition-smooth"
+              />
+            </div>
+            <div className="flex bg-muted rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setView('list')}
+                className={cn(
+                  'p-2 rounded-lg transition-smooth',
+                  view === 'list' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-label="Vue liste"
+              >
+                <LayoutList className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setView('kanban')}
+                className={cn(
+                  'p-2 rounded-lg transition-smooth',
+                  view === 'kanban' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-label="Vue kanban"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+              </button>
+            </div>
+            <Button
+              size="sm"
+              onClick={openNewTask}
+              className="gap-1.5 transition-smooth hover:scale-[1.02]"
             >
-              <LayoutList className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setView('kanban')}
-              className={cn(
-                'p-2 rounded-lg transition-smooth',
-                view === 'kanban' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-            </button>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setShowModal(true)}
-            className="gap-1.5 transition-smooth hover:scale-[1.02]"
-          >
-            <Plus className="w-4 h-4" />
-            New Task
-          </Button>
-        </div>
-      </div>
+              <Plus className="w-4 h-4" />
+              Nouvelle tâche
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-border bg-card/50">
@@ -468,7 +515,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                     </button>
                   ) : (
                     <button
-                      onClick={() => setShowModal(true)}
+                      onClick={openNewTask}
                       className="mt-2 text-sm text-primary hover:underline"
                     >
                       Create your first task
@@ -551,6 +598,15 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-smooth">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => openEditTask(task)}
+                            className="hover:bg-primary/10 hover:text-primary"
+                            title="Edit task"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           {task.status !== 'in_progress' && task.status !== 'done' && (
                             <Button
                               variant="ghost"
@@ -737,7 +793,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                         )
                       })}
                       <button
-                        onClick={() => setShowModal(true)}
+                        onClick={openNewTask}
                         className="w-full p-3 border-2 border-dashed border-border rounded-xl text-xs text-muted-foreground hover:border-primary hover:text-primary transition-smooth flex items-center justify-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -771,7 +827,9 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-serif font-bold text-foreground">New Task</h2>
+                <h2 className="text-lg font-serif font-bold text-foreground">
+                  {editingTask ? 'Edit Task' : 'New Task'}
+                </h2>
                 <Button variant="ghost" size="icon-sm" onClick={() => setShowModal(false)}>
                   <X className="w-4 h-4" />
                 </Button>
@@ -884,7 +942,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                     onClick={saveTask}
                     disabled={loading || !form.title.trim()}
                   >
-                    {loading ? 'Saving...' : 'Create task'}
+                    {loading ? 'Saving...' : editingTask ? 'Save changes' : 'Create task'}
                   </Button>
                 </div>
               </div>

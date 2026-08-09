@@ -9,7 +9,8 @@ export async function streamChatResponse(
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    // Advice-only: the insight card never proposes structured actions.
+    body: JSON.stringify({ messages, actionsEnabled: false }),
   })
   if (!res.ok || !res.body) throw new Error('AI request failed')
 

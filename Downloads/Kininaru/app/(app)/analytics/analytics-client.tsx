@@ -7,6 +7,7 @@ import {
   CheckSquare, Timer, Repeat2, BookOpen, TrendingUp,
   BarChart3, ArrowUp, ArrowDown, CalendarDays, CalendarRange,
 } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { cardVariants } from '@/components/ui/card'
 
@@ -315,46 +316,44 @@ export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journ
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Analytics</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Last {range} days overview{selectedHabit ? ` · ${selectedHabit.title}` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {habits.length > 0 && (
-            <div className="relative">
-              <Repeat2 className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <select
-                value={habitFilter}
-                onChange={(e) => setHabitFilter(e.target.value)}
-                className="h-8 pl-8 pr-3 text-xs bg-muted rounded-full border-none focus:outline-none focus:ring-2 focus:ring-ring transition-smooth appearance-none cursor-pointer"
-              >
-                <option value="all">All habits</option>
-                {habits.map((h) => (
-                  <option key={h.id} value={h.id}>{h.title}</option>
-                ))}
-              </select>
+      <PageHeader
+        icon={BarChart3}
+        title="Analyses"
+        subtitle={`Aperçu des ${range} derniers jours${selectedHabit ? ` · ${selectedHabit.title}` : ''}`}
+        actions={
+          <>
+            {habits.length > 0 && (
+              <div className="relative">
+                <Repeat2 className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={habitFilter}
+                  onChange={(e) => setHabitFilter(e.target.value)}
+                  className="h-8 pl-8 pr-3 text-xs bg-muted rounded-full border-none focus:outline-none focus:ring-2 focus:ring-ring transition-smooth appearance-none cursor-pointer"
+                >
+                  <option value="all">Toutes les habitudes</option>
+                  {habits.map((h) => (
+                    <option key={h.id} value={h.id}>{h.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex bg-muted rounded-xl p-1 gap-1">
+              {([7, 30, 90] as RangeOption[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-smooth',
+                    range === r ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {r} j
+                </button>
+              ))}
             </div>
-          )}
-          <div className="flex bg-muted rounded-xl p-1 gap-1">
-            {([7, 30, 90] as RangeOption[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-smooth',
-                  range === r ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {r}d
-              </button>
-            ))}
-          </div>
-          <BarChart3 className="w-5 h-5 text-muted-foreground" />
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-5xl mx-auto space-y-6">

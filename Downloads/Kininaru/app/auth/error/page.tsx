@@ -1,16 +1,19 @@
+'use client'
+
+import { Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
-export default function AuthErrorPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; error_description?: string }
-}) {
-  const error = searchParams.error || 'Authentication error'
-  const description =
-    searchParams.error_description ||
-    'An error occurred during authentication. Please try again.'
+function AuthErrorInner() {
+  const { t } = useI18n()
+  // Next.js 16 makes page-level searchParams async; this client component
+  // reads the query string through the router hook instead (Suspense-wrapped).
+  const searchParams = useSearchParams()
+  const error = searchParams.get('error') || t('auth.authError')
+  const description = searchParams.get('error_description') || t('auth.authErrorDesc')
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -22,26 +25,30 @@ export default function AuthErrorPage({
             </div>
           </div>
 
-          <h1 className="text-3xl font-serif font-bold text-foreground mb-3">
-            {error}
-          </h1>
-          <p className="text-muted-foreground mb-8 leading-relaxed">
-            {description}
-          </p>
+          <h1 className="text-3xl font-serif font-bold text-foreground mb-3">{error}</h1>
+          <p className="text-muted-foreground mb-8 leading-relaxed">{description}</p>
 
           <div className="flex gap-3">
             <Button
-              render={<Link href="/auth/login">Back to login</Link>}
+              render={<Link href="/auth/login">{t('auth.backToLogin')}</Link>}
               variant="outline"
               className="flex-1 transition-smooth"
             />
             <Button
-              render={<Link href="/auth/sign-up">Sign up</Link>}
+              render={<Link href="/auth/sign-up">{t('auth.signUp')}</Link>}
               className="flex-1 transition-smooth hover:scale-[1.02]"
             />
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthErrorInner />
+    </Suspense>
   )
 }

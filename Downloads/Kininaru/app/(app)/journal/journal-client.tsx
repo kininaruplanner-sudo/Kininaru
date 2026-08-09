@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { format, parseISO } from 'date-fns'
-import { BookOpen, Save, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { format, parseISO, addDays } from 'date-fns'
+import { BookOpen, Save, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -33,7 +34,8 @@ interface Props {
 
 export function JournalClient({ entries: initialEntries, userId }: Props) {
   const [entries, setEntries] = useState(initialEntries)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  // Local calendar-day key so "Today" is the user's local day in any timezone.
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const supabase = createClient()
@@ -60,10 +62,18 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
   }
 
   const navigateDay = (direction: -1 | 1) => {
-    const current = new Date(selectedDate)
-    current.setDate(current.getDate() + direction)
-    const newDate = current.toISOString().split('T')[0]
+    // Anchor at noon to avoid timezone drift when shifting by whole days.
+    const current = new Date(selectedDate + 'T12:00:00')
+    const newDate = format(addDays(current, direction), 'yyyy-MM-dd')
     loadEntry(newDate)
+  }
+
+  const deleteEntry = async () => {
+    if (!currentEntry) return
+    if (!window.confirm('Supprimer cette entrée de journal ?')) return
+    await supabase.from('journal_entries').delete().eq('id', currentEntry.id)
+    setEntries((prev) => prev.filter((e) => e.id !== currentEntry.id))
+    setForm({ mood: 3, content: '', gratitude: '', goals: '' })
   }
 
   const saveEntry = async () => {
@@ -99,27 +109,25 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
     ? (entries.reduce((a, e) => a + (e.mood ?? 3), 0) / entries.length).toFixed(1)
     : '—'
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0]
-  const isFuture = selectedDate > new Date().toISOString().split('T')[0]
+  const todayKey = format(new Date(), 'yyyy-MM-dd')
+  const isToday = selectedDate === todayKey
+  const isFuture = selectedDate > todayKey
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Journal</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {entries.length} entries &middot; avg mood {moodAvg}/5
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={BookOpen}
+        title="Journal"
+        subtitle={`${entries.length} entrées · humeur moyenne ${moodAvg}/5`}
+      />
 
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] h-full">
           {/* Entry list sidebar */}
           <div className="border-r border-border bg-card/30 overflow-y-auto p-3 space-y-1 max-h-[calc(100vh-65px)] lg:max-h-full">
             <button
-              onClick={() => loadEntry(new Date().toISOString().split('T')[0])}
+              onClick={() => loadEntry(todayKey)}
               className={cn(
                 'w-full flex items-center gap-3 p-3 rounded-xl transition-smooth text-left',
                 isToday ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
@@ -160,6 +168,11 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                 </button>
               )
             })}
+            {entries.length === 0 && (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                Aucune entrée pour ce jour — écrivez votre première pensée dans l&apos;éditeur.
+              </p>
+            )}
           </div>
 
           {/* Editor */}
@@ -260,17 +273,29 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                 />
               </Card>
 
-              <Button
-                onClick={saveEntry}
-                disabled={saving || isFuture}
-                className={cn(
-                  'gap-2 transition-smooth',
-                  saved && 'bg-kin-sage hover:bg-kin-sage'
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={saveEntry}
+                  disabled={saving || isFuture}
+                  className={cn(
+                    'gap-2 transition-smooth',
+                    saved && 'bg-kin-sage hover:bg-kin-sage'
+                  )}
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Entry'}
+                </Button>
+                {currentEntry && (
+                  <Button
+                    variant="outline"
+                    onClick={deleteEntry}
+                    className="gap-2 text-destructive hover:bg-destructive/10 transition-smooth"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </Button>
                 )}
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Entry'}
-              </Button>
+              </div>
             </motion.div>
           </div>
         </div>

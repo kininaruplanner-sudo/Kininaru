@@ -23,6 +23,7 @@ import {
   parseISO,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, MapPin } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -683,26 +684,26 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-serif font-bold text-foreground">Calendar</h1>
+      <PageHeader
+        icon={Calendar}
+        title="Calendrier"
+        subtitle="Vos événements et rendez-vous"
+        actions={
+          <>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" onClick={goToPrevious} disabled={view === 'agenda'}>
+              <Button variant="ghost" size="icon-sm" onClick={goToPrevious} disabled={view === 'agenda'} aria-label="Période précédente">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm font-medium rounded-lg hover:bg-muted text-foreground transition-smooth min-w-[10rem] text-center"
+                className="px-3 py-1 text-sm font-medium rounded-lg hover:bg-muted text-foreground transition-smooth min-w-[8rem] text-center"
               >
                 {viewLabel()}
               </button>
-              <Button variant="ghost" size="icon-sm" onClick={goToNext} disabled={view === 'agenda'}>
+              <Button variant="ghost" size="icon-sm" onClick={goToNext} disabled={view === 'agenda'} aria-label="Période suivante">
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
             <div className="flex bg-muted rounded-xl p-1 gap-1">
               {(['month', 'week', 'day', 'agenda'] as ViewMode[]).map((v) => (
                 <button
@@ -713,16 +714,17 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
                     view === v ? 'bg-card text-foreground shadow-kin' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {v}
+                  {v === 'month' ? 'Mois' : v === 'week' ? 'Semaine' : v === 'day' ? 'Jour' : 'Agenda'}
                 </button>
               ))}
             </div>
             <Button onClick={() => openNewEvent()} size="sm" className="gap-1.5 transition-smooth hover:scale-[1.02]">
               <Plus className="w-4 h-4" />
-              New event
+              Nouvel événement
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
         {/* Content */}
         <div className="flex-1 overflow-auto px-6 py-4">

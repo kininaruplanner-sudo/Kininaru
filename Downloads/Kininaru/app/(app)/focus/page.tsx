@@ -15,12 +15,13 @@ export default async function FocusPage() {
     .gte('created_at', today)
     .order('created_at', { ascending: false })
 
+  // Load all sessions so streaks, averages and the history list stay accurate
+  // beyond the first 50 sessions (the list itself is scrollable).
   const { data: allSessions } = await supabase
     .from('focus_sessions')
     .select('id, duration_minutes, created_at')
     .eq('user_id', user!.id)
     .order('created_at', { ascending: false })
-    .limit(50)
 
   return (
     <FocusClient

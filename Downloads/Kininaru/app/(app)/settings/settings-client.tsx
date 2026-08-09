@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { User, Mail, Palette, Bell, Shield, Save } from 'lucide-react'
+import Link from 'next/link'
+import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,18 +11,107 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { THEMES, useTheme } from '@/components/theme-provider'
 import { cardVariants } from '@/components/ui/card'
+import { useI18n, type Locale } from '@/lib/i18n'
+import { PageHeader } from '@/components/page-header'
+
+interface Memory {
+  id: string
+  content: string
+  category: string
+  created_at: string
+}
 
 interface Props {
   profile: any
   user: { email: string }
+  memories: Memory[]
 }
 
-export function SettingsClient({ profile, user }: Props) {
+export function SettingsClient({ profile, user, memories: initialMemories }: Props) {
+  const [memories, setMemories] = useState<Memory[]>(initialMemories)
+  const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
+
+  const deleteMemory = async (id: string) => {
+    setDeletingMemory(id)
+    try {
+      const { error } = await supabase.from('ai_memories').delete().eq('id', id)
+      if (!error) setMemories((prev) => prev.filter((m) => m.id !== id))
+    } finally {
+      setDeletingMemory(null)
+    }
+  }
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const { theme, setTheme } = useTheme()
+  const { t, locale, setLocale } = useI18n()
   const supabase = createClient()
+
+  // Password change state
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMessage, setPwMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const changePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      setPwMessage({ type: 'error', text: t('settings.pwTooShort') })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPwMessage({ type: 'error', text: t('settings.pwMismatch') })
+      return
+    }
+    setPwSaving(true)
+    setPwMessage(null)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) {
+        setPwMessage({ type: 'error', text: error.message })
+      } else {
+        setNewPassword('')
+        setConfirmPassword('')
+        setPwMessage({ type: 'success', text: t('settings.pwUpdated') })
+      }
+    } catch {
+      setPwMessage({ type: 'error', text: t('settings.pwError') })
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [appInstalled, setAppInstalled] = useState(false)
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    const onAppInstalled = () => {
+      setDeferredPrompt(null)
+      setAppInstalled(true)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.addEventListener('appinstalled', onAppInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', onAppInstalled)
+    }
+  }, [])
+
+  const installApp = async () => {
+    const promptEvent = deferredPrompt as any
+    if (!promptEvent) return
+    try {
+      promptEvent.prompt()
+      await promptEvent.userChoice
+    } catch (err) {
+      console.error('[Kininaru] Install prompt failed:', err)
+    } finally {
+      setDeferredPrompt(null)
+    }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -34,23 +124,26 @@ export function SettingsClient({ profile, user }: Props) {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const switchLocale = (next: Locale) => setLocale(next)
+
   const sections = [
     {
       icon: User,
-      title: 'Profile',
+      title: t('settings.profile'),
+      desc: t('settings.profileDesc'),
       content: (
         <div className="space-y-4">
           <div>
-            <Label>Display Name</Label>
+            <Label>{t('settings.displayName')}</Label>
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className="mt-1"
-              placeholder="Your name"
+              placeholder={t('settings.displayNamePlaceholder')}
             />
           </div>
           <div>
-            <Label>Email</Label>
+            <Label>{t('settings.email')}</Label>
             <Input value={user.email} disabled className="mt-1 opacity-60" />
           </div>
           <Button
@@ -59,34 +152,61 @@ export function SettingsClient({ profile, user }: Props) {
             className={cn('gap-2', saved && 'bg-kin-sage hover:bg-kin-sage')}
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+            {saving ? t('settings.saving') : saved ? t('settings.saved') : t('settings.save')}
           </Button>
         </div>
       ),
     },
     {
+      icon: SlidersHorizontal,
+      title: t('settings.installation'),
+      content: (
+        <div className="space-y-4">
+          {deferredPrompt ? (
+            <>
+              <p className="text-sm text-muted-foreground">{t('settings.installBrowser')}</p>
+              <Button onClick={installApp} className="gap-2">
+                <Download className="w-4 h-4" />
+                {t('settings.installButton')}
+              </Button>
+            </>
+          ) : appInstalled ? (
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              {t('settings.installed')}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t('settings.installBrowser')}</p>
+              <p className="text-xs text-muted-foreground/80">{t('settings.installIos')}</p>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
       icon: Palette,
-      title: 'Appearance',
+      title: t('settings.appearance'),
       content: (
         <div className="space-y-4">
           <div>
-            <Label className="mb-3 block">Theme</Label>
-            <div className="flex gap-3">
-              {THEMES.map((t) => (
+            <Label className="mb-3 block">{t('settings.theme')}</Label>
+            <div className="flex gap-3 flex-wrap">
+              {THEMES.map((tItem) => (
                 <button
-                  key={t.value}
-                  onClick={() => setTheme(t.value)}
+                  key={tItem.value}
+                  onClick={() => setTheme(tItem.value)}
                   className={cn(
                     'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-smooth',
-                    theme === t.value ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
+                    theme === tItem.value ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
                   )}
                 >
                   <div className="flex gap-1">
-                    {t.swatches.map((c, i) => (
+                    {tItem.swatches.map((c, i) => (
                       <div key={i} className="w-5 h-5 rounded-full" style={{ backgroundColor: c }} />
                     ))}
                   </div>
-                  <span className="text-xs text-muted-foreground">{t.label}</span>
+                  <span className="text-xs text-muted-foreground">{tItem.label}</span>
                 </button>
               ))}
             </div>
@@ -95,41 +215,163 @@ export function SettingsClient({ profile, user }: Props) {
       ),
     },
     {
+      icon: Languages,
+      title: t('settings.language'),
+      content: (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('settings.languageDesc')}</p>
+          <div className="flex gap-3">
+            {(['fr', 'en'] as Locale[]).map((l) => (
+              <button
+                key={l}
+                onClick={() => switchLocale(l)}
+                className={cn(
+                  'flex-1 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-smooth',
+                  locale === l
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                )}
+              >
+                {l === 'fr' ? 'Français' : 'English'}
+              </button>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+    {
       icon: Bell,
-      title: 'Notifications',
+      title: t('settings.notifications'),
       content: (
         <div className="space-y-3">
           {[
-            { label: 'Task reminders', description: 'Get notified about upcoming deadlines' },
-            { label: 'Habit reminders', description: 'Daily nudges for your habits' },
-            { label: 'Focus session end', description: 'Alert when a Pomodoro session ends' },
+            { label: t('settings.notifTask'), description: t('settings.notifTaskDesc') },
+            { label: t('settings.notifHabit'), description: t('settings.notifHabitDesc') },
+            { label: t('settings.notifFocus'), description: t('settings.notifFocusDesc') },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between py-2">
               <div>
                 <p className="text-sm font-medium text-foreground">{item.label}</p>
                 <p className="text-xs text-muted-foreground">{item.description}</p>
               </div>
-              <button className="relative w-10 h-5 rounded-full bg-primary transition-smooth">
-                <span className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-kin" />
-              </button>
+              <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground cursor-not-allowed select-none" title={t('settings.notificationsSoon')}>
+                {t('settings.notificationsSoon')}
+              </span>
             </div>
           ))}
         </div>
       ),
     },
     {
+      icon: Sparkles,
+      title: t('settings.ia'),
+      content: (
+        <div className="rounded-xl bg-primary/5 border border-primary/15 p-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">{t('settings.iaDesc')}</p>
+        </div>
+      ),
+    },
+    {
+      icon: Bookmark,
+      title: t('settings.memory'),
+      desc: t('settings.memoryDesc'),
+      content: (
+        <div className="space-y-3">
+          {memories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('settings.memoryEmpty')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {memories.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-background/60 p-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground leading-relaxed break-words">{m.content}</p>
+                    <p className="text-[11px] text-muted-foreground/80 mt-1">
+                      {m.category} ·{' '}
+                      {new Date(m.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteMemory(m.id)}
+                    disabled={deletingMemory === m.id}
+                    className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-smooth disabled:opacity-50"
+                    aria-label={t('settings.memoryDelete')}
+                    title={t('settings.memoryDelete')}
+                  >
+                    {deletingMemory === m.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ),
+    },
+    {
       icon: Shield,
-      title: 'Security',
+      title: t('settings.security'),
       content: (
         <div className="space-y-4">
-          <div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Your account is protected with Supabase Auth. To change your password, use the link below.
-            </p>
-            <Button variant="outline" size="sm">
-              Change Password
-            </Button>
+          <p className="text-sm text-muted-foreground mb-3">{t('settings.securityDesc')}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>{t('settings.newPassword')}</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>{t('settings.confirmPassword')}</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') changePassword()
+                }}
+              />
+            </div>
           </div>
+          {pwMessage && (
+            <p className={cn('text-sm', pwMessage.type === 'success' ? 'text-kin-sage' : 'text-destructive')}>
+              {pwMessage.text}
+            </p>
+          )}
+          <Button variant="outline" size="sm" onClick={changePassword} disabled={pwSaving}>
+            {pwSaving ? t('settings.saving') : t('settings.changePassword')}
+          </Button>
+        </div>
+      ),
+    },
+    {
+      icon: Trash2,
+      title: t('settings.deleteAccount'),
+      content: (
+        <div className="rounded-xl bg-destructive/5 border border-destructive/15 p-4">
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">{t('settings.deleteAccountDesc')}</p>
+          <Link
+            href="/legal/suppression-compte"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive hover:underline transition-smooth"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {t('settings.deleteAccountLink')}
+          </Link>
         </div>
       ),
     },
@@ -137,12 +379,7 @@ export function SettingsClient({ profile, user }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Settings</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Manage your account and preferences</p>
-        </div>
-      </div>
+      <PageHeader icon={Settings} title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-2xl mx-auto space-y-4">
@@ -151,13 +388,16 @@ export function SettingsClient({ profile, user }: Props) {
               key={section.title}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.07, duration: 0.25 }}
+              transition={{ delay: i * 0.05, duration: 0.25 }}
               className={cardVariants({ padding: 'md' })}
             >
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-1.5">
                 <section.icon className="w-4 h-4 text-primary" />
                 <h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
               </div>
+              {'desc' in section && section.desc && (
+                <p className="text-xs text-muted-foreground mb-3">{section.desc}</p>
+              )}
               {section.content}
             </motion.div>
           ))}

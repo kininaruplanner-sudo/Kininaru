@@ -257,6 +257,277 @@ create policy "focus_sessions: insert own" on public.focus_sessions
 create policy "focus_sessions: delete own" on public.focus_sessions
   for delete using (auth.uid() = user_id);
 
+-- ---------------------------------------------------------------------
+-- 8. notifications — centre de notifications in-app
+-- ---------------------------------------------------------------------
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null default 'info' check (type in ('info', 'family', 'task', 'habit', 'achievement')),
+  title text not null,
+  body text,
+  link text,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index notifications_user_id_idx on public.notifications(user_id);
+create index notifications_read_idx on public.notifications(read);
+
+alter table public.notifications enable row level security;
+
+create policy "notifications: select own" on public.notifications
+  for select using (auth.uid() = user_id);
+create policy "notifications: insert own" on public.notifications
+  for insert with check (auth.uid() = user_id);
+create policy "notifications: update own" on public.notifications
+  for update using (auth.uid() = user_id);
+create policy "notifications: delete own" on public.notifications
+  for delete using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- 9. families — groupes familiaux partagés
+--    Ordre imposé par PostgreSQL : tables → fonctions → policies
+--    (les fonctions et policies référencent les tables et sont validées
+--    à la création).
+-- ---------------------------------------------------------------------
+create table public.families (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_by uuid not null references auth.users(id) on delete cascade,
+  invite_code text not null unique,
+  created_at timestamptz not null default now()
+);
+
+create index families_created_by_idx on public.families(created_by);
+
+alter table public.families enable row level security;
+
+create table public.family_members (
+  family_id uuid not null references public.families(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'member' check (role in ('parent', 'member')),
+  joined_at timestamptz not null default now(),
+  primary key (family_id, user_id)
+);
+
+create index family_members_user_id_idx on public.family_members(user_id);
+
+alter table public.family_members enable row level security;
+
+-- Helpers security-definer : les policies RLS qui vérifient l'appartenance
+-- appellent ces fonctions au lieu de se référencer elles-mêmes (évite la
+-- récursion infinie de RLS et centralise la logique d'appartenance).
+create function public.is_family_member(p_family_id uuid)
+returns boolean
+language sql
+security definer set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.family_members
+    where family_id = p_family_id and user_id = auth.uid()
+  );
+$$;
+
+create function public.is_family_parent(p_family_id uuid)
+returns boolean
+language sql
+security definer set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.family_members
+    where family_id = p_family_id and user_id = auth.uid() and role = 'parent'
+  );
+$$;
+
+-- Un membre voit les membres de ses familles.
+create policy "family_members: select members" on public.family_members
+  for select using (public.is_family_member(family_id));
+-- Le créateur d'une famille devient automatiquement parent.
+create policy "family_members: insert owner" on public.family_members
+  for insert with check (
+    auth.uid() = user_id and role = 'parent' and
+    exists (select 1 from public.families f where f.id = family_id and f.created_by = auth.uid())
+  );
+-- Un parent peut retirer un membre ; un membre peut quitter lui-même.
+create policy "family_members: delete parent" on public.family_members
+  for delete using (auth.uid() = user_id or public.is_family_parent(family_id));
+
+-- Une famille est visible par son créateur et par ses membres.
+create policy "families: select members" on public.families
+  for select using (auth.uid() = created_by or public.is_family_member(id));
+create policy "families: insert own" on public.families
+  for insert with check (auth.uid() = created_by);
+create policy "families: update owner" on public.families
+  for update using (auth.uid() = created_by);
+create policy "families: delete owner" on public.families
+  for delete using (auth.uid() = created_by);
+
+-- Rejoindre une famille par code d'invitation (sécurisé : vérifie le code,
+-- crée l'appartenance et notifie le créateur). Les codes d'invitation ne sont
+-- jamais exposés en lecture.
+create function public.join_family(p_code text)
+returns uuid
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_family public.families;
+begin
+  select * into v_family from public.families where invite_code = p_code;
+  if not found then
+    raise exception 'Code d''invitation invalide';
+  end if;
+
+  insert into public.family_members (family_id, user_id, role)
+  values (v_family.id, auth.uid(), 'member')
+  on conflict (family_id, user_id) do nothing;
+
+  if exists (select 1 from public.family_members fm where fm.family_id = v_family.id and fm.user_id = auth.uid()) then
+    insert into public.notifications (user_id, type, title, body, link)
+    values (
+      v_family.created_by,
+      'family',
+      'Nouveau membre dans ' || v_family.name,
+      (select coalesce(display_name, 'Quelqu''un') from public.profiles where id = auth.uid()) || ' a rejoint votre famille.',
+      '/family'
+    );
+  end if;
+
+  return v_family.id;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 11. family_events — calendrier partagé
+-- ---------------------------------------------------------------------
+create table public.family_events (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  description text,
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  color text not null default '#CDE9D2',
+  created_at timestamptz not null default now()
+);
+
+create index family_events_family_id_idx on public.family_events(family_id);
+
+alter table public.family_events enable row level security;
+
+create policy "family_events: select members" on public.family_events
+  for select using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_events: insert members" on public.family_events
+  for insert with check (
+    auth.uid() = user_id and
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_events: update members" on public.family_events
+  for update using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_events: delete members" on public.family_events
+  for delete using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+
+-- ---------------------------------------------------------------------
+-- 12. family_tasks — tâches partagées avec assignation optionnelle
+-- ---------------------------------------------------------------------
+create table public.family_tasks (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  assignee_id uuid references auth.users(id) on delete set null,
+  title text not null,
+  done boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index family_tasks_family_id_idx on public.family_tasks(family_id);
+
+alter table public.family_tasks enable row level security;
+
+create policy "family_tasks: select members" on public.family_tasks
+  for select using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_tasks: insert members" on public.family_tasks
+  for insert with check (
+    auth.uid() = user_id and
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_tasks: update members" on public.family_tasks
+  for update using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+create policy "family_tasks: delete members" on public.family_tasks
+  for delete using (
+    exists (
+      select 1 from public.family_members fm
+      where fm.family_id = family_id and fm.user_id = auth.uid()
+    )
+  );
+
+-- ---------------------------------------------------------------------
+-- 13. ai_memories — mémoire de l'assistant (opt-in, strictement privée)
+--     Conçue pour l'ÉTAPE 12 (mémoire persistante) : uniquement des faits
+--     durables que l'utilisateur a explicitement choisi de mémoriser via
+--     une proposition IA confirmée, ou ajoutés à la main dans Paramètres.
+--     Jamais de contenu automatique : aucune donnée n'est écrite sans
+--     action explicite de l'utilisateur.
+-- ---------------------------------------------------------------------
+drop table if exists public.ai_memories cascade;
+
+create table public.ai_memories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  content text not null check (char_length(content) between 1 and 500),
+  category text not null default 'fact'
+    check (category in ('fact', 'goal', 'preference', 'habit', 'other')),
+  created_at timestamptz not null default now()
+);
+
+create index ai_memories_user_id_idx on public.ai_memories(user_id, created_at desc);
+
+alter table public.ai_memories enable row level security;
+
+create policy "ai_memories: select own" on public.ai_memories
+  for select using (auth.uid() = user_id);
+create policy "ai_memories: insert own" on public.ai_memories
+  for insert with check (auth.uid() = user_id);
+create policy "ai_memories: update own" on public.ai_memories
+  for update using (auth.uid() = user_id);
+create policy "ai_memories: delete own" on public.ai_memories
+  for delete using (auth.uid() = user_id);
+
 -- =====================================================================
 -- Fin du schéma.
 -- =====================================================================

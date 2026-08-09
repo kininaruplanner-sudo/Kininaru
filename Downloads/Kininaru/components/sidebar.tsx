@@ -24,18 +24,42 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { NotificationBell } from '@/components/notification-bell'
+import { useI18n, type TranslationKey } from '@/lib/i18n'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/tasks', label: 'Tasks', icon: CheckSquare },
-  { href: '/focus', label: 'Focus', icon: Timer },
-  { href: '/habits', label: 'Habits', icon: Repeat2 },
-  { href: '/journal', label: 'Journal', icon: BookOpen },
-  { href: '/family', label: 'Family', icon: Users },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/achievements', label: 'Achievements', icon: Trophy },
-  { href: '/ai', label: 'AI Assistant', icon: Sparkles },
+interface NavItem {
+  href: string
+  key: TranslationKey
+  icon: React.ElementType
+  highlight?: boolean
+}
+
+interface NavGroup {
+  labelKey: TranslationKey
+  items: NavItem[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'nav.group.space',
+    items: [
+      { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
+      { href: '/calendar', key: 'nav.calendar', icon: CalendarDays },
+      { href: '/tasks', key: 'nav.tasks', icon: CheckSquare },
+      { href: '/focus', key: 'nav.focus', icon: Timer },
+      { href: '/habits', key: 'nav.habits', icon: Repeat2 },
+      { href: '/journal', key: 'nav.journal', icon: BookOpen },
+    ],
+  },
+  {
+    labelKey: 'nav.group.together',
+    items: [
+      { href: '/family', key: 'nav.family', icon: Users },
+      { href: '/analytics', key: 'nav.analytics', icon: BarChart3 },
+      { href: '/achievements', key: 'nav.achievements', icon: Trophy },
+      { href: '/ai', key: 'nav.ai', icon: Sparkles, highlight: true },
+    ],
+  },
 ]
 
 interface SidebarProps {
@@ -56,6 +80,7 @@ export function Sidebar({
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useI18n()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -135,10 +160,10 @@ export function Sidebar({
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground bg-muted/60 hover:bg-muted transition-smooth border border-border/60',
               collapsed && 'lg:justify-center lg:px-2'
             )}
-            title="Rechercher (⌘K)"
+            title={`${t('common.search')} (⌘K)`}
           >
             <Search className="w-4 h-4 shrink-0" />
-            <span className={cn('flex-1 text-left', collapsed && 'lg:hidden')}>Rechercher...</span>
+            <span className={cn('flex-1 text-left', collapsed && 'lg:hidden')}>{t('common.search')}</span>
             <kbd className={cn('text-[10px] px-1.5 py-0.5 rounded-md bg-card border border-border', collapsed && 'lg:hidden')}>
               ⌘K
             </kbd>
@@ -146,62 +171,86 @@ export function Sidebar({
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/')
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={collapsed ? label : undefined}
-                className={cn(
-                  'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-smooth group',
-                  active
-                    ? 'text-foreground [&_svg]:text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5',
-                  collapsed && 'lg:justify-center lg:px-2'
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="sidebar-active-pill"
-                    transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                    className="absolute inset-0 rounded-xl bg-primary/15"
-                  />
-                )}
-                <Icon className={cn('relative shrink-0 transition-smooth', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4', active && 'scale-105')} />
-                <span className={cn('relative truncate', collapsed && 'lg:hidden')}>{label}</span>
-              </Link>
-            )
-          })}
+        <nav className="flex-1 overflow-y-auto py-4 space-y-4 px-2">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.labelKey} className="space-y-0.5">
+              <p className={cn('px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70', collapsed && 'lg:hidden')}>
+                {t(group.labelKey)}
+              </p>
+              {group.items.map(({ href, key, icon: Icon, highlight }) => {
+                const label = t(key)
+                const active = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    title={collapsed ? label : undefined}
+                    className={cn(
+                      'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-smooth group',
+                      active
+                        ? 'text-foreground [&_svg]:text-primary'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5',
+                      highlight && !active && 'text-foreground/90',
+                      collapsed && 'lg:justify-center lg:px-2'
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="sidebar-active-pill"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                        className="absolute inset-0 rounded-xl bg-primary/15"
+                      />
+                    )}
+                    {highlight && !active && <span className="absolute inset-0 rounded-xl bg-primary/[0.06]" />}
+                    <Icon
+                      className={cn(
+                        'relative shrink-0 transition-smooth',
+                        collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4',
+                        active && 'scale-105',
+                        highlight && !active && 'text-primary'
+                      )}
+                    />
+                    <span className={cn('relative truncate', collapsed && 'lg:hidden')}>{label}</span>
+                    {highlight && !active && (
+                      <span className={cn('relative ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold', collapsed && 'lg:hidden')}>
+                        IA
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}
         <div className="border-t border-border p-2 space-y-0.5 shrink-0">
+          <NotificationBell />
+
           <ThemeToggle collapsed={collapsed} />
 
           <Link
             href="/settings"
-            title={collapsed ? 'Settings' : undefined}
+            title={collapsed ? t('common.settings') : undefined}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
               collapsed && 'lg:justify-center lg:px-2'
             )}
           >
             <Settings className={cn('shrink-0', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4')} />
-            <span className={cn(collapsed && 'lg:hidden')}>Settings</span>
+            <span className={cn(collapsed && 'lg:hidden')}>{t('common.settings')}</span>
           </Link>
 
           <button
             onClick={handleLogout}
-            title={collapsed ? 'Sign out' : undefined}
+            title={collapsed ? t('common.signOut') : undefined}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:translate-x-0.5 transition-smooth',
               collapsed && 'lg:justify-center lg:px-2'
             )}
           >
             <LogOut className={cn('shrink-0', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4')} />
-            <span className={cn(collapsed && 'lg:hidden')}>Sign out</span>
+            <span className={cn(collapsed && 'lg:hidden')}>{t('common.signOut')}</span>
           </button>
 
           {displayName && (

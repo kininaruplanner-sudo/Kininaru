@@ -1,8 +1,13 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 export default function SignUpSuccessPage() {
+  const { t } = useI18n()
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
@@ -14,14 +19,14 @@ export default function SignUpSuccessPage() {
           </div>
 
           <h1 className="text-3xl font-serif font-bold text-foreground mb-3">
-            Check your email
+            {t('auth.signUpSuccessTitle')}
           </h1>
           <p className="text-muted-foreground mb-8 leading-relaxed">
-            {"We've sent you a confirmation email. Please click the link in the email to verify your account and complete your registration."}
+            {t('auth.signUpSuccessDesc')}
           </p>
 
           <Button
-            render={<Link href="/auth/login">Back to login</Link>}
+            render={<Link href="/auth/login">{t('auth.backToLogin')}</Link>}
             className="transition-smooth hover:scale-[1.02]"
           />
         </div>

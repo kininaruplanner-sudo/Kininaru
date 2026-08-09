@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { format, eachDayOfInterval, subDays, isSameDay, isSameMonth, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns'
-import { Plus, X, Flame, Star, Target, TrendingUp, Award, Sparkles, ChevronLeft, ChevronRight, Heart, BookOpen, Footprints, Droplet, Moon } from 'lucide-react'
+import { Plus, X, Flame, Star, Target, TrendingUp, Award, Sparkles, ChevronLeft, ChevronRight, Heart, BookOpen, Footprints, Droplet, Moon, Repeat2 } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -298,7 +299,24 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
     await supabase.from('profiles').update({ xp: newXp, level: newLevel }).eq('id', userId)
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  /** Un-checking today removes the XP earned for that check-in (and lowers the level if needed). */
+  const deductXp = async () => {
+    let newXp = xp - XP_PER_CHECK_IN
+    let newLevel = level
+    // De-level: while below the threshold for the current level, step back down.
+    while (newXp < (newLevel - 1) * 100 && newLevel > 1) {
+      newLevel -= 1
+      newXp += newLevel * 100
+    }
+    newXp = Math.max(0, newXp)
+    setXp(newXp)
+    setLevel(newLevel)
+    await supabase.from('profiles').update({ xp: newXp, level: newLevel }).eq('id', userId)
+  }
+
+  // Local calendar-day key, matching isLoggedOn() below so check-ins,
+  // unchecking and the heatmap all agree on what "today" is in any timezone.
+  const today = format(new Date(), 'yyyy-MM-dd')
   const heatmapDays = eachDayOfInterval({ start: subDays(new Date(), 104), end: new Date() })
   const last30Days = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() })
 
@@ -335,6 +353,14 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
       setLocalLogs(newLogs)
       const newStreak = computeStreak(habitId, newLogs)
       setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: newStreak } : h)))
+      // Remove the XP that the check-in had granted.
+      deductXp()
+      // Keep the server-side streak in sync.
+      try {
+        await supabase.rpc('update_habit_streak', { p_habit_id: habitId })
+      } catch {
+        // non-blocking
+      }
     } else {
       const { data } = await supabase
         .from('habit_logs')
@@ -411,17 +437,16 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Habits</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {totalDoneToday} of {habits.length} done today
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setShowModal(true)} className="gap-1.5">
-          <Plus className="w-4 h-4" /> New Habit
-        </Button>
-      </div>
+      <PageHeader
+        icon={Repeat2}
+        title="Habitudes"
+        subtitle={`${totalDoneToday} sur ${habits.length} faites aujourd’hui`}
+        actions={
+          <Button size="sm" onClick={() => setShowModal(true)} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Nouvelle habitude
+          </Button>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-6">

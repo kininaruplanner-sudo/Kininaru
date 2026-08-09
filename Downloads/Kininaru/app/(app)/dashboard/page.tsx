@@ -15,6 +15,7 @@ export default async function DashboardPage() {
     { data: habits },
     { data: habitLogs },
     { data: focusSessions },
+    { data: memberships },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user!.id).single(),
     supabase.from('tasks').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }),
@@ -36,7 +37,18 @@ export default async function DashboardPage() {
       .select('*')
       .eq('user_id', user!.id)
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+    supabase
+      .from('family_members')
+      .select('family_id, role, families(name)')
+      .eq('user_id', user!.id),
   ])
+
+  // The `families` embed can come back shaped as an array depending on
+  // PostgREST's relation inference — normalize to a single row (or null).
+  const families = (memberships ?? []).map((m: any) => ({
+    ...m,
+    families: Array.isArray(m.families) ? (m.families[0] ?? null) : (m.families ?? null),
+  }))
 
   return (
     <DashboardClient
@@ -46,6 +58,7 @@ export default async function DashboardPage() {
       habits={habits ?? []}
       habitLogs={habitLogs ?? []}
       focusSessions={focusSessions ?? []}
+      families={families}
       userId={user!.id}
     />
   )

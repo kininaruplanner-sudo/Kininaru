@@ -49,14 +49,15 @@
   --color-kin-yellow: var(--kt-yellow);
   --color-kin-coral: var(--kt-coral);
 
-  /* Radius scale mapped to the Kininaru spec (cards 24px / buttons+inputs 18px / modals 28px / widgets 26px) */
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
+  /* Radius scale — monotonic, mapped to the Kininaru spec:
+     chips 10 / inputs+buttons 16-18 / cards 24 / modals 28 / hero 40 */
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
   --radius-lg: 1.125rem;
-  --radius-xl: 1.625rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 1.75rem;
-  --radius-4xl: 2rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 2.5rem;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -328,7 +329,34 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+
+  ::selection {
+    background: var(--kt-primary);
+    color: var(--kt-primary-foreground);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--kt-border) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--kt-border);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--kt-border) 60%, var(--kt-muted-foreground));
+  }
+
+  /* Accessible keyboard focus for native controls that have no custom ring. */
+  :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--kt-ring);
+    outline-offset: 2px;
   }
 }
 
@@ -343,14 +371,78 @@
     transition: all 250ms ease-out;
   }
 
+  /* --- Typographic scale (consistent across every page) --- */
+  .kin-display {
+    font-family: var(--font-serif);
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  .kin-h1 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+  }
+  .kin-h2 {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+  .kin-h3 {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  .kin-caption {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--kt-muted-foreground);
+  }
+  .kin-gradient-text {
+    background-image: linear-gradient(
+      120deg,
+      var(--kt-foreground) 20%,
+      var(--kt-primary) 60%,
+      var(--kt-accent) 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  [data-theme='dark'] .kin-gradient-text {
+    background-image: linear-gradient(
+      120deg,
+      #ffffff 10%,
+      var(--kt-primary) 55%,
+      var(--kt-accent) 100%
+    );
+  }
+
+  /* --- Ambient page glow used on the landing and auth screens --- */
+  .kin-glow {
+    background: radial-gradient(
+      600px circle at 50% 0%,
+      color-mix(in srgb, var(--kt-primary) 12%, transparent),
+      transparent 70%
+    );
+  }
+
   .shadow-kin {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 14px rgba(16, 24, 40, 0.05);
   }
   [data-theme='dark'] .shadow-kin {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.28);
   }
   .shadow-kin-hover {
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 4px rgba(16, 24, 40, 0.04), 0 16px 40px rgba(16, 24, 40, 0.1);
+  }
+  [data-theme='dark'] .shadow-kin-hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.4);
   }
   .hover-lift {
     transition: transform 250ms ease-out, box-shadow 250ms ease-out;
@@ -361,12 +453,12 @@
   }
 
   .glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
   }
   [data-theme='dark'] .glass {
-    background: rgba(30, 30, 41, 0.7);
+    background: rgba(30, 30, 41, 0.72);
   }
   .glass-topbar {
     background: var(--kt-background);
@@ -374,5 +466,19 @@
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--kt-border);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Respect users who prefer reduced motion: kill animations/transitions.  */
+/* ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

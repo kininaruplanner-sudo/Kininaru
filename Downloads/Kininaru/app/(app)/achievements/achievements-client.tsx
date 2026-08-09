@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Trophy, Star, Zap, Target, Timer, Repeat2, BookOpen, Flame, Award } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { cardVariants } from '@/components/ui/card'
 
@@ -141,15 +142,12 @@ export function AchievementsClient({ profile, tasks, focusSessions, habits }: Pr
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Achievements</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {unlockedCount} of {badges.length} unlocked
-          </p>
-        </div>
-        <Trophy className="w-5 h-5 text-kin-yellow" />
-      </div>
+      <PageHeader
+        icon={Trophy}
+        title="Récompenses"
+        subtitle={`${unlockedCount} sur ${badges.length} débloquées`}
+        actions={<Trophy className="w-5 h-5 text-kin-yellow" />}
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-3xl mx-auto space-y-6">

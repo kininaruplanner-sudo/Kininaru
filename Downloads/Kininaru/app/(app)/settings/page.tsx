@@ -13,5 +13,20 @@ export default async function SettingsPage() {
     .eq('id', user!.id)
     .single()
 
-  return <SettingsClient profile={profile} user={{ email: user!.email ?? '' }} />
+  // AI memory (opt-in, strictly private). Guarded: if the table is missing
+  // (schema not re-run yet), the page still renders with an empty list.
+  const { data: memories } = await supabase
+    .from('ai_memories')
+    .select('id, content, category, created_at')
+    .eq('user_id', user!.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  return (
+    <SettingsClient
+      profile={profile}
+      user={{ email: user!.email ?? '' }}
+      memories={(memories as { id: string; content: string; category: string; created_at: string }[] | null) ?? []}
+    />
+  )
 }

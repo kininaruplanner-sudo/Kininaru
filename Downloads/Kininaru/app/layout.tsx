@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { LocaleProvider } from '@/lib/i18n'
+import { SwRegister } from '@/components/sw-register'
 
 const THEME_INIT_SCRIPT = `
 (function () {
@@ -27,8 +29,34 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: 'Kininaru Planner',
-  description: 'Premium productivity planner with calendar, tasks, habits, and more',
+  description:
+    'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+  openGraph: {
+    title: 'Kininaru Planner',
+    description:
+      'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+    type: 'website',
+    siteName: 'Kininaru',
+    images: ['/icon-512x512.png'],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Kininaru Planner',
+    description:
+      'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+    images: ['/icon-512x512.png'],
+  },
+  applicationName: 'Kininaru',
+  formatDetection: {
+    telephone: false,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Kininaru',
+  },
   icons: {
     icon: [
       {
@@ -44,13 +72,18 @@ export const metadata: Metadata = {
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: ['/apple-icon.png', '/apple-touch-icon.png'],
   },
 }
 
 export const viewport: Viewport = {
   colorScheme: 'light',
   themeColor: '#F7F9FC',
+  // Mobile: let the layout reach the physical edges (home-bar safe areas) and
+  // let the browser resize the layout when the soft keyboard opens, so the AI
+  // composer stays visible above the keyboard instead of being covered.
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 }
 
 export default function RootLayout({
@@ -60,13 +93,16 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="fr"
       suppressHydrationWarning
       className={`${jakarta.variable} ${inter.variable} bg-background`}
     >
       <body className={`${inter.className} antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <LocaleProvider>{children}</LocaleProvider>
+        </ThemeProvider>
+        <SwRegister />
       </body>
     </html>
   )

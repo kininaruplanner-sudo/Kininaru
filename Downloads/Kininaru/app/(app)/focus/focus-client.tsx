@@ -18,6 +18,7 @@ import {
   Flame,
   X,
 } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -637,17 +638,16 @@ export function FocusClient({ userId, todaySessions, allSessions }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-serif font-bold text-foreground">Focus Mode</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {sessionCount} sessions today &middot; {todayMinutes}m focused
-          </p>
-        </div>
-        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={toggleZen} title="Enter zen mode">
-          <Maximize2 className="w-4 h-4" />
-        </Button>
-      </div>
+      <PageHeader
+        icon={Brain}
+        title="Focus"
+        subtitle={`${sessionCount} sessions aujourd’hui · ${todayMinutes} min de concentration`}
+        actions={
+          <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={toggleZen} title="Mode zen" aria-label="Mode zen">
+            <Maximize2 className="w-4 h-4" />
+          </Button>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto">

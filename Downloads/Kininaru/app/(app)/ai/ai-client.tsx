@@ -3,21 +3,38 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
-import { Send, Sparkles, User, Bot, RotateCcw, Copy, Check, CalendarDays, Sunrise, TrendingUp, BookOpen, Repeat2, Target } from 'lucide-react'
+import {
+  Send,
+  Sparkles,
+  User,
+  RotateCcw,
+  Copy,
+  Check,
+  CalendarDays,
+  Sunrise,
+  TrendingUp,
+  ListChecks,
+  Target,
+  Moon,
+  Square,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { cardVariants } from '@/components/ui/card'
+import { PageHeader } from '@/components/page-header'
+import { ActionsPanel, type PendingAction } from './actions-panel'
+import type { AiAction } from '@/lib/ai/actions'
 
 const SUGGESTIONS = [
-  { icon: CalendarDays, text: 'Help me plan my day' },
-  { icon: Sunrise, text: 'Suggest a morning routine' },
-  { icon: TrendingUp, text: 'How can I be more productive?' },
-  { icon: BookOpen, text: 'Create a weekly study schedule' },
-  { icon: Repeat2, text: 'What habits should I build?' },
-  { icon: Target, text: 'Help me set goals for this week' },
+  { icon: CalendarDays, text: 'Planifier ma journée' },
+  { icon: Target, text: 'Mes priorités' },
+  { icon: TrendingUp, text: 'Analyser ma semaine' },
+  { icon: Sunrise, text: 'Créer une routine' },
+  { icon: ListChecks, text: 'Découper un objectif' },
+  { icon: Moon, text: 'Préparer demain' },
 ]
 
-const GREETING = "Hi! I'm your Kininaru AI assistant. I can help you plan your day, build habits, set goals, and stay productive. What would you like to work on today?"
+const GREETING =
+  'Bonjour ! Je suis le coach Kininaru. Je connais vos tâches, habitudes et événements — je peux planifier votre journée, fixer vos priorités, analyser votre semaine et préparer vos prochaines étapes. Par quoi commençons-nous ?'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -27,17 +44,19 @@ interface Message {
 
 const freshGreeting = (): Message[] => [{ role: 'assistant', content: GREETING, timestamp: Date.now() }]
 
-/** Strips UI-only fields (timestamp) before sending — the API request shape stays byte-identical to before: {messages: [{role, content}]}. */
+/** Strips UI-only fields (timestamp) before sending — API shape stays {messages:[{role,content}]}. */
 const toApiMessages = (msgs: Message[]) => msgs.map(({ role, content }) => ({ role, content }))
 
 async function streamAIResponse(
   history: { role: 'user' | 'assistant'; content: string }[],
-  onChunk: (chunkText: string) => void
+  onChunk: (chunkText: string) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages: history }),
+    signal,
   })
   if (!res.ok || !res.body) throw new Error('AI request failed')
 
@@ -51,6 +70,53 @@ async function streamAIResponse(
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Action protocol parsing                                             */
+/* ------------------------------------------------------------------ */
+
+const ACTION_WHITELIST = new Set([
+  'create_task',
+  'create_tasks_batch',
+  'create_habit',
+  'create_event',
+  'create_family_task',
+  'create_memory',
+])
+
+function extractActions(rawText: string): { text: string; actions: PendingAction[] } {
+  const marker = '==ACTIONS=='
+  const idx = rawText.indexOf(marker)
+  if (idx === -1) return { text: rawText, actions: [] }
+
+  const text = rawText.slice(0, idx).trimEnd()
+  const jsonPart = rawText.slice(idx + marker.length).trim()
+  const fenced = jsonPart.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const raw = (fenced ? fenced[1] : jsonPart).trim()
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { text, actions: [] }
+  }
+
+  if (!Array.isArray(parsed)) return { text, actions: [] }
+
+  const actions: PendingAction[] = []
+  for (const item of parsed.slice(0, 5)) {
+    if (typeof item !== 'object' || item === null) continue
+    const { action, data } = item as { action?: unknown; data?: unknown }
+    if (typeof action !== 'string' || !ACTION_WHITELIST.has(action)) continue
+    if (typeof data !== 'object' || data === null) continue
+    actions.push({ id: `${action}-${actions.length}`, action: { action, data } as AiAction })
+  }
+  return { text, actions }
+}
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
+
 interface Props {
   displayName: string
 }
@@ -60,12 +126,14 @@ export function AIAssistantClient({ displayName }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, pendingActions])
 
   // Auto-resize the composer as the user types, capped so it never takes over the screen
   useEffect(() => {
@@ -80,11 +148,15 @@ export function AIAssistantClient({ displayName }: Props) {
     if (!content || loading) return
 
     setInput('')
+    setPendingActions([])
     const userMessage: Message = { role: 'user', content, timestamp: Date.now() }
-    // On envoie tout l'historique (y compris le nouveau message) pour que l'IA garde le contexte
+    // Send the full history (including the new message) so the model keeps context
     const history = [...messages, userMessage]
     setMessages([...history, { role: 'assistant', content: '', timestamp: Date.now() }])
     setLoading(true)
+
+    const controller = new AbortController()
+    abortRef.current = controller
 
     try {
       let fullText = ''
@@ -96,25 +168,53 @@ export function AIAssistantClient({ displayName }: Props) {
           return next
         })
       })
+      // Streaming finished: detach any structured action proposal.
+      const { text: cleanText, actions } = extractActions(fullText)
+      if (actions.length > 0) {
+        setMessages((prev) => {
+          const next = [...prev]
+          next[next.length - 1] = { ...next[next.length - 1], content: cleanText }
+          return next
+        })
+        setPendingActions(actions)
+      }
     } catch {
-      setMessages((prev) => {
-        const next = [...prev]
-        next[next.length - 1] = {
-          ...next[next.length - 1],
-          content: "Désolé, je n'ai pas réussi à joindre l'IA. Réessaie dans un instant.",
-        }
-        return next
-      })
+      if (!controller.signal.aborted) {
+        setMessages((prev) => {
+          const next = [...prev]
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: "Désolé, je n'ai pas réussi à joindre l'IA. Réessaie dans un instant.",
+          }
+          return next
+        })
+      }
     } finally {
       setLoading(false)
+      abortRef.current = null
     }
+  }
+
+  const stop = () => {
+    abortRef.current?.abort()
   }
 
   const handleSend = () => sendMessage(input)
 
   const reset = () => {
+    abortRef.current?.abort()
     setMessages(freshGreeting())
     setInput('')
+    setPendingActions([])
+  }
+
+  const dismissActions = (ids: string[]) => {
+    setPendingActions((prev) => prev.filter((a) => !ids.includes(a.id)))
+  }
+
+  // Apply an edited proposal back into the pending list (before confirmation).
+  const editAction = (id: string, action: AiAction) => {
+    setPendingActions((prev) => prev.map((a) => (a.id === id ? { ...a, action } : a)))
   }
 
   const copyMessage = (idx: number, text: string) => {
@@ -126,8 +226,19 @@ export function AIAssistantClient({ displayName }: Props) {
 
   // Renders **bold**, groups consecutive bullet/numbered lines into real <ul>/<ol> lists
   // instead of flat paragraphs, and blank lines become breathing room.
+  //
+  // Security: every chunk coming from the model is HTML-escaped BEFORE the bold
+  // transform, so the model can never inject raw HTML into the DOM (XSS). The
+  // bold markers survive escaping because we escape first, then wrap.
   const renderContent = (text: string) => {
-    const boldify = (s: string) => s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    const boldify = (s: string) => escapeHtml(s).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     const lines = text.split('\n')
     const blocks: ReactNode[] = []
     let list: { type: 'ul' | 'ol'; items: string[] } | null = null
@@ -186,24 +297,40 @@ export function AIAssistantClient({ displayName }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-serif font-bold text-foreground">AI Assistant</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Your personal productivity coach</p>
-          </div>
-        </div>
-        <Button variant="ghost" size="icon-sm" onClick={reset} title="Reset conversation">
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      </div>
+      <PageHeader
+        icon={Sparkles}
+        title="Assistant IA"
+        subtitle="Votre coach personnel de productivité"
+        actions={
+          <Button variant="ghost" size="sm" onClick={reset} className="gap-1.5" title="Nouvelle conversation">
+            <RotateCcw className="w-3.5 h-3.5" />
+            Nouvelle conversation
+          </Button>
+        }
+      />
 
       {/* Messages */}
-      <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-auto px-4 sm:px-6 py-5 space-y-4">
+        {/* Welcome state */}
+        {!hasStartedChat && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="text-center max-w-md mx-auto pt-6 pb-4"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 shadow-kin">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <h2 className="kin-h2 text-foreground mb-2">Comment puis-je vous aider, {displayName} ?</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Je peux planifier votre journée, fixer vos priorités, analyser votre semaine,
+              découper un objectif en étapes — et créer des tâches, habitudes ou événements
+              avec votre confirmation.
+            </p>
+          </motion.div>
+        )}
+
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => {
             const isLast = i === messages.length - 1
@@ -220,7 +347,7 @@ export function AIAssistantClient({ displayName }: Props) {
               >
                 <div className={cn(
                   'relative w-8 h-8 rounded-full flex items-center justify-center shrink-0',
-                  msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                  msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-primary/10'
                 )}>
                   {isEmptyPlaceholder && (
                     <motion.span
@@ -231,16 +358,16 @@ export function AIAssistantClient({ displayName }: Props) {
                   )}
                   {msg.role === 'user'
                     ? <User className="w-4 h-4" />
-                    : <Bot className="w-4 h-4 text-primary" />
+                    : <Sparkles className="w-4 h-4 text-primary" />
                   }
                 </div>
 
-                <div className={cn('flex flex-col gap-1 max-w-[75%]', msg.role === 'user' ? 'items-end' : 'items-start')}>
+                <div className={cn('flex flex-col gap-1 max-w-[80%] sm:max-w-[75%]', msg.role === 'user' ? 'items-end' : 'items-start')}>
                   <div className={cn(
-                    'rounded-2xl px-4 py-3 text-sm space-y-1',
+                    'rounded-2xl px-4 py-3 text-sm space-y-1 leading-relaxed',
                     msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                      : cn(cardVariants({ padding: 'sm' }), 'rounded-tl-sm shadow-kin')
+                      ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-kin'
+                      : 'bg-muted/60 border border-border/60 rounded-tl-sm'
                   )}>
                     {isEmptyPlaceholder ? (
                       <div className="flex gap-1.5 py-1 px-0.5">
@@ -276,8 +403,9 @@ export function AIAssistantClient({ displayName }: Props) {
                       {msg.role === 'assistant' && !isActivelyStreaming && msg.content && (
                         <button
                           onClick={() => copyMessage(i, msg.content)}
-                          className="text-muted-foreground hover:text-foreground transition-smooth"
-                          title="Copy"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+                          title="Copier"
+                          aria-label="Copier la réponse"
                         >
                           {copiedIdx === i ? <Check className="w-3 h-3 text-kin-sage" /> : <Copy className="w-3 h-3" />}
                         </button>
@@ -289,14 +417,26 @@ export function AIAssistantClient({ displayName }: Props) {
             )
           })}
         </AnimatePresence>
+
+        {/* Structured action proposals (below the assistant message) */}
+        {pendingActions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="pl-11 max-w-[80%] sm:max-w-[75%]"
+          >
+            <ActionsPanel actions={pendingActions} onDismiss={dismissActions} onEdit={editAction} />
+          </motion.div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {/* Suggestions */}
       {!hasStartedChat && (
-        <div className="px-6 pb-4">
-          <p className="text-xs text-muted-foreground mb-2">Try asking:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="px-4 sm:px-6 pb-4">
+          <p className="text-xs text-muted-foreground mb-2.5">Essayez :</p>
+          <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((s, i) => (
               <motion.button
                 key={s.text}
@@ -304,14 +444,9 @@ export function AIAssistantClient({ displayName }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.2 }}
                 onClick={() => sendMessage(s.text)}
-                className={cn(
-                  cardVariants({ padding: 'sm', hover: true }),
-                  'flex items-center gap-2.5 text-left text-sm text-foreground'
-                )}
+                className="flex items-center gap-2 px-3.5 py-2 min-h-11 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-primary hover:bg-primary/5 hover:-translate-y-0.5 transition-smooth shadow-kin"
               >
-                <span className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <s.icon className="w-3.5 h-3.5 text-primary" />
-                </span>
+                <s.icon className="w-3.5 h-3.5 text-primary shrink-0" />
                 {s.text}
               </motion.button>
             ))}
@@ -319,16 +454,16 @@ export function AIAssistantClient({ displayName }: Props) {
         </div>
       )}
 
-      {/* Input */}
-      <div className="px-6 pb-6 pt-2 border-t border-border">
+      {/* Input — safe-area padding keeps the composer reachable above the home bar */}
+      <div className="px-4 sm:px-6 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 border-t border-border bg-background">
         <div className="flex gap-2 items-end">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Ask me anything, ${displayName}...`}
+            placeholder={`Posez-moi une question, ${displayName}…`}
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm leading-relaxed max-h-40 focus:outline-none focus:ring-2 focus:ring-ring transition-smooth"
+            className="flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed max-h-40 focus:outline-none focus:border-ring focus:ring-3 focus:ring-ring/15 transition-smooth placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                 e.preventDefault()
@@ -336,16 +471,30 @@ export function AIAssistantClient({ displayName }: Props) {
               }
             }}
           />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            size="icon"
-            className="h-11 w-11 rounded-xl shrink-0 transition-smooth hover:scale-105"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+          {loading ? (
+            <Button
+              onClick={stop}
+              size="icon"
+              variant="outline"
+              className="h-11 w-11 rounded-2xl shrink-0 transition-smooth"
+              aria-label="Arrêter la réponse"
+              title="Arrêter"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim()}
+              size="icon"
+              className="h-11 w-11 rounded-2xl shrink-0 transition-smooth hover:scale-105"
+              aria-label="Envoyer le message"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          )}
         </div>
-        <p className="text-[10px] text-muted-foreground/70 mt-1.5 px-0.5">Shift + Enter for a new line</p>
+        <p className="text-[10px] text-muted-foreground/70 mt-1.5 px-1">Entrée pour envoyer · Maj + Entrée pour un saut de ligne</p>
       </div>
     </div>
   )
