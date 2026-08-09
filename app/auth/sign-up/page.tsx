@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useI18n } from '@/lib/i18n'
 import { KinLogo } from '@/components/kin-logo'
+import AuthConfigRequired from '@/components/auth-config-required'
 
 export default function SignUpPage() {
   const [displayName, setDisplayName] = useState('')
@@ -18,8 +19,13 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
   const { t } = useI18n()
+
+  if (!isSupabaseConfigured()) {
+    return <AuthConfigRequired />
+  }
+
+  const supabase = createClient()
 
   const handleGoogle = async () => {
     setError('')

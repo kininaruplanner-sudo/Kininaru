@@ -148,6 +148,14 @@ const fr = {
   'auth.signUpSuccessDesc':
     "Nous vous avons envoyé un email de confirmation. Cliquez sur le lien pour vérifier votre compte et terminer votre inscription.",
   'auth.googleFailed': 'Échec de la connexion Google',
+  'auth.configRequiredTitle': 'Configuration requise',
+  'auth.configRequiredDesc':
+    'Kininaru a besoin de vos identifiants Supabase pour fonctionner. Créez un fichier .env.local à la racine du projet avec ces variables :',
+  'auth.configRequiredNote':
+    'Les valeurs viennent de votre projet Supabase (Settings → API) et de votre compte Groq. Le guide complet est dans le README.md.',
+  'auth.configRequiredHome': "Retour à l'accueil",
+  'auth.configRequiredCopy': 'Copier',
+  'auth.configRequiredCopied': 'Copié !',
 } as const
 
 export type TranslationKey = keyof typeof fr
@@ -266,6 +274,14 @@ const en: Record<TranslationKey, string> = {
   'auth.signUpSuccessDesc':
     "We've sent you a confirmation email. Please click the link in the email to verify your account and complete your registration.",
   'auth.googleFailed': 'Google sign-in failed',
+  'auth.configRequiredTitle': 'Setup required',
+  'auth.configRequiredDesc':
+    'Kininaru needs your Supabase credentials to work. Create a .env.local file at the project root with these variables:',
+  'auth.configRequiredNote':
+    'The values come from your Supabase project (Settings → API) and your Groq account. The full guide is in README.md.',
+  'auth.configRequiredHome': 'Back to home',
+  'auth.configRequiredCopy': 'Copy',
+  'auth.configRequiredCopied': 'Copied!',
 }
 
 const dictionaries: Record<Locale, Record<TranslationKey, string>> = { fr, en }

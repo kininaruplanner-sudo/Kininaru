@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import AuthConfigRequired from '@/components/auth-config-required'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -17,17 +18,24 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
   const { t } = useI18n()
 
   // Verify a session exists (the email link establishes one via the callback).
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    if (!isSupabaseConfigured()) return
+    const client = createClient()
+    client.auth.getSession().then(({ data }) => {
       if (!data.session) {
         router.replace('/auth/login')
       }
     })
-  }, [supabase, router])
+  }, [router])
+
+  if (!isSupabaseConfigured()) {
+    return <AuthConfigRequired />
+  }
+
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
