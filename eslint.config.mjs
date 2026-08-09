@@ -24,8 +24,6 @@ const eslintConfig = defineConfig([
     "node_modules/**",
     "next-env.d.ts",
     "**/*.d.ts",
-    // Stale duplicate of the app left in the repo — never linted/used.
-    "Kininaru/Kininaru/**",
   ]),
 ]);
 
