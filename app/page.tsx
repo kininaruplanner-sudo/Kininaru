@@ -18,10 +18,19 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // The landing page is public and must render even when Supabase env vars
+  // are missing or unreachable (e.g. .env.local not created yet). Auth pages
+  // will surface a clear configuration error instead.
+  let user: { id: string } | null = null
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user: u },
+    } = await supabase.auth.getUser()
+    user = u
+  } catch {
+    user = null
+  }
 
   // Signed-in users go straight to their dashboard; everyone else sees the
   // marketing landing page.

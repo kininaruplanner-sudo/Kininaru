@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -98,7 +99,12 @@ export default function RootLayout({
       className={`${jakarta.variable} ${inter.variable} bg-background`}
     >
       <body className={`${inter.className} antialiased`}>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* next/script (beforeInteractive) injects the theme init in the
+            initial HTML <head>, so the theme applies before first paint —
+            without React's raw <script> hoisting warning. */}
+        <Script id="kininaru-theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <ThemeProvider>
           <LocaleProvider>{children}</LocaleProvider>
         </ThemeProvider>
