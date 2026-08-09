@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2 } from 'lucide-react'
+import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,8 @@ import { THEMES, useTheme } from '@/components/theme-provider'
 import { cardVariants } from '@/components/ui/card'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { PageHeader } from '@/components/page-header'
+import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
+import { useVoicePrefs } from '@/lib/voice-preferences'
 
 interface Memory {
   id: string
@@ -46,6 +48,9 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
   const { theme, setTheme } = useTheme()
   const { t, locale, setLocale } = useI18n()
   const supabase = createClient()
+
+  // Voice-call preferences (voice / rate / volume) — device-local.
+  const voicePrefs = useVoicePrefs()
 
   // Password change state
   const [newPassword, setNewPassword] = useState('')
@@ -237,6 +242,19 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
             ))}
           </div>
         </div>
+      ),
+    },
+    {
+      icon: PhoneCall,
+      title: t('settings.voiceCall'),
+      desc: t('settings.voiceCallDesc'),
+      content: (
+        <VoiceSettingsPanel
+          prefs={voicePrefs.prefs}
+          onChange={voicePrefs.setPrefs}
+          voices={voicePrefs.voices}
+          voicesLoaded={voicePrefs.voicesLoaded}
+        />
       ),
     },
     {

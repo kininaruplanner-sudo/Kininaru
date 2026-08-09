@@ -17,11 +17,16 @@ import {
   Target,
   Moon,
   Square,
+  Phone,
+  AlertCircle,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { ActionsPanel, type PendingAction } from './actions-panel'
+import { useVoiceCall, VoiceCallBar } from './voice-call'
+import { useVoicePrefs } from '@/lib/voice-preferences'
 import type { AiAction } from '@/lib/ai/actions'
 
 const SUGGESTIONS = [
@@ -195,6 +200,19 @@ export function AIAssistantClient({ displayName }: Props) {
     }
   }
 
+  // Voice-call mode: speaks the coach's answers aloud and keeps listening,
+  // like a hands-free phone call. Reuses the exact same chat pipeline above.
+  // Voice prefs (voice / rate / volume) live in the shared settings page and
+  // in the in-call popover — persisted per device.
+  const voicePrefs = useVoicePrefs()
+  const voice = useVoiceCall({
+    sendMessage,
+    loading,
+    messages,
+    abortRef,
+    prefs: voicePrefs.prefs,
+  })
+
   const stop = () => {
     abortRef.current?.abort()
   }
@@ -302,10 +320,27 @@ export function AIAssistantClient({ displayName }: Props) {
         title="Assistant IA"
         subtitle="Votre coach personnel de productivité"
         actions={
-          <Button variant="ghost" size="sm" onClick={reset} className="gap-1.5" title="Nouvelle conversation">
-            <RotateCcw className="w-3.5 h-3.5" />
-            Nouvelle conversation
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={voice.startCall}
+              disabled={!voice.speechSupported}
+              className={cn('gap-1.5', voice.callActive && 'border-primary/50 bg-primary/10 text-primary')}
+              title={
+                voice.speechSupported
+                  ? 'Appel vocal avec le coach'
+                  : 'Appel vocal non pris en charge par ce navigateur'
+              }
+            >
+              <Phone className="w-3.5 h-3.5" />
+              {voice.callActive ? 'Appel en cours' : 'Appel vocal'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={reset} className="gap-1.5" title="Nouvelle conversation">
+              <RotateCcw className="w-3.5 h-3.5" />
+              Nouvelle conversation
+            </Button>
+          </div>
         }
       />
 
@@ -432,8 +467,48 @@ export function AIAssistantClient({ displayName }: Props) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Voice call — setup error banner */}
+      {voice.callError && !voice.callActive && (
+        <div className="px-4 sm:px-6 pb-3">
+          <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+            <span className="flex-1 leading-relaxed">{voice.callError}</span>
+            <button
+              onClick={voice.clearError}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-destructive/70 hover:text-destructive hover:bg-destructive/10 transition-smooth shrink-0"
+              aria-label="Fermer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Voice call — active call bar */}
+      {voice.callActive && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="px-4 sm:px-6 pb-3"
+        >
+          <VoiceCallBar
+            status={voice.callStatus}
+            interim={voice.interim}
+            muted={voice.muted}
+            callSeconds={voice.callSeconds}
+            onToggleMute={voice.toggleMute}
+            onEnd={voice.endCall}
+            prefs={voicePrefs.prefs}
+            onPrefsChange={voicePrefs.setPrefs}
+            voices={voicePrefs.voices}
+            voicesLoaded={voicePrefs.voicesLoaded}
+          />
+        </motion.div>
+      )}
+
       {/* Suggestions */}
-      {!hasStartedChat && (
+      {!hasStartedChat && !voice.callActive && (
         <div className="px-4 sm:px-6 pb-4">
           <p className="text-xs text-muted-foreground mb-2.5">Essayez :</p>
           <div className="flex flex-wrap gap-2">
