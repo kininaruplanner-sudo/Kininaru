@@ -30,7 +30,7 @@ export default function SuppressionComptePage() {
         </p>
         <p>
           Pour supprimer votre compte, envoyez une demande à l’Exploitant à l’adresse{' '}
-          <strong>[adresse e-mail de contact à renseigner avant la mise en ligne]</strong>, depuis
+          <strong>kininaru.planner@gmail.com</strong>, depuis
           l’adresse e-mail utilisée pour le compte concerné. La demande sera traitée par
           l’Exploitant dans un délai raisonnable.
         </p>
