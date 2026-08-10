@@ -30,6 +30,14 @@ const inter = Inter({
   display: 'swap',
 })
 
+// Vérification Google Search Console — méthode officielle : la balise
+// <meta name="google-site-verification" content="…"/> est générée par Next.js
+// via la propriété `verification.google`, uniquement si le code est renseigné
+// (variable d'environnement NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION, fournie par
+// Google Search Console). Aucun code en dur dans le dépôt : le même build
+// fonctionne en dev, preview et production.
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+
 export const metadata: Metadata = {
   // metadataBase garantit que toutes les URLs relatives (og:image, twitter:image,
   // canonical…) sont résolues en URLs ABSOLUES publiques — sinon les crawlers
@@ -57,6 +65,8 @@ export const metadata: Metadata = {
       'Tâches, habitudes, focus, journal, famille et coach IA dans un seul espace chaleureux.',
     images: ['/opengraph-image'],
   },
+  // Balise Google Search Console (uniquement si le code est configuré).
+  verification: googleSiteVerification ? { google: googleSiteVerification } : undefined,
   applicationName: 'Kininaru',
   formatDetection: {
     telephone: false,
