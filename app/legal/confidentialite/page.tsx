@@ -27,7 +27,7 @@ export default function ConfidentialitePage() {
         <p>
           La présente politique décrit la manière dont Kininaru traite les données à caractère
           personnel des utilisateurs. L’Exploitant est{' '}
-          <strong>[identité et coordonnées à renseigner avant la mise en ligne]</strong>.
+          <strong>kininaru.planner@gmail.com</strong>.
         </p>
       </Section>
 
@@ -145,7 +145,7 @@ export default function ConfidentialitePage() {
         </p>
         <p>
           Pour exercer ces droits, contactez l’Exploitant à l’adresse{' '}
-          <strong>[adresse e-mail de contact à renseigner avant la mise en ligne]</strong> en
+          <strong>kininaru.planner@gmail.com</strong> en
           précisant l’adresse e-mail de votre compte. Vous pouvez également déposer une réclamation
           auprès de l’autorité de protection des données compétente (en France, la CNIL).
         </p>
