@@ -22,6 +22,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
+import { BetaBadge } from '@/components/beta-badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -427,8 +428,9 @@ export function Landing() {
         )}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" aria-label="Kininaru — accueil">
+          <Link href="/" aria-label="Kininaru — accueil" className="flex items-center gap-2.5">
             <KinLogo variant="row" markClassName="w-8 h-8" wordmarkClassName="text-lg" />
+            <BetaBadge />
           </Link>
 
           <nav className="hidden md:flex items-center gap-7">

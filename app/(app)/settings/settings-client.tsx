@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard } from 'lucide-react'
+import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +19,11 @@ import { PushSettingsPanel } from '@/components/push-settings-panel'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 import { isMemoryEnabled, setMemoryEnabled } from '@/lib/memory'
 import { KEYBOARD_SHORTCUTS } from '@/lib/shortcuts'
+import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
+import { BetaBadge } from '@/components/beta-badge'
+import { KinLogoMark } from '@/components/kin-logo'
+import { APP_VERSION_LABEL } from '@/lib/version'
+import type { FeedbackKind } from '@/lib/feedback'
 
 interface Memory {
   id: string
@@ -39,6 +44,15 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
   const [memoryEnabled, setMemoryEnabledState] = useState(isMemoryEnabled())
   const [clearingMemory, setClearingMemory] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug')
+  const [feedbackCount, setFeedbackCount] = useState(0)
+
+  const openFeedback = (kind: FeedbackKind) => {
+    setFeedbackKind(kind)
+    setFeedbackCount((c) => c + 1) // remonte le formulaire à neuf à chaque ouverture
+    setFeedbackOpen(true)
+  }
 
   const deleteMemory = async (id: string) => {
     setDeletingMemory(id)
@@ -296,6 +310,57 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
       ),
     },
     {
+      icon: Bug,
+      title: 'Aider à améliorer Kininaru',
+      desc: 'Vos retours nous aident à rendre la version bêta meilleure. Merci pour votre aide !',
+      content: (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => openFeedback('bug')}
+            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-destructive/40 hover:bg-destructive/5 transition-smooth group"
+          >
+            <span className="w-9 h-9 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Bug className="w-4 h-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-foreground">Signaler un bug</span>
+              <span className="block text-xs text-muted-foreground">Un problème à corriger</span>
+            </span>
+          </button>
+          <button
+            onClick={() => openFeedback('suggestion')}
+            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-smooth group"
+          >
+            <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Lightbulb className="w-4 h-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-foreground">Envoyer une suggestion</span>
+              <span className="block text-xs text-muted-foreground">Une idée pour améliorer Kininaru</span>
+            </span>
+          </button>
+        </div>
+      ),
+    },
+    {
+      icon: Info,
+      title: 'À propos',
+      content: (
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+            <KinLogoMark />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              Kininaru
+              <BetaBadge />
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Version {APP_VERSION_LABEL}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
       icon: PhoneCall,
       title: t('settings.voiceCall'),
       desc: t('settings.voiceCallDesc'),
@@ -484,31 +549,42 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   ]
 
   return (
-    <div className="flex flex-col h-full">
-      <PageHeader icon={Settings} title={t('settings.title')} subtitle={t('settings.subtitle')} />
+    <>
+      <div className="flex flex-col h-full">
+        <PageHeader icon={Settings} title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-4">
-          {sections.map((section, i) => (
-            <motion.div
-              key={section.title}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.25 }}
-              className={cardVariants({ padding: 'md' })}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                <section.icon className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
-              </div>
-              {'desc' in section && section.desc && (
-                <p className="text-xs text-muted-foreground mb-3">{section.desc}</p>
-              )}
-              {section.content}
-            </motion.div>
-          ))}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-2xl mx-auto space-y-4">
+            {sections.map((section, i) => (
+              <motion.div
+                key={section.title}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, duration: 0.25 }}
+                className={cardVariants({ padding: 'md' })}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <section.icon className="w-4 h-4 text-primary" />
+                  <h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
+                </div>
+                {'desc' in section && section.desc && (
+                  <p className="text-xs text-muted-foreground mb-3">{section.desc}</p>
+                )}
+                {section.content}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Retours utilisateurs (bêta) — key change à chaque ouverture pour
+          remonter le formulaire et repartir sur l'état initial. */}
+      <FeedbackDialog
+        key={`${feedbackKind}-${feedbackCount}`}
+        open={feedbackOpen}
+        kind={feedbackKind}
+        onOpenChange={setFeedbackOpen}
+      />
+    </>
   )
 }

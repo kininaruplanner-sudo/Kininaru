@@ -14,6 +14,8 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Mémoire IA** : souvenirs visibles, contrôlables et supprimables depuis les Réglages (interrupteur maître, opt-in)
 - **Notifications Web Push** : briefs du matin / soir / hebdomadaire, aides du coach, heures silencieuses, limite quotidienne, envoi de test
 - **Analyses & Récompenses** : graphiques 30 jours, badges
+- **Version bêta** : badge « BÊTA » discret près du logo, message bêta fermable (mémorisé), version affichée dans Paramètres → À propos
+- **Retours utilisateurs** : depuis Paramètres → Aider à améliorer Kininaru, l'utilisateur peut **signaler un bug** (type, description, étapes pour reproduire, gravité) ou **envoyer une suggestion** — enregistrés dans la table `feedback` (RLS), avec informations techniques automatiques (page, navigateur, appareil, version) mais jamais de contenu privé
 - **PWA** : installable, service worker, icônes complètes
 - **i18n** : français / anglais
 - **Thèmes** : 6 palettes de couleurs (clair et sombre)
@@ -46,6 +48,7 @@ Ouvrez http://localhost:3000.
 | `WEB_PUSH_SUBJECT` | Contact du push (ex. `mailto:admin@kininaru.app`) |
 | `CRON_SECRET` | Secret partagé qui protège `/api/cron/briefs` (en-tête `x-cron-secret`) |
 | `KIN_TEST_EMAIL` / `KIN_TEST_PASSWORD` | Compte de test pour `npm run test:ai:live` |
+| `ADMIN_FEEDBACK_WEBHOOK_URL` | **Optionnel** — URL d'un webhook (Discord, Slack, n8n…) prévenu à chaque nouveau retour utilisateur (`POST` fire-and-forget). Sans lui, les retours restent consultables dans Supabase, aucune notification n'est envoyée. |
 
 > Les fichiers `.env*` sont ignorés par Git. Ne commitez jamais de clé.
 
@@ -62,6 +65,16 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 
 1. `supabase/coach.sql` — active l'historique des conversations de l'AI Coach (`coach_conversations` + `coach_messages`, RLS par utilisateur). Sans lui, le chat fonctionne mais les conversations ne sont pas sauvegardées.
 2. `supabase/push.sql` — active les notifications Web Push (`push_subscriptions` + `push_send_log`, RLS par utilisateur). Sans lui, tout fonctionne sauf le push réel.
+3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). Sans lui, le formulaire affiche une erreur à l'envoi.
+
+### Consulter les retours utilisateurs (admin)
+
+La table `feedback` est la source principale (aucun email simulé). Chaque retour est immuable (RLS sans update/delete) et n'est lisible que par son auteur. Pour les consulter :
+
+- **Supabase Dashboard → Table Editor → `feedback`**, ou
+- SQL Editor (rôle service) : `select * from public.feedback order by created_at desc;`
+
+Une **notification optionnelle** est possible : définissez `ADMIN_FEEDBACK_WEBHOOK_URL` (n'importe quel webhook gratuit — Discord, Slack, n8n…) et un `POST` JSON sera envoyé à chaque nouveau retour. Aucun service payant n'est requis.
 
 ### Briefs planifiés (matin / soir / hebdomadaire)
 

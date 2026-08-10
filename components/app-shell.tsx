@@ -9,6 +9,8 @@ import { CommandPalette } from '@/components/command-palette'
 import { CoachBubble } from '@/components/coach/coach-bubble'
 import { KinLogo } from '@/components/kin-logo'
 import { Button } from '@/components/ui/button'
+import { BetaBadge } from '@/components/beta-badge'
+import { BetaNotice } from '@/components/beta-notice'
 
 interface AppShellProps {
   displayName?: string
@@ -50,7 +52,10 @@ export function AppShell({ displayName, children }: AppShellProps) {
             <Menu className="w-5 h-5" />
           </Button>
           <KinLogo variant="row" markClassName="w-6 h-6" wordmarkClassName="text-sm" />
+          <BetaBadge className="ml-1" />
         </header>
+
+        <BetaNotice />
 
         <main className="flex-1 overflow-auto">
           <PageTransition>{children}</PageTransition>

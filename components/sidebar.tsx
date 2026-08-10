@@ -26,6 +26,8 @@ import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
 import { KinLogo, KinLogoMark } from '@/components/kin-logo'
+import { BetaBadge } from '@/components/beta-badge'
+import { APP_VERSION_LABEL } from '@/lib/version'
 import { useI18n, type TranslationKey } from '@/lib/i18n'
 
 interface NavItem {
@@ -121,8 +123,9 @@ export function Sidebar({
           'flex items-center h-16 border-b border-border px-4 shrink-0',
           collapsed ? 'lg:justify-center' : 'justify-between'
         )}>
-          <Link href="/dashboard" aria-label="Kininaru — accueil" className={cn('min-w-0', collapsed && 'lg:hidden')}>
+          <Link href="/dashboard" aria-label="Kininaru — accueil" className={cn('min-w-0 flex items-center gap-2', collapsed && 'lg:hidden')}>
             <KinLogo variant="row" markClassName="w-7 h-7" wordmarkClassName="text-base" />
+            <BetaBadge />
           </Link>
           <Link href="/dashboard" aria-label="Kininaru" className={cn('hidden', collapsed && 'lg:inline-flex')}>
             <KinLogoMark className="w-7 h-7 text-primary" />
@@ -256,6 +259,9 @@ export function Sidebar({
               <p className="text-xs text-muted-foreground truncate">{displayName}</p>
             </div>
           )}
+          <p className={cn('px-3 pb-1 text-[10px] text-muted-foreground/60', collapsed && 'lg:hidden')}>
+            {APP_VERSION_LABEL}
+          </p>
         </div>
       </aside>
     </>
