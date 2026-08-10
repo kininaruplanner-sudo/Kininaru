@@ -43,7 +43,8 @@ export interface AiContext {
 /** Gathers a minimal, useful snapshot of the user's own data. */
 export async function buildUserContext(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  opts?: { includeMemory?: boolean }
 ): Promise<AiContext> {
   const todayKey = format(new Date(), 'yyyy-MM-dd')
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -115,6 +116,13 @@ export async function buildUserContext(
   const doneToday = doneTodayTasks?.length ?? 0
   const habitsDoneToday = logsToday?.length ?? 0
 
+  // Memory master switch (§15.5 §15): when the user turns it OFF, memories
+  // are never injected — they stay stored but unused until re-enabled.
+  const includeMemory = opts?.includeMemory !== false
+  const memoryList = includeMemory
+    ? ((memories ?? []) as { content: string; category: string }[])
+    : []
+
   const focusWeekMinutes = (focusWeek ?? []).reduce(
     (sum, s) => sum + (s.duration_minutes || 0),
     0
@@ -129,8 +137,6 @@ export async function buildUserContext(
     role: m.role,
     name: Array.isArray(m.families) ? m.families[0]?.name ?? null : m.families?.name ?? null,
   }))
-
-  const memoryList = (memories ?? []) as { content: string; category: string }[]
 
   const lines: string[] = ['APERÇU DE VOS DONNÉES (extrait minimal — utilisez-le pour personnaliser) :']
 
@@ -184,7 +190,7 @@ export async function buildUserContext(
     )
   }
 
-  if (memoryList.length > 0) {
+  if (includeMemory && memoryList.length > 0) {
     lines.push(
       `Faits mémorisés (respectez-les — l'utilisateur les a enregistrés consciemment) : ` +
         memoryList.map((m) => `${m.content} (${m.category})`).join(' | ')
@@ -236,6 +242,7 @@ Quand une ou plusieurs actions concrètes peuvent réellement aider l'utilisateu
 Actions disponibles (uniquement celles-ci) :
 - create_task : data { title (obligatoire), description (optionnel), priority ("low"|"medium"|"high"|"urgent", optionnel), due_date ("AAAA-MM-JJ", optionnel), tags (liste de chaînes, max 5, optionnel) }
 - create_tasks_batch : data { parent_title (obligatoire), steps (liste de 1 à 10 titres d'étapes, obligatoire) } — pour découper un gros objectif en petites étapes
+- create_objective : data { parent_title (obligatoire), steps (liste de 1 à 10 titres d'étapes, obligatoire) } — pour transformer une idée du journal en objectif + étapes (l'utilisateur confirme toujours avant)
 - create_habit : data { title (obligatoire) }
 - create_event : data { title (obligatoire), start_at (ISO 8601, obligatoire), end_at (ISO 8601 après start_at, obligatoire) }
 - create_family_task : data { title (obligatoire), family_id (un id de famille de l'aperçu, obligatoire) }

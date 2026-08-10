@@ -106,7 +106,14 @@ export async function POST(req: Request) {
         journalThisWeek: ctx.journalThisWeek,
       },
       nextAction: ctx.nextPriorityTask
-        ? { title: ctx.nextPriorityTask.title, taskId: ctx.nextPriorityTask.id }
+        ? {
+            title: ctx.nextPriorityTask.title,
+            taskId: ctx.nextPriorityTask.id,
+            reason:
+              ctx.priorityTasksRemaining > 1
+                ? `C’est la plus urgente de tes ${ctx.priorityTasksRemaining} priorités.`
+                : 'C’est actuellement ta priorité principale.',
+          }
         : null,
       notificationId,
     })

@@ -57,7 +57,7 @@ interface CoachObservation {
 interface ObserveResponse {
   observation: CoachObservation | null
   context: Record<string, number> | null
-  nextAction: { title: string; taskId: string } | null
+  nextAction: { title: string; taskId: string; reason?: string } | null
   notificationId: string | null
 }
 
@@ -193,7 +193,20 @@ export function CoachBubble() {
         }
 
         if (isWeeklyBriefDue(prefs)) {
-          await pushBrief('Ta semaine', 'Planifie ta semaine avec le coach et garde le cap.', '/ai')
+          // Real stats + (when configured) a compact Groq analysis.
+          const weeklyRes = await fetch('/api/coach/weekly', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          })
+          const weeklyData = weeklyRes.ok
+            ? ((await weeklyRes.json()) as { text?: string })
+            : null
+          await pushBrief(
+            'Ta semaine',
+            weeklyData?.text ?? 'Bilan de ta semaine avec le coach.',
+            '/ai'
+          )
           markBriefFired('weekly')
         }
       } catch {
@@ -356,20 +369,25 @@ export function CoachBubble() {
                 </div>
               ) : null}
 
-              {/* Smart next action (§30) */}
+              {/* Smart next action (§30 / §15.5 §8) — ONE relevant action, no Groq */}
               {nextAction && (
                 <div className="rounded-xl border border-border bg-background/50 p-3.5">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                    🎯 Que faire maintenant ?
+                    🎯 Ta prochaine action
                   </p>
                   <p className="text-sm font-medium text-foreground leading-snug">{nextAction.title}</p>
+                  {nextAction.reason && (
+                    <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                      Pourquoi ? {nextAction.reason}
+                    </p>
+                  )}
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     <Link
                       href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(
                         nextAction.title
                       )}`}
                     >
-                      <Button size="sm">Commencer</Button>
+                      <Button size="sm">▶ Commencer</Button>
                     </Link>
                     <Link href="/tasks">
                       <Button variant="outline" size="sm">

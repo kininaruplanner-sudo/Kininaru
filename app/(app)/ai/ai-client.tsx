@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { ActionsPanel, type PendingAction } from './actions-panel'
+import { isMemoryEnabled } from '@/lib/memory'
 import { useVoiceCall, VoiceCallBar, VoiceCallHome } from './voice-call'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 import type { AiAction } from '@/lib/ai/actions'
@@ -71,7 +72,8 @@ async function streamAIResponse(
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: history }),
+    // memoryEnabled follows the Settings → Mémoire master switch.
+    body: JSON.stringify({ messages: history, memoryEnabled: isMemoryEnabled() }),
     signal,
   })
   if (!res.ok || !res.body) throw new Error('AI request failed')

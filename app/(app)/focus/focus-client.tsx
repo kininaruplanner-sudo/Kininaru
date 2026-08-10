@@ -668,20 +668,37 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className={cn(cardVariants({ variant: 'accent', padding: 'sm' }), 'mt-4 w-full text-center')}
           >
-            <p className="text-sm font-medium text-foreground">
-              🎉 {justCompleted.label} session complete — +{justCompleted.minutes}m
+            <p className="text-sm font-semibold text-foreground">
+              ✓ Session terminée — +{justCompleted.minutes}m
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">Up next: {justCompleted.next}</p>
             {activeTask && (
-              <Button
-                size="xs"
-                onClick={completeActiveTask}
-                className="gap-1.5 mt-2.5"
-                title={`Mark “${activeTask.title}” as done`}
-              >
-                <Check className="w-3 h-3" />
-                Mark task as done
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5">
+                <Button
+                  size="xs"
+                  onClick={completeActiveTask}
+                  className="gap-1.5"
+                  title={`Marquer « ${activeTask.title} » comme terminée`}
+                >
+                  <Check className="w-3 h-3" />
+                  Marquer comme terminée
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => setJustCompleted(null)}
+                  title="Continuer sans terminer la tâche"
+                >
+                  Continuer
+                </Button>
+              </div>
+            )}
+            {!activeTask && (
+              <div className="mt-2.5">
+                <Button size="xs" variant="outline" onClick={() => setJustCompleted(null)}>
+                  Continuer
+                </Button>
+              </div>
             )}
           </motion.div>
         )}

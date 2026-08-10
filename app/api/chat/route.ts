@@ -54,11 +54,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = (await req.json()) as { messages?: ModelMessage[]; actionsEnabled?: boolean };
+    const body = (await req.json()) as {
+      messages?: ModelMessage[];
+      actionsEnabled?: boolean;
+      memoryEnabled?: boolean;
+    };
     const { messages } = body;
     // `actionsEnabled` lets callers opt out of the action protocol (e.g. the
     // dashboard insight card is advice-only). Defaults to true for the chat.
     const actionsEnabled = body.actionsEnabled !== false;
+    // `memoryEnabled` mirrors the Settings → Mémoire master switch: when the
+    // user turns it OFF, saved memories are never injected as context.
+    const memoryEnabled = body.memoryEnabled !== false;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: 'Messages manquants' }, { status: 400 });
@@ -87,7 +94,9 @@ export async function POST(req: Request) {
 
     // AI 2.0: gather a minimal, relevant snapshot of the signed-in user's
     // own data (RLS-scoped) and steer the model with the full coach prompt.
-    const context = await buildUserContext(supabase, user.id);
+    const context = await buildUserContext(supabase, user.id, {
+      includeMemory: memoryEnabled,
+    });
     const system = buildSystemPrompt({ context: context.text, actionsEnabled });
 
     if (!process.env.GROQ_API_KEY) {
@@ -100,7 +109,10 @@ export async function POST(req: Request) {
     });
 
     const result = streamText({
-      model: groq('llama-3.3-70b-versatile'),
+      // Groq-hosted model (ÉTAPE 15.5 §19): llama-3.3-70b-versatile was
+      // deprecated by Groq (EOL 2026-08-16); gpt-oss-120b is its official
+      // recommended replacement and stays on the Groq platform.
+      model: groq('openai/gpt-oss-120b'),
       system,
       messages,
     });

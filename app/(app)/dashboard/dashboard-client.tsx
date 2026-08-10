@@ -35,6 +35,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { cardVariants } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { streamChatResponse } from '@/lib/ai-stream'
 
 // Fallback pool for the Daily AI Insight card if the live request fails —
@@ -197,6 +198,10 @@ export function DashboardClient({
   }
 
   // ---- Daily AI Insight ----
+  // Cost control (§15.5 §20): the insight is cached for the whole day in
+  // sessionStorage, so navigating to the dashboard does NOT trigger a Groq
+  // call every time. The refresh button re-generates it explicitly.
+  const INSIGHT_KEY = `kininaru-insight-${todayLocalKey}`
   const [insight, setInsight] = useState('')
   const [insightLoading, setInsightLoading] = useState(true)
   const [insightFailed, setInsightFailed] = useState(false)
@@ -204,35 +209,98 @@ export function DashboardClient({
     () => FALLBACK_INSIGHTS[Math.floor(Math.random() * FALLBACK_INSIGHTS.length)]
   )
 
-  const runInsight = useCallback(async () => {
-    setInsightLoading(true)
-    setInsightFailed(false)
-    setInsight('')
-    try {
-      const summary = `Tâches: ${doneTasks.length}/${tasks.length} terminées aujourd'hui. Habitudes: ${localHabitLogs.length}/${habits.length} faites. Focus: ${todayFocusMinutes} minutes aujourd'hui.`
+  const runInsight = useCallback(
+    async (force = false) => {
+      const cached = force ? null : sessionStorage.getItem(INSIGHT_KEY)
+      if (cached) {
+        setInsight(cached)
+        setInsightLoading(false)
+        setInsightFailed(false)
+        return
+      }
+      setInsightLoading(true)
+      setInsightFailed(false)
+      setInsight('')
+      let full = ''
       let received = false
-      await streamChatResponse(
-        [{
-          role: 'user',
-          content: `${summary} En te basant sur ces chiffres, donne-moi une seule observation ou un seul conseil court (1-2 phrases maximum) et encourageant pour aujourd'hui.`,
-        }],
-        (chunk) => {
-          received = true
-          setInsight((prev) => prev + chunk)
+      try {
+        const summary = `Tâches: ${doneTasks.length}/${tasks.length} terminées aujourd'hui. Habitudes: ${localHabitLogs.length}/${habits.length} faites. Focus: ${todayFocusMinutes} minutes aujourd'hui.`
+        await streamChatResponse(
+          [{
+            role: 'user',
+            content: `${summary} En te basant sur ces chiffres, donne-moi une seule observation ou un seul conseil court (1-2 phrases maximum) et encourageant pour aujourd'hui.`,
+          }],
+          (chunk) => {
+            received = true
+            full += chunk
+            setInsight(full)
+          }
+        )
+        if (!received) throw new Error('empty response')
+      } catch {
+        setInsightFailed(true)
+      } finally {
+        setInsightLoading(false)
+        // Cache only complete answers (never cache partial or failed ones).
+        if (received && full.trim()) {
+          try {
+            sessionStorage.setItem(INSIGHT_KEY, full)
+          } catch {
+            // storage unavailable
+          }
         }
-      )
-      if (!received) throw new Error('empty response')
-    } catch {
-      setInsightFailed(true)
-    } finally {
-      setInsightLoading(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [doneTasks.length, tasks.length, localHabitLogs.length, habits.length, todayFocusMinutes, INSIGHT_KEY]
+  )
 
   useEffect(() => {
     runInsight()
   }, [runInsight])
+
+  // ---- Smart Next Action (§15.5 §8) — ONE relevant action, deterministic
+  // (local rules over the daily context, never a Groq call), cached per day. */
+  const NEXT_ACTION_KEY = `kininaru-nextaction-${todayLocalKey}`
+  const [nextAction, setNextAction] = useState<{
+    title: string
+    taskId: string
+    reason?: string
+  } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const cached = sessionStorage.getItem(NEXT_ACTION_KEY)
+    if (cached) {
+      try {
+        setNextAction(JSON.parse(cached))
+      } catch {
+        // ignore malformed cache
+      }
+      return
+    }
+    fetch('/api/coach/observe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 'dashboard', style: 'encouraging', notify: false }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { nextAction?: { title: string; taskId: string; reason?: string } } | null) => {
+        if (cancelled || !d?.nextAction) return
+        setNextAction(d.nextAction)
+        try {
+          sessionStorage.setItem(NEXT_ACTION_KEY, JSON.stringify(d.nextAction))
+        } catch {
+          // storage unavailable
+        }
+      })
+      .catch(() => {
+        // Best-effort — the card simply does not appear.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [NEXT_ACTION_KEY])
 
   const stats = [
     {
@@ -372,6 +440,46 @@ export function DashboardClient({
         </div>
       </motion.div>
 
+      {/* Smart Next Action (§15.5 §8) — deterministic, cached, opens Focus */}
+      {nextAction && (
+        <motion.div
+          custom={5.4}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className={cn(cardVariants({ padding: 'lg' }), 'border-l-4 border-l-kin-sage')}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wide">
+              🎯 Ta prochaine action
+            </span>
+            <Zap className="w-4 h-4 text-kin-sage" />
+          </div>
+          <p className="text-base font-semibold text-foreground leading-snug">
+            {nextAction.title}
+          </p>
+          {nextAction.reason && (
+            <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+              Pourquoi ? {nextAction.reason}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-3.5">
+            <Link
+              href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(nextAction.title)}`}
+            >
+              <Button size="sm" className="gap-1.5">
+                ▶ Commencer
+              </Button>
+            </Link>
+            <Link href="/tasks">
+              <Button variant="outline" size="sm">
+                Voir mes tâches
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      )}
+
       {/* Daily AI Insight */}
       <motion.div
         custom={6}
@@ -388,7 +496,7 @@ export function DashboardClient({
           <div className="flex items-center gap-2">
             {insightFailed && (
               <button
-                onClick={runInsight}
+                onClick={() => void runInsight(true)}
                 className="flex items-center gap-1 text-xs text-primary hover:underline"
               >
                 <RefreshCw className="w-3 h-3" />

@@ -26,6 +26,7 @@ export default async function SettingsPage() {
     <SettingsClient
       profile={profile}
       user={{ email: user!.email ?? '' }}
+      userId={user!.id}
       memories={(memories as { id: string; content: string; category: string; created_at: string }[] | null) ?? []}
     />
   )

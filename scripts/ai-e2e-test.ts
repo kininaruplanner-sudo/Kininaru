@@ -104,6 +104,36 @@ async function runOffline() {
     assert.ok(r.error)
   })
 
+  // ÉTAPE 15.5 §4-5 — Journal → objectif → tâches (avec confirmation)
+  await check('create_objective valide (objectif + étapes confirmées)', () => {
+    const r = validateAiAction({
+      action: 'create_objective',
+      data: {
+        parent_title: 'Améliorer mon niveau en maths',
+        steps: ['Identifier mes difficultés', 'Réviser le chapitre 1', 'Faire des exercices'],
+      },
+    })
+    if (!r.action || r.action.action !== 'create_objective') throw new Error('action inattendue')
+    assert.equal(r.action.data.parent_title, 'Améliorer mon niveau en maths')
+    assert.equal(r.action.data.steps.length, 3)
+  })
+
+  await check('create_objective rejette 0 étape (jamais de création silencieuse)', () => {
+    const r = validateAiAction({ action: 'create_objective', data: { parent_title: 'x', steps: [] } })
+    assert.ok(r.error)
+  })
+
+  await check('create_objective rejette plus de 10 étapes', () => {
+    const steps = Array.from({ length: 11 }, (_, i) => `Étape ${i}`)
+    const r = validateAiAction({ action: 'create_objective', data: { parent_title: 'x', steps } })
+    assert.ok(r.error)
+  })
+
+  await check('create_objective rejette un titre manquant', () => {
+    const r = validateAiAction({ action: 'create_objective', data: { steps: ['a'] } })
+    assert.ok(r.error)
+  })
+
   await check('create_habit valide / titre manquant', () => {
     assert.ok(validateAiAction({ action: 'create_habit', data: { title: 'Lire' } }).action)
     assert.ok(validateAiAction({ action: 'create_habit', data: {} }).error)
@@ -222,7 +252,7 @@ async function runLive() {
     // does, it must contain a whitelisted action, not SQL or free-form code.
     if (text.includes('==ACTIONS==')) {
       assert.ok(
-        /create_task|create_tasks_batch|create_habit|create_event|create_family_task|create_memory/.test(text),
+        /create_task|create_tasks_batch|create_objective|create_habit|create_event|create_family_task|create_memory/.test(text),
         'le bloc d’actions doit contenir une action de la whitelist'
       )
     }

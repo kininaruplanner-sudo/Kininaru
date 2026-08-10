@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Users,
   Bookmark,
+  Target,
   Check,
   X,
   Pencil,
@@ -32,6 +33,7 @@ type CardStatus = 'pending' | 'working' | 'done' | 'error'
 const META: Record<AiAction['action'], { label: string; icon: React.ElementType }> = {
   create_task: { label: 'Créer une tâche', icon: CheckSquare },
   create_tasks_batch: { label: 'Découper en étapes', icon: ListChecks },
+  create_objective: { label: 'Créer un objectif', icon: Target },
   create_habit: { label: 'Créer une habitude', icon: Repeat2 },
   create_event: { label: 'Créer un événement', icon: CalendarDays },
   create_family_task: { label: 'Tâche familiale', icon: Users },
@@ -63,6 +65,7 @@ function actionSummary(a: AiAction): string[] {
       return lines
     }
     case 'create_tasks_batch':
+    case 'create_objective':
       return [`« ${a.data.parent_title} »`, `${a.data.steps.length} étapes proposées`]
     case 'create_habit':
       return [`« ${a.data.title} »`]
@@ -90,6 +93,7 @@ function toDraft(a: AiAction): Record<string, string> {
         tags: a.data.tags?.join(', ') ?? '',
       }
     case 'create_tasks_batch':
+    case 'create_objective':
       return { parent_title: a.data.parent_title, steps: a.data.steps.join('\n') }
     case 'create_habit':
       return { title: a.data.title }
@@ -220,7 +224,8 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
           },
         }
       }
-      case 'create_tasks_batch': {
+      case 'create_tasks_batch':
+      case 'create_objective': {
         const parent_title = draft.parent_title?.trim()
         const steps = (draft.steps ?? '')
           .split('\n')
@@ -234,7 +239,7 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
           setDraftError('Prévoyez entre 1 et 10 étapes (une par ligne).')
           return null
         }
-        return { action: 'create_tasks_batch', data: { parent_title, steps } }
+        return { action: a.action, data: { parent_title, steps } }
       }
       case 'create_habit': {
         const title = draft.title?.trim()
@@ -411,7 +416,8 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
                   </>
                 )}
 
-                {item.action.action === 'create_tasks_batch' && (
+                {(item.action.action === 'create_tasks_batch' ||
+                  item.action.action === 'create_objective') && (
                   <>
                     <div>
                       <Label>Objectif</Label>

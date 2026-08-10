@@ -77,6 +77,63 @@ self.addEventListener('message', (event) => {
   }
 })
 
+/* ------------------------------- push --------------------------------
+   Real Web Push (ÉTAPE 15.5 §9, §21): the server encrypts the payload to
+   this subscription; the SW shows the notification and handles clicks.
+   -------------------------------------------------------------------- */
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'Kininaru', body: '', link: '/', tag: 'kininaru' }
+  try {
+    if (event.data) {
+      const parsed = event.data.json()
+      data = {
+        title: typeof parsed.title === 'string' ? parsed.title : 'Kininaru',
+        body: typeof parsed.body === 'string' ? parsed.body : '',
+        link: typeof parsed.link === 'string' && parsed.link.startsWith('/') ? parsed.link : '/',
+        tag: typeof parsed.tag === 'string' ? parsed.tag : 'kininaru',
+      }
+    }
+  } catch {
+    // Payload not JSON — fall back to defaults (still show a notification).
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
+      tag: data.tag,
+      data: { link: data.link },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const link = event.notification.data && event.notification.data.link
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ('focus' in client) {
+            client.focus()
+            if (link && 'navigate' in client) {
+              client.navigate(link)
+            }
+            return
+          }
+        }
+        return self.clients.openWindow(link || '/')
+      })
+  )
+})
+
+self.addEventListener('notificationclose', () => {
+  // Nothing to clean up — kept for future analytics hooks.
+})
+
 /* ------------------------------ helpers ----------------------------- */
 
 function isCacheable(response) {

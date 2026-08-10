@@ -15,7 +15,9 @@ import { useI18n, type Locale } from '@/lib/i18n'
 import { PageHeader } from '@/components/page-header'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
+import { PushSettingsPanel } from '@/components/push-settings-panel'
 import { useVoicePrefs } from '@/lib/voice-preferences'
+import { isMemoryEnabled, setMemoryEnabled } from '@/lib/memory'
 
 interface Memory {
   id: string
@@ -27,12 +29,15 @@ interface Memory {
 interface Props {
   profile: any
   user: { email: string }
+  userId: string
   memories: Memory[]
 }
 
-export function SettingsClient({ profile, user, memories: initialMemories }: Props) {
+export function SettingsClient({ profile, user, userId, memories: initialMemories }: Props) {
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
+  const [memoryEnabled, setMemoryEnabledState] = useState(isMemoryEnabled())
+  const [clearingMemory, setClearingMemory] = useState(false)
 
   const deleteMemory = async (id: string) => {
     setDeletingMemory(id)
@@ -41,6 +46,23 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
       if (!error) setMemories((prev) => prev.filter((m) => m.id !== id))
     } finally {
       setDeletingMemory(null)
+    }
+  }
+
+  const toggleMemory = (next: boolean) => {
+    setMemoryEnabledState(next)
+    setMemoryEnabled(next)
+  }
+
+  const clearAllMemories = async () => {
+    if (memories.length === 0) return
+    if (!window.confirm('Effacer toute la mémoire de l’assistant ? Cette action est définitive.')) return
+    setClearingMemory(true)
+    try {
+      const { error } = await supabase.from('ai_memories').delete().eq('user_id', userId)
+      if (!error) setMemories([])
+    } finally {
+      setClearingMemory(false)
     }
   }
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
@@ -267,25 +289,8 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
     {
       icon: Bell,
       title: t('settings.notifications'),
-      content: (
-        <div className="space-y-3">
-          {[
-            { label: t('settings.notifTask'), description: t('settings.notifTaskDesc') },
-            { label: t('settings.notifHabit'), description: t('settings.notifHabitDesc') },
-            { label: t('settings.notifFocus'), description: t('settings.notifFocusDesc') },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-              </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground cursor-not-allowed select-none" title={t('settings.notificationsSoon')}>
-                {t('settings.notificationsSoon')}
-              </span>
-            </div>
-          ))}
-        </div>
-      ),
+      desc: 'Vraies notifications Web Push — même quand l’application est fermée.',
+      content: <PushSettingsPanel />,
     },
     {
       icon: Sparkles,
@@ -302,6 +307,54 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
       desc: t('settings.memoryDesc'),
       content: (
         <div className="space-y-3">
+          {/* Master switch — l'assistant n'utilise les souvenirs que si c'est activé */}
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Mémoire : {memoryEnabled ? 'ON' : 'OFF'}</p>
+              <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+                {memoryEnabled
+                  ? 'L’assistant peut utiliser tes souvenirs enregistrés pour personnaliser ses réponses.'
+                  : 'L’assistant n’utilise plus tes souvenirs. Ils restent enregistrés jusqu’à ce que tu les supprimes.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={memoryEnabled}
+              onClick={() => toggleMemory(!memoryEnabled)}
+              className={cn(
+                'relative w-10 h-6 rounded-full transition-smooth shrink-0 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30',
+                memoryEnabled ? 'bg-primary' : 'bg-muted'
+              )}
+              aria-label="Activer ou désactiver la mémoire de l’assistant"
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200',
+                  memoryEnabled && 'translate-x-4'
+                )}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Voir mes souvenirs</p>
+            {memories.length > 0 && (
+              <button
+                onClick={() => void clearAllMemories()}
+                disabled={clearingMemory}
+                className="flex items-center gap-1.5 text-xs font-medium text-destructive hover:underline transition-smooth disabled:opacity-50"
+              >
+                {clearingMemory ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+                Effacer toute la mémoire
+              </button>
+            )}
+          </div>
+
           {memories.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('settings.memoryEmpty')}</p>
           ) : (

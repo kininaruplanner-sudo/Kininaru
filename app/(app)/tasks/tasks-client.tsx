@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { format, isPast } from 'date-fns'
 import {
   Plus,
@@ -21,6 +22,7 @@ import {
   GripVertical,
   ListChecks,
   Pencil,
+  Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -598,6 +600,15 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-smooth">
+                          {task.status !== 'done' && (
+                            <Link
+                              href={`/focus?taskId=${task.id}&task=${encodeURIComponent(task.title)}`}
+                              title={`▶ Commencer « ${task.title} »`}
+                              className="p-1.5 rounded-lg text-kin-sage hover:bg-kin-sage/10 transition-smooth"
+                            >
+                              <Play className="w-4 h-4" />
+                            </Link>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -777,17 +788,26 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                               </Button>
                             </div>
                             {col.status !== 'done' && (
-                              <button
-                                onClick={() =>
-                                  updateStatus(
-                                    task.id,
-                                    col.status === 'todo' ? 'in_progress' : 'done'
-                                  )
-                                }
-                                className="mt-2 ml-5 w-[calc(100%-1.25rem)] text-xs text-center py-1 rounded-lg bg-muted hover:bg-primary hover:text-primary-foreground transition-smooth"
-                              >
-                                Move to {col.status === 'todo' ? 'In Progress' : 'Done'}
-                              </button>
+                              <div className="mt-2 ml-5 flex gap-1.5">
+                                <button
+                                  onClick={() =>
+                                    updateStatus(
+                                      task.id,
+                                      col.status === 'todo' ? 'in_progress' : 'done'
+                                    )
+                                  }
+                                  className="flex-1 text-xs text-center py-1 rounded-lg bg-muted hover:bg-primary hover:text-primary-foreground transition-smooth"
+                                >
+                                  Move to {col.status === 'todo' ? 'In Progress' : 'Done'}
+                                </button>
+                                <Link
+                                  href={`/focus?taskId=${task.id}&task=${encodeURIComponent(task.title)}`}
+                                  title={`▶ Commencer « ${task.title} »`}
+                                  className="px-2.5 flex items-center justify-center rounded-lg bg-kin-sage/15 text-kin-sage hover:bg-kin-sage hover:text-white transition-smooth"
+                                >
+                                  <Play className="w-3.5 h-3.5" />
+                                </Link>
+                              </div>
                             )}
                           </motion.div>
                         )

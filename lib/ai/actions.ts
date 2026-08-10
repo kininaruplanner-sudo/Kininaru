@@ -32,6 +32,13 @@ export type AiAction =
       action: 'create_tasks_batch'
       data: { parent_title: string; steps: string[] }
     }
+  | {
+      /** Journal → objectif → tâches (ÉTAPE 15.5 §4-5). Same shape as
+       *  create_tasks_batch but only carries the steps the user CONFIRMED
+       *  in the journal (selection is applied client-side before sending). */
+      action: 'create_objective'
+      data: { parent_title: string; steps: string[] }
+    }
   | { action: 'create_habit'; data: { title: string; color?: string } }
   | {
       action: 'create_event'
@@ -160,6 +167,16 @@ export function validateAiAction(raw: unknown): { action?: AiAction; error?: str
       if (!steps) return { error: 'Étapes invalides (1 à 10 étapes attendues)' }
       return { action: { action: 'create_tasks_batch', data: { parent_title, steps } } }
     }
+    case 'create_objective': {
+      // Same strict validation as create_tasks_batch — the number of steps is
+      // bounded, each title is cleaned, and user_id is never read from the
+      // payload (it always comes from the authenticated session).
+      const parent_title = cleanTitle(data.parent_title)
+      if (!parent_title) return { error: 'Titre de l’objectif manquant' }
+      const steps = cleanSteps(data.steps)
+      if (!steps) return { error: 'Étapes invalides (1 à 10 étapes attendues)' }
+      return { action: { action: 'create_objective', data: { parent_title, steps } } }
+    }
     case 'create_habit': {
       const title = cleanTitle(data.title)
       if (!title) return { error: 'Titre d’habitude manquant' }
@@ -246,7 +263,8 @@ export async function executeAiAction(
           id: data?.id,
         }
       }
-      case 'create_tasks_batch': {
+      case 'create_tasks_batch':
+      case 'create_objective': {
         const { data: parent, error: parentErr } = await supabase
           .from('tasks')
           .insert({

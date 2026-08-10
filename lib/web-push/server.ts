@@ -1,0 +1,113 @@
+import webpush from 'web-push'
+
+/**
+ * Server-side Web Push helpers (ÉTAPE 15.5 §9).
+ *
+ * VAPID keys live ONLY in server env vars:
+ *   NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY  (safe to expose — public)
+ *   WEB_PUSH_VAPID_PRIVATE_KEY             (secret — server only)
+ *   WEB_PUSH_SUBJECT                       (contact, e.g. mailto:admin@…)
+ *
+ * Without these keys the app still works — push simply reports as
+ * "not configured" and the UI tells the user what to set.
+ */
+
+export interface PushSubscriptionRow {
+  id: string
+  endpoint: string
+  p256dh: string
+  auth_key: string
+  prefs?: Record<string, unknown> | null
+}
+
+/** True when the VAPID key pair is configured server-side. */
+export function webPushConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY &&
+      process.env.WEB_PUSH_VAPID_PRIVATE_KEY
+  )
+}
+
+/** Public key the browser needs to subscribe (null when unconfigured). */
+export function getPublicVapidKey(): string | null {
+  return process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY ?? null
+}
+
+function buildWebPush(): typeof webpush {
+  const pub = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY
+  const priv = process.env.WEB_PUSH_VAPID_PRIVATE_KEY
+  if (!pub || !priv) {
+    throw new Error(
+      'Web Push non configuré : définissez NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY ' +
+        'et WEB_PUSH_VAPID_PRIVATE_KEY.'
+    )
+  }
+  const subject = process.env.WEB_PUSH_SUBJECT ?? 'mailto:admin@kininaru.app'
+  webpush.setVapidDetails(subject, pub, priv)
+  return webpush
+}
+
+export interface PushPayload {
+  title: string
+  body?: string
+  link?: string
+  tag?: string
+}
+
+/**
+ * Sends a push notification to one subscription.
+ * Returns 'sent' | 'gone' (subscription dead — caller should delete it) |
+ * 'error' (transient — retry later).
+ */
+export async function sendPushNotification(
+  row: PushSubscriptionRow,
+  payload: PushPayload
+): Promise<'sent' | 'gone' | 'error'> {
+  try {
+    const w = buildWebPush()
+    await w.sendNotification(
+      {
+        endpoint: row.endpoint,
+        keys: { p256dh: row.p256dh, auth: row.auth_key },
+      },
+      JSON.stringify(payload),
+      // Briefs must not pile up for days in the push service.
+      { TTL: 24 * 3600 }
+    )
+    return 'sent'
+  } catch (err) {
+    const statusCode = (err as { statusCode?: number })?.statusCode
+    if (statusCode === 404 || statusCode === 410) return 'gone'
+    return 'error'
+  }
+}
+
+/** Quiet-hours check (device-independent, applied server-side too). */
+export function isQuietHours(now = new Date(), quietStart = 22, quietEnd = 7): boolean {
+  const h = now.getHours()
+  if (quietStart < quietEnd) return h >= quietStart && h < quietEnd
+  // overnight range (e.g. 22 → 7)
+  return h >= quietStart || h < quietEnd
+}
+
+/** Parses + sanitizes the user push prefs stored on a subscription row. */
+export function parsePushPrefs(raw: unknown): {
+  morning: boolean
+  evening: boolean
+  weekly: boolean
+  coach: boolean
+  quietStart: number
+  quietEnd: number
+} {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const num = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(23, Math.round(v))) : fallback
+  return {
+    morning: r.morning !== false,
+    evening: r.evening !== false,
+    weekly: r.weekly !== false,
+    coach: r.coach !== false,
+    quietStart: num(r.quietStart, 22),
+    quietEnd: num(r.quietEnd, 7),
+  }
+}
