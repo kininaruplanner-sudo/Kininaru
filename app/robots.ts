@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/site-url'
 
 /**
  * robots.txt — the private (authenticated) routes are not meant to be
@@ -8,7 +9,7 @@ import type { MetadataRoute } from 'next'
  * these routes is authentication (Supabase session) plus the database
  * Row Level Security policies.
  */
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+const baseUrl = SITE_URL
 
 export default function robots(): MetadataRoute.Robots {
   return {

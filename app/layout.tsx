@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
+import { SITE_URL } from '@/lib/site-url'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LocaleProvider } from '@/lib/i18n'
@@ -30,24 +31,31 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: 'Kininaru Planner',
+  // metadataBase garantit que toutes les URLs relatives (og:image, twitter:image,
+  // canonical…) sont résolues en URLs ABSOLUES publiques — sinon les crawlers
+  // (WhatsApp, Discord, Facebook, Twitter/X…) ne peuvent pas récupérer l'image
+  // de partage. En production : https://kininaru-planner.vercel.app.
+  metadataBase: new URL(SITE_URL),
+  title: 'Kininaru — Organisez votre vie avec curiosité',
   description:
-    'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+    'Le planificateur chaleureux qui réunit tâches, habitudes, focus, journal, espace famille et un coach IA — pour avancer chaque jour, seul ou en famille.',
   openGraph: {
-    title: 'Kininaru Planner',
-    description:
-      'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
     type: 'website',
+    url: SITE_URL,
     siteName: 'Kininaru',
-    images: ['/icon-512x512.png'],
+    title: 'Kininaru — Organisez votre vie avec curiosité',
+    description:
+      'Tâches, habitudes, focus, journal, famille et coach IA dans un seul espace chaleureux.',
+    // Image 1200×630 dédiée (app/opengraph-image.tsx), résolue en URL absolue
+    // via metadataBase → https://kininaru-planner.vercel.app/opengraph-image
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Kininaru — Organisez votre vie avec curiosité' }],
   },
   twitter: {
-    card: 'summary',
-    title: 'Kininaru Planner',
+    card: 'summary_large_image',
+    title: 'Kininaru — Organisez votre vie avec curiosité',
     description:
-      'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
-    images: ['/icon-512x512.png'],
+      'Tâches, habitudes, focus, journal, famille et coach IA dans un seul espace chaleureux.',
+    images: ['/opengraph-image'],
   },
   applicationName: 'Kininaru',
   formatDetection: {

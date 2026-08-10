@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/site-url'
 
 /**
  * Sitemap — public routes only.
  * Private routes (dashboard, tasks, journal, family, settings, ...) are
  * intentionally excluded: they require authentication and contain user data.
  */
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+const baseUrl = SITE_URL
 
 const PUBLIC_ROUTES: { path: string; priority: number }[] = [
   { path: '', priority: 1 },
