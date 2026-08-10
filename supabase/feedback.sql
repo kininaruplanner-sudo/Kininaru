@@ -21,7 +21,12 @@
 
 create table if not exists public.feedback (
   id uuid primary key default gen_random_uuid(),
-  -- null = retour anonyme (colonne prévue ; l'API actuelle exige une session)
+  -- DÉCISION BÊTA : les retours sont réservés aux utilisateurs CONNECTÉS.
+  -- L'API /api/feedback exige une session et pose user_id depuis celle-ci
+  -- (jamais depuis le payload client). Aucun retour anonyme n'est accepté —
+  -- le formulaire n'existe que dans Paramètres, côté connecté. La colonne
+  -- reste nullable pour ne pas casser d'éventuelles lignes existantes, mais
+  -- le flux anonyme n'est ni proposé ni accepté par l'API.
   user_id uuid references auth.users(id) on delete set null,
   -- 'bug' | 'suggestion' — le flux qui a produit le retour
   kind text not null check (kind in ('bug', 'suggestion')),

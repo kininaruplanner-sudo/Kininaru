@@ -81,6 +81,7 @@ export function CommandPalette() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.isComposing) return // IME composition (e.g. accents, CJK) — ignore
+      if (e.repeat) return // holding a key must not toggle the palette repeatedly
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setShowHelp(false)

@@ -15,7 +15,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Notifications Web Push** : briefs du matin / soir / hebdomadaire, aides du coach, heures silencieuses, limite quotidienne, envoi de test
 - **Analyses & Récompenses** : graphiques 30 jours, badges
 - **Version bêta** : badge « BÊTA » discret près du logo, message bêta fermable (mémorisé), version affichée dans Paramètres → À propos
-- **Retours utilisateurs** : depuis Paramètres → Aider à améliorer Kininaru, l'utilisateur peut **signaler un bug** (type, description, étapes pour reproduire, gravité) ou **envoyer une suggestion** — enregistrés dans la table `feedback` (RLS), avec informations techniques automatiques (page, navigateur, appareil, version) mais jamais de contenu privé
+- **Retours utilisateurs** : depuis Paramètres → Aider à améliorer Kininaru, l'utilisateur connecté peut **signaler un bug** (type, description, étapes pour reproduire, gravité) ou **envoyer une suggestion** (réservé aux utilisateurs connectés, pas de retour anonyme en bêta) — enregistrés dans la table `feedback` (RLS), avec informations techniques automatiques (page, navigateur, appareil, version) mais jamais de contenu privé
 - **PWA** : installable, service worker, icônes complètes
 - **i18n** : français / anglais
 - **Thèmes** : 6 palettes de couleurs (clair et sombre)
@@ -65,7 +65,7 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 
 1. `supabase/coach.sql` — active l'historique des conversations de l'AI Coach (`coach_conversations` + `coach_messages`, RLS par utilisateur). Sans lui, le chat fonctionne mais les conversations ne sont pas sauvegardées.
 2. `supabase/push.sql` — active les notifications Web Push (`push_subscriptions` + `push_send_log`, RLS par utilisateur). Sans lui, tout fonctionne sauf le push réel.
-3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). Sans lui, le formulaire affiche une erreur à l'envoi.
+3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). **Décision bêta : les retours sont réservés aux utilisateurs connectés** — l'API `/api/feedback` exige une session et pose `user_id` depuis celle-ci ; aucun retour anonyme n'est accepté. Sans lui, le formulaire affiche une erreur à l'envoi.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -80,7 +80,8 @@ Une **notification optionnelle** est possible : définissez `ADMIN_FEEDBACK_WEBH
 
 L'endpoint `POST /api/cron/briefs` envoie les briefs aux utilisateurs qui ont opté-in (respect des heures silencieuses, dédoublonnage par jour et plafond quotidien). Il ne se déclenche jamais tout seul :
 
-- **Vercel** : `vercel.json` déclare déjà les crons (7h, 20h, lundi 8h). Ajoutez les variables d'environnement sur le projet Vercel (dont `CRON_SECRET` et `SUPABASE_SERVICE_ROLE_KEY`).
+- **Fuseaux horaires** : Vercel exécute les crons **en UTC** (7h, 20h, lundi 8h **UTC**). Le serveur calcule donc `getHours()` en UTC : les briefs partent à l'heure UTC, quelle que soit la timezone du destinataire. Aucune timezone utilisateur n'est gérée pour l'instant (documenté dans `app/api/cron/briefs/route.ts`).
+- **Vercel** : `vercel.json` déclare déjà les crons (7h, 20h, lundi 8h UTC). Ajoutez les variables d'environnement sur le projet Vercel (dont `CRON_SECRET` et `SUPABASE_SERVICE_ROLE_KEY`).
 - **Ailleurs** : planifiez un cron externe qui appelle `POST /api/cron/briefs` avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
 
 ### Google OAuth (configuration externe)

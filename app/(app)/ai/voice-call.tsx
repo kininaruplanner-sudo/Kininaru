@@ -76,6 +76,43 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
 
+/** True when the browser can actually capture audio (getUserMedia). */
+function canAccessMicrophone(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return !!navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'
+}
+
+/**
+ * Maps a getUserMedia DOMException to a precise, user-actionable message.
+ * Never collapses every failure into "microphone denied".
+ */
+function micErrorMessage(err: unknown): string {
+  const name =
+    err instanceof DOMException
+      ? err.name
+      : ((err as { name?: string } | null)?.name ?? 'UnknownError')
+  switch (name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur (icône micro dans la barre d’adresse), puis réessayez.'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'Aucun microphone détecté. Branchez ou activez un microphone, puis réessayez.'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'Le microphone est déjà utilisé par une autre application. Fermez-la, puis réessayez.'
+    case 'OverconstrainedError':
+    case 'ConstraintNotSatisfiedError':
+      return 'Aucun microphone ne correspond aux réglages demandés. Vérifiez vos périphériques audio.'
+    case 'SecurityError':
+      return 'Le navigateur a bloqué l’accès au microphone sur cette page. Vérifiez les permissions du site.'
+    case 'AbortError':
+      return 'L’accès au micro a été annulé. Réessayez.'
+    default:
+      return `Impossible d’accéder au microphone (${name}). Réessayez, ou utilisez Chrome ou Edge.`
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Text-to-speech helpers (module-level, stable)                       */
 /* ------------------------------------------------------------------ */
@@ -131,6 +168,10 @@ export function useVoiceCall({
   const pausedRef = useRef(false)
   const mutedRef = useRef(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  /** Live MediaStream held while the call is active — fully released on end/unmount. */
+  const streamRef = useRef<MediaStream | null>(null)
+  /** Guards against double-start while the permission prompt is pending. */
+  const startingRef = useRef(false)
   const sendRef = useRef(sendMessage)
   const loadingRef = useRef(loading)
   const prefsRef = useRef(prefs)
@@ -158,9 +199,9 @@ export function useVoiceCall({
     return () => window.clearInterval(id)
   }, [callActive])
 
-  /** Releases the recognition engine and its handlers — the mic is freed by
-   *  abort(), and nulling the callbacks prevents late events from firing
-   *  during teardown (no leaked listeners, no restart loops). */
+  /** Releases the recognition engine and its handlers — nulling the
+   *  callbacks prevents late events from firing during teardown (no leaked
+   *  listeners, no restart loops). */
   const disposeRecognition = useCallback(() => {
     const rec = recognitionRef.current
     if (!rec) return
@@ -175,18 +216,36 @@ export function useVoiceCall({
     recognitionRef.current = null
   }, [])
 
+  /** Stops every audio track of the held MediaStream — the microphone is
+   *  fully released and the OS-level "mic in use" indicator disappears. */
+  const releaseMicrophone = useCallback(() => {
+    const stream = streamRef.current
+    streamRef.current = null
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop())
+    }
+  }, [])
+
   // Hard cleanup on unmount (never leave the mic / TTS / stream running)
   useEffect(() => {
     const abort = abortRef.current
     return () => {
       activeRef.current = false
+      startingRef.current = false
       disposeRecognition()
+      releaseMicrophone()
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
       abort?.abort()
     }
-  }, [abortRef, disposeRecognition])
+  }, [abortRef, disposeRecognition, releaseMicrophone])
+
+  // Report unsupported browsers right away — the call button disables itself
+  // instead of pretending the voice call works everywhere.
+  useEffect(() => {
+    setSpeechSupported(Boolean(getRecognitionCtor()) && canAccessMicrophone())
+  }, [])
 
   const startListening = useCallback(() => {
     const rec = recognitionRef.current
@@ -214,9 +273,11 @@ export function useVoiceCall({
   /** Tears the call down without touching the user-facing error message. */
   const endCallInternal = useCallback(() => {
     activeRef.current = false
+    startingRef.current = false
     pausedRef.current = false
     speakTokenRef.current += 1 // invalidate pending TTS callbacks
     disposeRecognition()
+    releaseMicrophone()
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
@@ -224,14 +285,15 @@ export function useVoiceCall({
     setCallActive(false)
     setCallStatus('idle')
     setInterim('')
-  }, [abortRef, disposeRecognition])
+  }, [abortRef, disposeRecognition, releaseMicrophone])
 
   const startCall = () => {
-    if (activeRef.current) return
+    // Never double-start: active call, or permission prompt already pending.
+    if (activeRef.current || startingRef.current) return
 
-    // Speech recognition only works in a secure context (HTTPS) or on
-    // localhost. Fail early with a precise message instead of a confusing
-    // "microphone denied" error later.
+    // Speech recognition and getUserMedia only work in a secure context
+    // (HTTPS) or on localhost. Fail early with a precise message instead of
+    // a confusing "microphone denied" error later.
     if (typeof window !== 'undefined' && window.isSecureContext === false) {
       setCallError(
         'L’appel vocal nécessite une connexion sécurisée (HTTPS ou localhost). La reconnaissance vocale est bloquée sur cette page.'
@@ -240,87 +302,110 @@ export function useVoiceCall({
     }
 
     const Ctor = getRecognitionCtor()
-    if (!Ctor) {
+    if (!Ctor || !canAccessMicrophone()) {
       // Remember the outcome so the header button disables after the first try.
       setSpeechSupported(false)
       setCallError(
-        'L’appel vocal n’est pas pris en charge par ce navigateur. Utilisez Chrome ou Edge pour parler au coach.'
+        'L’appel vocal n’est pas pris en charge par ce navigateur. Utilisez Chrome ou Edge (HTTPS ou localhost) pour parler au coach.'
       )
       return
     }
 
-    const rec = new Ctor()
-    rec.continuous = true
-    rec.interimResults = true
-    rec.lang = /^fr/i.test(navigator.language) ? 'fr-FR' : 'en-US'
-
-    activeRef.current = true
-    pausedRef.current = false
-    mutedRef.current = false
-    // The last message is already visible/read — never re-speak history.
-    lastSpokenRef.current = messages.length - 1
-    speakTokenRef.current = 0
-    recognitionRef.current = rec
-
-    setMuted(false)
+    startingRef.current = true
+    setCallStatus('starting')
     setCallError(null)
-    setInterim('')
-    setCallSeconds(0)
-    setCallActive(true)
-    setCallStatus('listening')
 
-    // Warm up the voice list so pickVoice() has candidates on first speak.
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices()
-    }
+    // Explicit mic permission BEFORE recognition starts. getUserMedia reports
+    // the real failure cause (refused / no device / busy / blocked…) and gives
+    // us a MediaStream that we hold for the whole call and fully release on
+    // hang-up. The permission is never re-requested while the call is active:
+    // muting only stops recognition, the stream (and its grant) stays alive.
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        startingRef.current = false
+        streamRef.current = stream
 
-    rec.onresult = (e) => {
-      let finalText = ''
-      let interimText = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const result = e.results[i]
-        const alt = result[0]
-        if (!alt) continue
-        if (result.isFinal) finalText += alt.transcript
-        else interimText += alt.transcript
-      }
-      if (interimText.trim()) setInterim(interimText.trim())
-      if (finalText.trim()) {
+        const rec = new Ctor()
+        rec.continuous = true
+        rec.interimResults = true
+        rec.lang = /^fr/i.test(navigator.language) ? 'fr-FR' : 'en-US'
+
+        activeRef.current = true
+        pausedRef.current = false
+        mutedRef.current = false
+        // The last message is already visible/read — never re-speak history.
+        lastSpokenRef.current = messages.length - 1
+        speakTokenRef.current = 0
+        recognitionRef.current = rec
+
+        setMuted(false)
         setInterim('')
-        handleVoiceUtterance(finalText.trim())
-      }
-    }
+        setCallSeconds(0)
+        setCallActive(true)
+        setCallStatus('listening')
 
-    rec.onend = () => {
-      // Keep the call alive: restart the mic unless we're muted/paused.
-      if (activeRef.current && !pausedRef.current && !mutedRef.current) {
+        // Warm up the voice list so pickVoice() has candidates on first speak.
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.getVoices()
+        }
+
+        rec.onresult = (e) => {
+          let finalText = ''
+          let interimText = ''
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const result = e.results[i]
+            const alt = result[0]
+            if (!alt) continue
+            if (result.isFinal) finalText += alt.transcript
+            else interimText += alt.transcript
+          }
+          if (interimText.trim()) setInterim(interimText.trim())
+          if (finalText.trim()) {
+            setInterim('')
+            handleVoiceUtterance(finalText.trim())
+          }
+        }
+
+        rec.onend = () => {
+          // Keep the call alive: restart the mic unless we're muted/paused.
+          if (activeRef.current && !pausedRef.current && !mutedRef.current) {
+            startListening()
+          }
+        }
+
+        rec.onerror = (ev) => {
+          const error = ev.error
+
+          // Fatal, user-fixable errors → end the call and show a precise message.
+          if (error === 'not-allowed' || error === 'service-not-allowed') {
+            endCallInternal()
+            setCallError(
+              'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur (icône micro dans la barre d’adresse), puis réessayez.'
+            )
+            return
+          }
+          if (error === 'audio-capture') {
+            endCallInternal()
+            setCallError(
+              'Aucun microphone détecté. Branchez ou activez un microphone, puis réessayez.'
+            )
+            return
+          }
+          // Transient errors (network, no-speech, aborted, language-not-supported…)
+          // → keep the call alive; onend restarts the mic automatically.
+        }
+
         startListening()
-      }
-    }
-
-    rec.onerror = (ev) => {
-      const error = ev.error
-
-      // Fatal, user-fixable errors → end the call and show a precise message.
-      if (error === 'not-allowed' || error === 'service-not-allowed') {
-        endCallInternal()
-        setCallError(
-          'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur (icône micro dans la barre d’adresse), puis réessayez.'
-        )
-        return
-      }
-      if (error === 'audio-capture') {
-        endCallInternal()
-        setCallError(
-          'Aucun microphone détecté. Branchez ou activez un microphone, puis réessayez.'
-        )
-        return
-      }
-      // Transient errors (network, no-speech, aborted, language-not-supported…)
-      // → keep the call alive; onend restarts the mic automatically.
-    }
-
-    startListening()
+      })
+      .catch((err: unknown) => {
+        // The call never became active — the error banner explains the real
+        // cause and offers Réessayer (startCall clears the error and re-runs
+        // getUserMedia, so re-granting the permission then retrying works).
+        startingRef.current = false
+        setCallStatus('error')
+        setCallError(micErrorMessage(err))
+      })
   }
 
   /** A finished spoken utterance is sent through the normal chat pipeline. */

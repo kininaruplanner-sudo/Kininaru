@@ -1,6 +1,10 @@
 /**
  * Kininaru — retours utilisateurs (bêta).
  *
+ * DÉCISION BÊTA : les retours sont réservés aux utilisateurs CONNECTÉS.
+ * Aucun retour anonyme n'est accepté — le formulaire n'existe que dans
+ * Paramètres (côté connecté) et l'API refuse toute requête sans session.
+ *
  * Client-side helpers: types partagés, collecte automatique d'informations
  * d'environnement (page, navigateur, appareil) et envoi vers l'API
  * serveur `/api/feedback` (validation stricte côté serveur, user_id posé

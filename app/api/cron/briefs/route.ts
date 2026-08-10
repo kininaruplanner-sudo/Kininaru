@@ -30,6 +30,14 @@ export const dynamic = 'force-dynamic'
 
 const DAILY_PUSH_CAP = 6
 
+/**
+ * FUSEAUX HORAIRES : Vercel exécute les crons en UTC (vercel.json : 07:00,
+ * 20:00 et lundi 08:00 UTC). Le serveur tourne donc en UTC : `getHours()`
+ * ci-dessous reflète l'heure UTC, et les fenêtres sont alignées sur ces
+ * créneaux (matin 5-11h UTC, soir ≥19h UTC, hebdo lundi ≥8h UTC).
+ * Aucune timezone utilisateur n'est gérée pour l'instant — les briefs
+ * partent à l'heure UTC, quelle que soit la timezone du destinataire.
+ */
 function dueBriefType(now = new Date(), prefs: ReturnType<typeof parsePushPrefs>) {
   const h = now.getHours()
   const day = now.getDay()
