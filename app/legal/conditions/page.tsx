@@ -32,7 +32,7 @@ export default function ConditionsPage() {
         </p>
         <p>
           Le service est fourni par un exploitant privé (l’« Exploitant »). L’identité de
-          l’Exploitant est <strong>[à renseigner avant la mise en ligne]</strong>.
+          l’Exploitant est <strong>kininaru.planner@gmail.com</strong>.
         </p>
       </Section>
 
@@ -165,7 +165,7 @@ export default function ConditionsPage() {
       <Section title="13. Contact">
         <p>
           Pour toute question relative aux présentes conditions :{' '}
-          <strong>[adresse e-mail de contact à renseigner avant la mise en ligne]</strong>.
+          <strong>kininaru.planner@gmail.com</strong>.
         </p>
       </Section>
     </article>
