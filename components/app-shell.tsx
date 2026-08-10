@@ -6,6 +6,7 @@ import { Menu } from 'lucide-react'
 import { Sidebar } from '@/components/sidebar'
 import { PageTransition } from '@/components/page-transition'
 import { CommandPalette } from '@/components/command-palette'
+import { CoachBubble } from '@/components/coach/coach-bubble'
 import { Button } from '@/components/ui/button'
 
 interface AppShellProps {
@@ -56,6 +57,7 @@ export function AppShell({ displayName, children }: AppShellProps) {
       </div>
 
       <CommandPalette />
+      <CoachBubble />
     </div>
   )
 }

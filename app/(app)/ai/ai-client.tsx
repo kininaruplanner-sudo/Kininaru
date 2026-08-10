@@ -25,9 +25,20 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { ActionsPanel, type PendingAction } from './actions-panel'
-import { useVoiceCall, VoiceCallBar } from './voice-call'
+import { useVoiceCall, VoiceCallBar, VoiceCallHome } from './voice-call'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 import type { AiAction } from '@/lib/ai/actions'
+import {
+  listConversations,
+  createConversation,
+  renameConversation as renameConversationApi,
+  deleteConversation as deleteConversationApi,
+  loadMessages,
+  appendMessage,
+  touchConversation,
+  type CoachConversation,
+} from '@/lib/coach/conversations'
+import { ConversationsPanel, ConversationsChips } from './conversations-sidebar'
 
 const SUGGESTIONS = [
   { icon: CalendarDays, text: 'Planifier ma journée' },
@@ -132,9 +143,18 @@ export function AIAssistantClient({ displayName }: Props) {
   const [loading, setLoading] = useState(false)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
+  const [showCallHome, setShowCallHome] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Conversation persistence (ÉTAPE 14 §16-18): the AI page keeps a real
+  // history in Supabase. `convRef` mirrors `activeConvId` so the streaming
+  // path can persist without stale closures.
+  const [conversations, setConversations] = useState<CoachConversation[]>([])
+  const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [convsLoading, setConvsLoading] = useState(true)
+  const convRef = useRef<string | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -148,6 +168,43 @@ export function AIAssistantClient({ displayName }: Props) {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }, [input])
 
+  // Load the conversation history once on mount. Failure-tolerant: if the
+  // coach tables are missing (SQL not run yet), the list stays empty and the
+  // chat works exactly as before.
+  useEffect(() => {
+    let cancelled = false
+    listConversations().then((list) => {
+      if (cancelled) return
+      setConversations(list)
+      setConvsLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Resume an old conversation: load its last messages and restore the chat.
+  const selectConversation = async (id: string) => {
+    if (id === activeConvId) return
+    abortRef.current?.abort()
+    setShowCallHome(false)
+    setPendingActions([])
+    const rows = await loadMessages(id)
+    if (rows.length === 0) {
+      setMessages(freshGreeting())
+    } else {
+      setMessages(
+        rows.map((r) => ({
+          role: r.role,
+          content: r.content,
+          timestamp: Date.parse(r.created_at) || Date.now(),
+        }))
+      )
+    }
+    setActiveConvId(id)
+    convRef.current = id
+  }
+
   const sendMessage = async (text: string) => {
     const content = text.trim()
     if (!content || loading) return
@@ -159,6 +216,19 @@ export function AIAssistantClient({ displayName }: Props) {
     const history = [...messages, userMessage]
     setMessages([...history, { role: 'assistant', content: '', timestamp: Date.now() }])
     setLoading(true)
+
+    // Persistence: auto-create the conversation on the first message, then
+    // store the user turn. Failures are swallowed — the chat never breaks
+    // because persistence is unavailable.
+    if (!convRef.current) {
+      const created = await createConversation(content.slice(0, 60))
+      if (created) {
+        convRef.current = created.id
+        setActiveConvId(created.id)
+        setConversations((prev) => [created, ...prev])
+      }
+    }
+    if (convRef.current) void appendMessage(convRef.current, 'user', content)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -182,6 +252,20 @@ export function AIAssistantClient({ displayName }: Props) {
           return next
         })
         setPendingActions(actions)
+      }
+
+      // Store the assistant turn and bump the conversation to the top.
+      const finalText = cleanText || fullText
+      if (convRef.current && finalText) {
+        void appendMessage(convRef.current, 'assistant', finalText)
+        void touchConversation(convRef.current)
+        setConversations((prev) =>
+          prev
+            .map((c) =>
+              c.id === convRef.current ? { ...c, updated_at: new Date().toISOString() } : c
+            )
+            .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        )
       }
     } catch {
       if (!controller.signal.aborted) {
@@ -213,17 +297,45 @@ export function AIAssistantClient({ displayName }: Props) {
     prefs: voicePrefs.prefs,
   })
 
+  // The header button opens the pre-call home screen (tune the voice before
+  // the call starts); "Démarrer" on that screen starts the actual call.
+  const startVoiceCall = () => {
+    setShowCallHome(false)
+    voice.startCall()
+  }
+
   const stop = () => {
     abortRef.current?.abort()
   }
 
   const handleSend = () => sendMessage(input)
 
-  const reset = () => {
+  // Start a fresh chat and detach from any persisted conversation.
+  const newConversation = () => {
     abortRef.current?.abort()
     setMessages(freshGreeting())
     setInput('')
     setPendingActions([])
+    setShowCallHome(false)
+    setActiveConvId(null)
+    convRef.current = null
+  }
+
+  const renameConversation = async (id: string, title: string) => {
+    const ok = await renameConversationApi(id, title)
+    if (ok) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title, updated_at: new Date().toISOString() } : c))
+      )
+    }
+  }
+
+  const removeConversation = async (id: string) => {
+    const ok = await deleteConversationApi(id)
+    if (ok) {
+      setConversations((prev) => prev.filter((c) => c.id !== id))
+      if (convRef.current === id) newConversation()
+    }
   }
 
   const dismissActions = (ids: string[]) => {
@@ -314,8 +426,19 @@ export function AIAssistantClient({ displayName }: Props) {
   const hasStartedChat = messages.length > 1
 
   return (
-    <div className="flex flex-col h-full">
-      <PageHeader
+    <div className="flex h-full">
+      <ConversationsPanel
+        conversations={conversations}
+        activeId={activeConvId}
+        loading={convsLoading}
+        onNew={newConversation}
+        onSelect={selectConversation}
+        onRename={renameConversation}
+        onDelete={removeConversation}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0">
+        <PageHeader
         icon={Sparkles}
         title="Assistant IA"
         subtitle="Votre coach personnel de productivité"
@@ -324,9 +447,14 @@ export function AIAssistantClient({ displayName }: Props) {
             <Button
               variant="outline"
               size="sm"
-              onClick={voice.startCall}
+              onClick={() => {
+                if (!voice.callActive) setShowCallHome(true)
+              }}
               disabled={!voice.speechSupported}
-              className={cn('gap-1.5', voice.callActive && 'border-primary/50 bg-primary/10 text-primary')}
+              className={cn(
+                'gap-1.5',
+                (voice.callActive || showCallHome) && 'border-primary/50 bg-primary/10 text-primary'
+              )}
               title={
                 voice.speechSupported
                   ? 'Appel vocal avec le coach'
@@ -336,12 +464,20 @@ export function AIAssistantClient({ displayName }: Props) {
               <Phone className="w-3.5 h-3.5" />
               {voice.callActive ? 'Appel en cours' : 'Appel vocal'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={reset} className="gap-1.5" title="Nouvelle conversation">
+            <Button variant="ghost" size="sm" onClick={newConversation} className="gap-1.5" title="Nouvelle conversation">
               <RotateCcw className="w-3.5 h-3.5" />
               Nouvelle conversation
             </Button>
           </div>
         }
+      />
+
+      <ConversationsChips
+        conversations={conversations}
+        activeId={activeConvId}
+        loading={convsLoading}
+        onNew={newConversation}
+        onSelect={selectConversation}
       />
 
       {/* Messages */}
@@ -507,8 +643,28 @@ export function AIAssistantClient({ displayName }: Props) {
         </motion.div>
       )}
 
+      {/* Voice call — pre-call home screen (tune the voice before starting) */}
+      {!voice.callActive && showCallHome && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="px-4 sm:px-6 pb-3"
+        >
+          <VoiceCallHome
+            onStart={startVoiceCall}
+            onClose={() => setShowCallHome(false)}
+            prefs={voicePrefs.prefs}
+            onPrefsChange={voicePrefs.setPrefs}
+            voices={voicePrefs.voices}
+            voicesLoaded={voicePrefs.voicesLoaded}
+            supported={voice.speechSupported}
+          />
+        </motion.div>
+      )}
+
       {/* Suggestions */}
-      {!hasStartedChat && !voice.callActive && (
+      {!hasStartedChat && !voice.callActive && !showCallHome && (
         <div className="px-4 sm:px-6 pb-4">
           <p className="text-xs text-muted-foreground mb-2.5">Essayez :</p>
           <div className="flex flex-wrap gap-2">
@@ -570,6 +726,7 @@ export function AIAssistantClient({ displayName }: Props) {
           )}
         </div>
         <p className="text-[10px] text-muted-foreground/70 mt-1.5 px-1">Entrée pour envoyer · Maj + Entrée pour un saut de ligne</p>
+        </div>
       </div>
     </div>
   )

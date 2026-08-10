@@ -45,6 +45,8 @@ Ouvrez http://localhost:3000.
 
 Exécutez `supabase/schema.sql` dans le SQL Editor de votre projet Supabase (Dashboard → SQL Editor). Le script crée toutes les tables, les fonctions et les politiques de sécurité **RLS** (isolation stricte par utilisateur).
 
+Puis exécutez `supabase/coach.sql` (fichier **additif**, sans risque) pour activer l'historique des conversations de l'AI Coach (`coach_conversations` + `coach_messages`, RLS par utilisateur). Sans lui, le chat fonctionne mais les conversations ne sont pas sauvegardées.
+
 ### Google OAuth (configuration externe)
 
 Le code est prêt. Pour activer « Continuer avec Google » :

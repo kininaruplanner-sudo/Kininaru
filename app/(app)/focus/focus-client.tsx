@@ -17,6 +17,8 @@ import {
   Quote,
   Flame,
   X,
+  Target,
+  Check,
 } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
@@ -34,6 +36,10 @@ interface Props {
   userId: string
   todaySessions: FocusSession[]
   allSessions: FocusSession[]
+  /** Task started from the coach (§31) — shown as the session objective. */
+  initialTask?: { id: string; title: string } | null
+  /** Duration in minutes (e.g. ?duration=25) to preselect the mode. */
+  initialMinutes?: number
 }
 
 const MODES = [
@@ -299,9 +305,17 @@ function SessionHistory({ sessions, onDelete }: { sessions: FocusSession[]; onDe
 // ---------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------
-export function FocusClient({ userId, todaySessions, allSessions }: Props) {
-  const [modeIdx, setModeIdx] = useState(0)
-  const [secondsLeft, setSecondsLeft] = useState(MODES[0].minutes * 60)
+export function FocusClient({ userId, todaySessions, allSessions, initialTask, initialMinutes }: Props) {
+  // Preselect the mode when a duration was passed via the coach (?duration=25):
+  // lazy initializers keep the component pure (no effect needed).
+  const initialModeIdx =
+    typeof initialMinutes === 'number'
+      ? MODES.findIndex((m) => m.minutes === initialMinutes)
+      : -1
+  const startModeIdx = initialModeIdx >= 0 ? initialModeIdx : 0
+  const [modeIdx, setModeIdx] = useState(startModeIdx)
+  const [activeTask, setActiveTask] = useState(initialTask ?? null)
+  const [secondsLeft, setSecondsLeft] = useState(MODES[startModeIdx].minutes * 60)
   const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(todaySessions)
   const [allSessionsState, setAllSessionsState] = useState(allSessions)
@@ -364,6 +378,16 @@ export function FocusClient({ userId, todaySessions, allSessions }: Props) {
     },
     [supabase]
   )
+
+  // §31: after a focus session, offer to complete the task the session was for.
+  const completeActiveTask = useCallback(async () => {
+    if (!activeTask) return
+    await supabase
+      .from('tasks')
+      .update({ status: 'done', completed_at: new Date().toISOString() })
+      .eq('id', activeTask.id)
+    setActiveTask(null)
+  }, [activeTask, supabase])
 
   /** Auto-selects the next mode after a session completes — every 4th Focus session earns a Long Break, matching the classic Pomodoro cadence. The next phase is pre-loaded but not auto-started, so the user still decides when the clock runs. */
   const scheduleAutoAdvance = useCallback((completedIsFocus: boolean) => {
@@ -491,6 +515,25 @@ export function FocusClient({ userId, todaySessions, allSessions }: Props) {
 
   const timerCore = (
     <>
+      {/* Active task (started from the coach) — the session objective */}
+      {activeTask && (
+        <div className="flex items-center gap-2 mb-5 w-full px-3 py-2 rounded-xl bg-primary/5 border border-primary/15">
+          <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
+            {activeTask.title}
+          </span>
+          <button
+            type="button"
+            onClick={() => setActiveTask(null)}
+            className="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-smooth"
+            aria-label="Remove task from session"
+            title="Remove"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Mode selector */}
       <div className="flex bg-muted rounded-2xl p-1 gap-1 mb-8 w-full">
         {MODES.map((m, i) => (
@@ -629,6 +672,17 @@ export function FocusClient({ userId, todaySessions, allSessions }: Props) {
               🎉 {justCompleted.label} session complete — +{justCompleted.minutes}m
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">Up next: {justCompleted.next}</p>
+            {activeTask && (
+              <Button
+                size="xs"
+                onClick={completeActiveTask}
+                className="gap-1.5 mt-2.5"
+                title={`Mark “${activeTask.title}” as done`}
+              >
+                <Check className="w-3 h-3" />
+                Mark task as done
+              </Button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -14,6 +14,7 @@ import { cardVariants } from '@/components/ui/card'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { PageHeader } from '@/components/page-header'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
+import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 
 interface Memory {
@@ -256,6 +257,12 @@ export function SettingsClient({ profile, user, memories: initialMemories }: Pro
           voicesLoaded={voicePrefs.voicesLoaded}
         />
       ),
+    },
+    {
+      icon: Sparkles,
+      title: t('settings.coach'),
+      desc: t('settings.coachDesc'),
+      content: <CoachSettingsPanel />,
     },
     {
       icon: Bell,

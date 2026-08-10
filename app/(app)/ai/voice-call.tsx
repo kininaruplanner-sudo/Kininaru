@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Mic, MicOff, PhoneOff, Settings2, Volume2 } from 'lucide-react'
+import { Mic, MicOff, Phone, PhoneOff, Settings2, Volume2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { pickVoice, type VoicePrefs } from '@/lib/voice-preferences'
 
@@ -539,6 +540,129 @@ export function VoiceCallBar({
               voicesLoaded={voicesLoaded}
               compact
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Pre-call home screen — tune the voice before the call starts        */
+/* ------------------------------------------------------------------ */
+
+interface VoiceCallHomeProps {
+  /** Starts the call (mic + listening loop). */
+  onStart: () => void
+  /** Closes the home screen without starting the call. */
+  onClose: () => void
+  /** Voice prefs + voice list for the settings panel. */
+  prefs: VoicePrefs
+  onPrefsChange: (next: VoicePrefs) => void
+  voices: SpeechSynthesisVoice[]
+  voicesLoaded: boolean
+  /** False when the browser has no speech recognition → disable start. */
+  supported: boolean
+}
+
+export function VoiceCallHome({
+  onStart,
+  onClose,
+  prefs,
+  onPrefsChange,
+  voices,
+  voicesLoaded,
+  supported,
+}: VoiceCallHomeProps) {
+  const reduce = useReducedMotion()
+  const [showSettings, setShowSettings] = useState(false)
+
+  return (
+    <div className="relative">
+      <div className="rounded-2xl border border-primary/20 bg-card shadow-kin px-4 py-4 flex items-center gap-3">
+        {/* Coach orb */}
+        <div className="relative w-12 h-12 shrink-0">
+          <motion.span
+            animate={reduce ? { opacity: 0.3 } : { scale: [1, 1.6], opacity: [0.4, 0] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeOut' }}
+            className="absolute inset-0 rounded-full bg-primary/25"
+            aria-hidden
+          />
+          <div className="absolute inset-0 rounded-full bg-primary/10 flex items-center justify-center">
+            <Phone className="w-5 h-5 text-primary" aria-hidden />
+          </div>
+        </div>
+
+        {/* Title + hint */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground">Appel vocal avec le coach</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Réglez la voix du coach, puis démarrez l’appel pour parler en mains libres.
+          </p>
+        </div>
+
+        {/* Voice settings toggle */}
+        <button
+          onClick={() => setShowSettings((s) => !s)}
+          aria-label="Réglages de la voix"
+          aria-expanded={showSettings}
+          title="Réglages de la voix"
+          className={cn(
+            'w-11 h-11 shrink-0 rounded-xl border border-border bg-background flex items-center justify-center transition-smooth',
+            showSettings
+              ? 'text-primary border-primary/40 bg-primary/10'
+              : 'text-muted-foreground hover:text-foreground hover:border-primary/40'
+          )}
+        >
+          <Settings2 className="w-4.5 h-4.5" aria-hidden />
+        </button>
+
+        {/* Start call */}
+        <Button
+          onClick={onStart}
+          disabled={!supported}
+          size="lg"
+          className="gap-1.5 shrink-0"
+          title={supported ? "Démarrer l'appel vocal" : 'Appel vocal non pris en charge par ce navigateur'}
+        >
+          <Phone className="w-3.5 h-3.5" aria-hidden />
+          Démarrer
+        </Button>
+
+        {/* Close */}
+        <button
+          onClick={onClose}
+          aria-label="Fermer l'écran d'appel"
+          title="Fermer"
+          className="w-11 h-11 shrink-0 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-smooth"
+        >
+          <X className="w-4.5 h-4.5" aria-hidden />
+        </button>
+      </div>
+
+      {/* Voice settings panel (expands below the card) */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 rounded-2xl border border-border bg-popover shadow-xl p-4">
+              <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                <Settings2 className="w-3.5 h-3.5 text-primary" aria-hidden />
+                Voix du coach
+              </p>
+              <VoiceSettingsPanel
+                prefs={prefs}
+                onChange={onPrefsChange}
+                voices={voices}
+                voicesLoaded={voicesLoaded}
+                compact
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
