@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { notifyAdminOfFeedback } from '@/lib/feedback/admin-notify'
 import { APP_VERSION } from '@/lib/version'
 
 export const runtime = 'nodejs'
@@ -16,9 +17,13 @@ export const runtime = 'nodejs'
  * - Chaque champ est validé contre une whitelist stricte + limites de
  *   longueur (aucune donnée arbitraire ne peut entrer dans la table).
  * - `app_version` est posé côté serveur (lib/version), jamais par le client.
- * - Notification admin optionnelle : si `ADMIN_FEEDBACK_WEBHOOK_URL` est
- *   défini, un POST fire-and-forget est envoyé à cette URL (aucun service
- *   payant requis — tout webhook gratuit, ex. Slack/Discord/n8n, convient).
+ * - Notification admin : après l'insertion, un email fire-and-forget est
+ *   envoyé via SendGrid (`SENDGRID_API_KEY`) à `ADMIN_FEEDBACK_EMAIL`
+ *   (contenu + catégories + infos de diagnostic non sensibles). La clé
+ *   SendGrid ne quitte jamais le serveur. Une erreur d'envoi n'empêche
+ *   JAMAIS l'enregistrement du retour.
+ * - Notifications webhook optionnelles : si `ADMIN_FEEDBACK_WEBHOOK_URL`
+ *   est défini, un POST fire-and-forget est envoyé à cette URL en plus.
  */
 
 const MAX_TEXT = 2000
@@ -131,7 +136,23 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Impossible d’envoyer le retour' }, { status: 500 })
     }
 
-    // Notification admin optionnelle (aucun service payant obligatoire).
+    // Notification admin — email via SendGrid (fire-and-forget : un échec
+    // d'envoi ne fait jamais échouer l'enregistrement du retour).
+    void notifyAdminOfFeedback({
+      kind,
+      category,
+      description: description.value || '',
+      steps_to_reproduce: steps.value || null,
+      severity: severity ?? null,
+      page_url: pageUrl.value ?? null,
+      app_version: APP_VERSION,
+      browser: browser.value || null,
+      device: device.value || null,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+    })
+
+    // Notification webhook optionnelle (en plus de l'email).
     const webhook = process.env.ADMIN_FEEDBACK_WEBHOOK_URL
     if (webhook) {
       void fetch(webhook, {

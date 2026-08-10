@@ -48,7 +48,10 @@ Ouvrez http://localhost:3000.
 | `WEB_PUSH_SUBJECT` | Contact du push (ex. `mailto:admin@kininaru.app`) |
 | `CRON_SECRET` | Secret partagé qui protège `/api/cron/briefs` (en-tête `x-cron-secret`) |
 | `KIN_TEST_EMAIL` / `KIN_TEST_PASSWORD` | Compte de test pour `npm run test:ai:live` |
-| `ADMIN_FEEDBACK_WEBHOOK_URL` | **Optionnel** — URL d'un webhook (Discord, Slack, n8n…) prévenu à chaque nouveau retour utilisateur (`POST` fire-and-forget). Sans lui, les retours restent consultables dans Supabase, aucune notification n'est envoyée. |
+| `ADMIN_FEEDBACK_WEBHOOK_URL` | **Optionnel** — URL d'un webhook (Discord, Slack, n8n…) prévenu à chaque nouveau retour utilisateur (`POST` fire-and-forget), **en plus** de l'email. |
+| `SENDGRID_API_KEY` | **Requis pour l'email admin** — clé API SendGrid (**serveur uniquement**, plan gratuit 100 emails/jour). Sans elle, les retours restent dans Supabase mais aucun email n'est envoyé. |
+| `ADMIN_FEEDBACK_EMAIL` | **Requis pour l'email admin** — destinataire des alertes (ex. `kininaru.planner@gmail.com`). Définie dans Vercel, jamais codée en dur dans le code. |
+| `ADMIN_FEEDBACK_FROM_EMAIL` | **Optionnel** — expéditeur de l'alerte (adresse **vérifiée dans SendGrid** comme Single Sender). Si absente, l'expéditeur = destinataire (`ADMIN_FEEDBACK_EMAIL`). |
 
 > Les fichiers `.env*` sont ignorés par Git. Ne commitez jamais de clé.
 
@@ -69,12 +72,12 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 
 ### Consulter les retours utilisateurs (admin)
 
-La table `feedback` est la source principale (aucun email simulé). Chaque retour est immuable (RLS sans update/delete) et n'est lisible que par son auteur. Pour les consulter :
+La table `feedback` est la source principale. Chaque retour est immuable (RLS sans update/delete) et n'est lisible que par son auteur. Pour les consulter :
 
 - **Supabase Dashboard → Table Editor → `feedback`**, ou
 - SQL Editor (rôle service) : `select * from public.feedback order by created_at desc;`
 
-Une **notification optionnelle** est possible : définissez `ADMIN_FEEDBACK_WEBHOOK_URL` (n'importe quel webhook gratuit — Discord, Slack, n8n…) et un `POST` JSON sera envoyé à chaque nouveau retour. Aucun service payant n'est requis.
+**Notification email** : définissez `SENDGRID_API_KEY` et `ADMIN_FEEDBACK_EMAIL` (destinataire, ex. `kininaru.planner@gmail.com`), et un email est envoyé à chaque nouveau retour (contenu, catégorie, gravité, page, navigateur, appareil, version, date — aucune donnée privée, la clé SendGrid reste côté serveur). Expéditeur : vérifiez une adresse dans SendGrid (Single Sender) ; par défaut, l'expéditeur = le destinataire. **Webhook optionnel** : définissez `ADMIN_FEEDBACK_WEBHOOK_URL` (Discord, Slack, n8n…) pour recevoir aussi un `POST` JSON. Une erreur d'envoi ne bloque jamais l'enregistrement du retour.
 
 ### Briefs planifiés (matin / soir / hebdomadaire)
 
