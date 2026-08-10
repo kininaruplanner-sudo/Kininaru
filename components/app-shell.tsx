@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar'
 import { PageTransition } from '@/components/page-transition'
 import { CommandPalette } from '@/components/command-palette'
 import { CoachBubble } from '@/components/coach/coach-bubble'
+import { KinLogo } from '@/components/kin-logo'
 import { Button } from '@/components/ui/button'
 
 interface AppShellProps {
@@ -48,7 +49,7 @@ export function AppShell({ displayName, children }: AppShellProps) {
           >
             <Menu className="w-5 h-5" />
           </Button>
-          <span className="font-serif font-bold text-foreground tracking-tight">Kininaru</span>
+          <KinLogo variant="row" markClassName="w-6 h-6" wordmarkClassName="text-sm" />
         </header>
 
         <main className="flex-1 overflow-auto">

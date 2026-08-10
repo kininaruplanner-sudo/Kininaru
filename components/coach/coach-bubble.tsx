@@ -34,6 +34,7 @@ import {
   markBriefFired,
 } from '@/lib/coach/briefs'
 import { browserNotify } from '@/lib/notifications'
+import { KinLogoMark } from '@/components/kin-logo'
 
 /**
  * Floating Kininaru Coach — ÉTAPE 14 §1-6, 12, 21-22, 30-32.
@@ -292,7 +293,7 @@ export function CoachBubble() {
           isAi ? 'bottom-32 right-4 md:bottom-32 md:right-6' : 'bottom-5 right-4 md:bottom-6 md:right-6'
         )}
       >
-        <Sparkles className="w-5 h-5" />
+        <KinLogoMark className="w-6 h-6" />
         <span
           aria-hidden="true"
           className="absolute -inset-1 rounded-full ring-1 ring-primary/25 pointer-events-none motion-reduce:ring-0"
@@ -317,7 +318,7 @@ export function CoachBubble() {
             {/* Header */}
             <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border shrink-0 bg-background/60">
               <span className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-kin">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
+                <KinLogoMark className="w-5 h-5" />
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground leading-tight">Kininaru Coach</p>

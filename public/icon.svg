@@ -1,26 +1,33 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .background { fill: black; }
-      .foreground { fill: white; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: white; }
-      .foreground { fill: black; }
-    }
-  </style>
-  <g clip-path="url(#clip0_7960_43945)">
-    <rect class="background" width="180" height="180" rx="37" />
-    <g style="transform: scale(95%); transform-origin: center">
-      <path class="foreground"
-        d="M101.141 53H136.632C151.023 53 162.689 64.6662 162.689 79.0573V112.904H148.112V79.0573C148.112 78.7105 148.098 78.3662 148.072 78.0251L112.581 112.898C112.701 112.902 112.821 112.904 112.941 112.904H148.112V126.672H112.941C98.5504 126.672 86.5638 114.891 86.5638 100.5V66.7434H101.141V100.5C101.141 101.15 101.191 101.792 101.289 102.422L137.56 66.7816C137.255 66.7563 136.945 66.7434 136.632 66.7434H101.141V53Z" />
-      <path class="foreground"
-        d="M65.2926 124.136L14 66.7372H34.6355L64.7495 100.436V66.7372H80.1365V118.47C80.1365 126.278 70.4953 129.958 65.2926 124.136Z" />
+  <!-- New Kininaru logo — lotus mark + wordmark, brand blue #5B8296 -->
+  <rect width="180" height="180" rx="40" fill="#FFFFFF" />
+  <g fill="#5B8296">
+    <g transform="translate(32.4 18) scale(1.8)">
+      <!-- Three dots — center raised -->
+      <rect x="24.5" y="9" width="4.5" height="4.5" rx="1.1" />
+      <rect x="29.75" y="5" width="4.5" height="4.5" rx="1.1" />
+      <rect x="35" y="9" width="4.5" height="4.5" rx="1.1" />
+      <!-- Lotus — center petal -->
+      <path d="M32 54 C 28 44 27 30 32 20 C 37 30 36 44 32 54 Z" />
+      <!-- Inner petals -->
+      <path d="M32 52 C 26 46 21 36 20 28 C 25 32 29 41 32 52 Z" />
+      <path d="M32 52 C 38 46 43 36 44 28 C 39 32 35 41 32 52 Z" />
+      <!-- Outer petals -->
+      <path d="M32 55 C 24 50 15 44 12 38 C 19 42 26 48 32 55 Z" />
+      <path d="M32 55 C 40 50 49 44 52 38 C 45 42 38 48 32 55 Z" />
+      <!-- Base petals -->
+      <path d="M32 57 C 25 58 18 57 15 53 C 20 58 26 59 32 57 Z" />
+      <path d="M32 57 C 39 58 46 57 49 53 C 44 58 38 59 32 57 Z" />
     </g>
   </g>
-  <defs>
-    <clipPath id="clip0_7960_43945">
-      <rect width="180" height="180" fill="white" />
-    </clipPath>
-  </defs>
+  <text
+    x="90"
+    y="162"
+    text-anchor="middle"
+    font-family="Plus Jakarta Sans, Inter, ui-sans-serif, system-ui, sans-serif"
+    font-size="26"
+    font-weight="600"
+    letter-spacing="0.2"
+    fill="#5B8296"
+  >kininaru</text>
 </svg>

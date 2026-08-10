@@ -428,7 +428,7 @@ export function Landing() {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" aria-label="Kininaru — accueil">
-            <KinLogo />
+            <KinLogo variant="row" markClassName="w-8 h-8" wordmarkClassName="text-lg" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-7">

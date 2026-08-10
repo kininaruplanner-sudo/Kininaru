@@ -25,6 +25,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
+import { KinLogo, KinLogoMark } from '@/components/kin-logo'
 import { useI18n, type TranslationKey } from '@/lib/i18n'
 
 interface NavItem {
@@ -120,15 +121,12 @@ export function Sidebar({
           'flex items-center h-16 border-b border-border px-4 shrink-0',
           collapsed ? 'lg:justify-center' : 'justify-between'
         )}>
-          <span className={cn(
-            'font-serif font-bold text-lg text-foreground tracking-tight',
-            collapsed && 'lg:hidden'
-          )}>
-            Kininaru
-          </span>
-          <span className={cn('hidden font-serif font-bold text-xl text-primary', collapsed && 'lg:inline')}>
-            K
-          </span>
+          <Link href="/dashboard" aria-label="Kininaru — accueil" className={cn('min-w-0', collapsed && 'lg:hidden')}>
+            <KinLogo variant="row" markClassName="w-7 h-7" wordmarkClassName="text-base" />
+          </Link>
+          <Link href="/dashboard" aria-label="Kininaru" className={cn('hidden', collapsed && 'lg:inline-flex')}>
+            <KinLogoMark className="w-7 h-7 text-primary" />
+          </Link>
 
           {/* Desktop collapse toggle */}
           <button
