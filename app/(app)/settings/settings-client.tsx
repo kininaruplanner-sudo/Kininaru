@@ -285,7 +285,7 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
     {
       icon: Keyboard,
       title: 'Raccourcis clavier',
-      desc: 'Ces raccourcis fonctionnent partout dans l’application — même pendant la saisie, sauf indication contraire.',
+      desc: 'Ctrl/Cmd + K ouvre la palette à tout moment (même pendant la saisie). Les autres raccourcis (? , Esc, ↑/↓, Entrée) agissent lorsque la palette ou l’aide des raccourcis est ouverte — jamais pendant la saisie dans un champ.',
       content: (
         <ul className="space-y-2">
           {KEYBOARD_SHORTCUTS.map((s) => (
