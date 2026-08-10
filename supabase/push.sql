@@ -31,18 +31,22 @@ alter table public.push_subscriptions enable row level security;
 create index if not exists push_subscriptions_user_idx
   on public.push_subscriptions (user_id);
 
+drop policy if exists "push_subscriptions: select own" on public.push_subscriptions;
 create policy "push_subscriptions: select own"
   on public.push_subscriptions for select
   using (auth.uid() = user_id);
 
+drop policy if exists "push_subscriptions: insert own" on public.push_subscriptions;
 create policy "push_subscriptions: insert own"
   on public.push_subscriptions for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "push_subscriptions: update own" on public.push_subscriptions;
 create policy "push_subscriptions: update own"
   on public.push_subscriptions for update
   using (auth.uid() = user_id);
 
+drop policy if exists "push_subscriptions: delete own" on public.push_subscriptions;
 create policy "push_subscriptions: delete own"
   on public.push_subscriptions for delete
   using (auth.uid() = user_id);
@@ -67,10 +71,12 @@ alter table public.push_send_log enable row level security;
 create index if not exists push_send_log_user_day_idx
   on public.push_send_log (user_id, sent_at);
 
+drop policy if exists "push_send_log: select own" on public.push_send_log;
 create policy "push_send_log: select own"
   on public.push_send_log for select
   using (auth.uid() = user_id);
 
+drop policy if exists "push_send_log: insert own" on public.push_send_log;
 create policy "push_send_log: insert own"
   on public.push_send_log for insert
   with check (auth.uid() = user_id);

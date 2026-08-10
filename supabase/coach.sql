@@ -26,18 +26,22 @@ create index if not exists coach_conversations_user_idx
 
 alter table public.coach_conversations enable row level security;
 
+drop policy if exists "coach_conversations: select own" on public.coach_conversations;
 create policy "coach_conversations: select own"
   on public.coach_conversations for select
   using (auth.uid() = user_id);
 
+drop policy if exists "coach_conversations: insert own" on public.coach_conversations;
 create policy "coach_conversations: insert own"
   on public.coach_conversations for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "coach_conversations: update own" on public.coach_conversations;
 create policy "coach_conversations: update own"
   on public.coach_conversations for update
   using (auth.uid() = user_id);
 
+drop policy if exists "coach_conversations: delete own" on public.coach_conversations;
 create policy "coach_conversations: delete own"
   on public.coach_conversations for delete
   using (auth.uid() = user_id);
@@ -60,19 +64,23 @@ create index if not exists coach_messages_conv_idx
 
 alter table public.coach_messages enable row level security;
 
+drop policy if exists "coach_messages: select own" on public.coach_messages;
 create policy "coach_messages: select own"
   on public.coach_messages for select
   using (auth.uid() = user_id);
 
+drop policy if exists "coach_messages: insert own" on public.coach_messages;
 create policy "coach_messages: insert own"
   on public.coach_messages for insert
   with check (auth.uid() = user_id);
 
 -- Mise à jour réservée au streaming du message assistant en cours.
+drop policy if exists "coach_messages: update own" on public.coach_messages;
 create policy "coach_messages: update own"
   on public.coach_messages for update
   using (auth.uid() = user_id);
 
+drop policy if exists "coach_messages: delete own" on public.coach_messages;
 create policy "coach_messages: delete own"
   on public.coach_messages for delete
   using (auth.uid() = user_id);

@@ -56,11 +56,13 @@ create index if not exists feedback_user_idx
 alter table public.feedback enable row level security;
 
 -- L'utilisateur crée uniquement ses propres retours (jamais anonyme côté API).
+drop policy if exists "feedback: insert own" on public.feedback;
 create policy "feedback: insert own"
   on public.feedback for insert
   with check (auth.uid() = user_id);
 
 -- L'utilisateur peut consulter uniquement ses propres retours.
+drop policy if exists "feedback: select own" on public.feedback;
 create policy "feedback: select own"
   on public.feedback for select
   using (auth.uid() = user_id);
