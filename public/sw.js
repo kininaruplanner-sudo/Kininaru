@@ -19,7 +19,9 @@
    must be invalidated immediately (old caches are purged on activate).
    ===================================================================== */
 
-const CACHE_VERSION = 'v1'
+// v2: new brand icons (lotus + wordmark) — old cached icons are purged on
+// activate so installed PWA / push notification icons refresh immediately.
+const CACHE_VERSION = 'v2'
 const ASSET_CACHE = `kininaru-assets-${CACHE_VERSION}`
 const CACHE_WHITELIST = [ASSET_CACHE]
 

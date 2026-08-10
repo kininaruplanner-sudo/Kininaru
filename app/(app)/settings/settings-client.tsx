@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall } from 'lucide-react'
+import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,7 @@ import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 import { isMemoryEnabled, setMemoryEnabled } from '@/lib/memory'
+import { KEYBOARD_SHORTCUTS } from '@/lib/shortcuts'
 
 interface Memory {
   id: string
@@ -265,6 +266,33 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
             ))}
           </div>
         </div>
+      ),
+    },
+    {
+      icon: Keyboard,
+      title: 'Raccourcis clavier',
+      desc: 'Ces raccourcis fonctionnent partout dans l’application — même pendant la saisie, sauf indication contraire.',
+      content: (
+        <ul className="space-y-2">
+          {KEYBOARD_SHORTCUTS.map((s) => (
+            <li
+              key={s.keys.join('-')}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-2.5"
+            >
+              <span className="text-sm text-foreground/90">{s.label}</span>
+              <span className="flex items-center gap-1 shrink-0">
+                {s.keys.map((k) => (
+                  <kbd
+                    key={k}
+                    className="inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-lg bg-muted text-xs font-medium text-foreground border border-border"
+                  >
+                    {k}
+                  </kbd>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
       ),
     },
     {

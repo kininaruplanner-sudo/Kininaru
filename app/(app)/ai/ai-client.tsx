@@ -611,6 +611,19 @@ export function AIAssistantClient({ displayName }: Props) {
           <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
             <span className="flex-1 leading-relaxed">{voice.callError}</span>
+            {voice.speechSupported && (
+              <button
+                onClick={() => {
+                  // startCall() clears the error and restarts the mic — lets the
+                  // user retry right after granting the permission in the browser.
+                  voice.startCall()
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-2.5 py-1 font-medium text-destructive hover:bg-destructive/10 active:scale-95 transition-smooth"
+              >
+                <RotateCcw className="w-3 h-3" aria-hidden />
+                Réessayer
+              </button>
+            )}
             <button
               onClick={voice.clearError}
               className="w-6 h-6 flex items-center justify-center rounded-md text-destructive/70 hover:text-destructive hover:bg-destructive/10 transition-smooth shrink-0"

@@ -20,9 +20,12 @@ import {
   CornerDownLeft,
   ArrowUp,
   ArrowDown,
+  Keyboard,
+  X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { KEYBOARD_SHORTCUTS, isTypingTarget } from '@/lib/shortcuts'
 
 interface PaletteItem {
   id: string
@@ -56,6 +59,7 @@ const QUICK_ACTIONS: { label: string; href: string; icon: React.ElementType }[] 
 export function CommandPalette() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [results, setResults] = useState<PaletteItem[]>([])
@@ -65,30 +69,48 @@ export function CommandPalette() {
 
   const close = useCallback(() => {
     setOpen(false)
+    setShowHelp(false)
     setQuery('')
     setResults([])
     setActiveIndex(0)
   }, [])
 
-  // Global shortcut: Cmd/Ctrl+K to open, Esc to close
+  // Global shortcuts: Cmd/Ctrl+K toggles the palette, '?' opens the keyboard
+  // help (never while typing — writing must stay untouched), Esc closes the
+  // help first, then the palette.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return // IME composition (e.g. accents, CJK) — ignore
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
+        setShowHelp(false)
         setOpen((v) => !v)
+        return
+      }
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+        e.preventDefault()
+        setShowHelp((v) => !v)
+        return
       }
       if (e.key === 'Escape') {
-        close()
+        if (showHelp) {
+          setShowHelp(false)
+        } else {
+          close()
+        }
       }
     }
-    const onExternalOpen = () => setOpen(true)
+    const onExternalOpen = () => {
+      setShowHelp(false)
+      setOpen(true)
+    }
     document.addEventListener('keydown', onKeyDown)
     window.addEventListener('kininaru:open-command-palette', onExternalOpen)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('kininaru:open-command-palette', onExternalOpen)
     }
-  }, [close])
+  }, [close, showHelp])
 
   useEffect(() => {
     if (open) {
@@ -194,6 +216,7 @@ export function CommandPalette() {
   let groupCursor = ''
 
   return (
+    <>
     <AnimatePresence>
       {open && (
         <motion.div
@@ -276,10 +299,80 @@ export function CommandPalette() {
               <span className="flex items-center gap-1">
                 <CornerDownLeft className="w-3 h-3" /> sélectionner
               </span>
+              <button
+                onClick={() => setShowHelp(true)}
+                className="flex items-center gap-1 hover:text-foreground transition-smooth"
+              >
+                <Keyboard className="w-3 h-3" /> raccourcis
+              </button>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+
+    {/* Keyboard shortcuts help (opened with '?' — never while typing) */}
+    <AnimatePresence>
+      {showHelp && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-start justify-center pt-[14vh] px-4"
+          onClick={() => setShowHelp(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -8 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="glass w-full max-w-sm rounded-3xl border border-border shadow-kin-hover overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Keyboard className="w-4 h-4 text-primary" />
+                Raccourcis clavier
+              </p>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+                aria-label="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ul className="p-3 space-y-1 max-h-[50vh] overflow-y-auto">
+              {KEYBOARD_SHORTCUTS.map((s) => (
+                <li
+                  key={s.keys.join('-')}
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-smooth"
+                >
+                  <span className="text-sm text-foreground/90">{s.label}</span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    {s.keys.map((k) => (
+                      <kbd
+                        key={k}
+                        className="inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-lg bg-muted text-xs font-medium text-foreground border border-border"
+                      >
+                        {k}
+                      </kbd>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="px-5 py-3 border-t border-border text-[11px] text-muted-foreground">
+              Astuce : <kbd className="inline-flex items-center px-1.5 h-5 rounded-md bg-muted border border-border text-[10px] font-medium">Ctrl</kbd>
+              {' + '}
+              <kbd className="inline-flex items-center px-1.5 h-5 rounded-md bg-muted border border-border text-[10px] font-medium">K</kbd>{' '}
+              ouvre la palette à tout moment.
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   )
 }

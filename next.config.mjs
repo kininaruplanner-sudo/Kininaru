@@ -34,7 +34,11 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+          // NOTE: `microphone` is deliberately NOT blocked here — the voice
+          // call (Web Speech API) needs it. Blocking it via Permissions-Policy
+          // makes getUserMedia/SpeechRecognition fail with 'not-allowed' even
+          // when the user has granted the browser permission.
+          { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
         ],
       },
     ]

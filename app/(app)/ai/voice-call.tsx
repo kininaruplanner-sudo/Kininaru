@@ -158,23 +158,35 @@ export function useVoiceCall({
     return () => window.clearInterval(id)
   }, [callActive])
 
+  /** Releases the recognition engine and its handlers — the mic is freed by
+   *  abort(), and nulling the callbacks prevents late events from firing
+   *  during teardown (no leaked listeners, no restart loops). */
+  const disposeRecognition = useCallback(() => {
+    const rec = recognitionRef.current
+    if (!rec) return
+    rec.onresult = null
+    rec.onend = null
+    rec.onerror = null
+    try {
+      rec.abort()
+    } catch {
+      /* noop */
+    }
+    recognitionRef.current = null
+  }, [])
+
   // Hard cleanup on unmount (never leave the mic / TTS / stream running)
   useEffect(() => {
     const abort = abortRef.current
     return () => {
       activeRef.current = false
-      try {
-        recognitionRef.current?.abort()
-      } catch {
-        /* noop */
-      }
-      recognitionRef.current = null
+      disposeRecognition()
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
       abort?.abort()
     }
-  }, [abortRef])
+  }, [abortRef, disposeRecognition])
 
   const startListening = useCallback(() => {
     const rec = recognitionRef.current
@@ -204,12 +216,7 @@ export function useVoiceCall({
     activeRef.current = false
     pausedRef.current = false
     speakTokenRef.current += 1 // invalidate pending TTS callbacks
-    try {
-      recognitionRef.current?.abort()
-    } catch {
-      /* noop */
-    }
-    recognitionRef.current = null
+    disposeRecognition()
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
@@ -217,10 +224,21 @@ export function useVoiceCall({
     setCallActive(false)
     setCallStatus('idle')
     setInterim('')
-  }, [abortRef])
+  }, [abortRef, disposeRecognition])
 
   const startCall = () => {
     if (activeRef.current) return
+
+    // Speech recognition only works in a secure context (HTTPS) or on
+    // localhost. Fail early with a precise message instead of a confusing
+    // "microphone denied" error later.
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setCallError(
+        'L’appel vocal nécessite une connexion sécurisée (HTTPS ou localhost). La reconnaissance vocale est bloquée sur cette page.'
+      )
+      return
+    }
+
     const Ctor = getRecognitionCtor()
     if (!Ctor) {
       // Remember the outcome so the header button disables after the first try.
@@ -281,14 +299,25 @@ export function useVoiceCall({
     }
 
     rec.onerror = (ev) => {
-      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      const error = ev.error
+
+      // Fatal, user-fixable errors → end the call and show a precise message.
+      if (error === 'not-allowed' || error === 'service-not-allowed') {
         endCallInternal()
         setCallError(
-          'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur pour l’appel vocal.'
+          'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur (icône micro dans la barre d’adresse), puis réessayez.'
         )
         return
       }
-      // Transient errors (network, no-speech, aborted) → onend restarts the mic.
+      if (error === 'audio-capture') {
+        endCallInternal()
+        setCallError(
+          'Aucun microphone détecté. Branchez ou activez un microphone, puis réessayez.'
+        )
+        return
+      }
+      // Transient errors (network, no-speech, aborted, language-not-supported…)
+      // → keep the call alive; onend restarts the mic automatically.
     }
 
     startListening()
