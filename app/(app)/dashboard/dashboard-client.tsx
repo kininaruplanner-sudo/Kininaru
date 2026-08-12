@@ -485,8 +485,10 @@ export function DashboardClient({
         <div className={cn(cardVariants({ padding: 'lg' }), 'flex flex-col items-center justify-center text-center relative overflow-hidden')}>
           <div className="absolute inset-0 kin-glow pointer-events-none" />
           <p className="text-xs font-medium text-muted-foreground mb-3">Score de productivité</p>
-          <div className="relative w-28 h-28">
-            <svg width="112" height="112" className="-rotate-90">
+          {/* Compact ring on phones so the score never dominates the
+              “what should I do now” answer above it. */}
+          <div className="relative w-20 h-20 lg:w-28 lg:h-28">
+            <svg viewBox="0 0 112 112" className="w-20 h-20 lg:w-28 lg:h-28 -rotate-90">
               <circle cx="56" cy="56" r="46" fill="none" stroke="currentColor" strokeWidth="9" className="text-muted" />
               <motion.circle
                 cx="56" cy="56" r="46"
@@ -501,7 +503,7 @@ export function DashboardClient({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-foreground tabular-nums">{productivityScore}</span>
+              <span className="text-lg lg:text-2xl font-bold text-foreground tabular-nums">{productivityScore}</span>
               <span className="text-[10px] text-muted-foreground">/ 100</span>
             </div>
           </div>

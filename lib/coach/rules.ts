@@ -225,6 +225,20 @@ const RULES: Rule[] = [
       'Chaque habitude renforc\u00e9e est une victoire. Continue \u00e0 construire la s\u00e9rie.',
   },
   {
+    // Gentle restart (Phase 1 — mobile/Android): after a missed or slow
+    // start, never blame. Morning only, backed by real data (open overdue
+    // tasks, nothing completed yet today).
+    id: 'gentle_restart',
+    weight: 33,
+    notify: false,
+    pages: ['dashboard', 'tasks'],
+    run: (ctx) => {
+      if (ctx.hour > 12 || ctx.hour < 5) return null
+      if (ctx.tasksOverdue === 0 || ctx.tasksCompleted > 0) return null
+      return 'Pas grave si hier a été compliqué. On reprend aujourd\u2019hui, une étape à la fois.'
+    },
+  },
+  {
     // Empty-day fallback (§13): never invent data, offer the coach instead.
     id: 'fresh_day',
     weight: 10,
@@ -252,6 +266,7 @@ const ACTIONS: Record<string, CoachAction | null> = {
   evening_review: { label: 'Faire un bilan', href: '/journal' },
   afternoon_gap: { label: 'Pr\u00e9parer la suite', href: '/ai' },
   busy_day: { label: 'Voir mon agenda', href: '/calendar' },
+  gentle_restart: { label: 'Voir mes priorités', href: '/tasks' },
   habits_left: { label: 'Mes habitudes', href: '/habits' },
   focus_session: { label: 'Nouvelle session', href: '/focus' },
   journal_week: { label: '\u00c9crire maintenant', href: '/journal' },

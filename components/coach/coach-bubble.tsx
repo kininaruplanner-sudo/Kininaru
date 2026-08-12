@@ -291,7 +291,8 @@ export function CoachBubble() {
         className={cn(
           'fixed z-40 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-kin transition-smooth',
           'w-12 h-12',
-          isAi ? 'bottom-32 right-4 md:bottom-32 md:right-6' : 'bottom-5 right-4 md:bottom-6 md:right-6'
+          // On phones the bubble sits above the bottom tab bar (bottom-24).
+          isAi ? 'bottom-32 right-4 md:bottom-32 md:right-6' : 'bottom-24 right-4 md:bottom-6 md:right-6'
         )}
       >
         <KinLogoMark className="w-6 h-6" />
