@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kininaru.planner",
+      "sha256_cert_fingerprints": [
+        "15:F1:4C:31:17:6F:F1:FD:8B:B4:5E:89:C9:1F:C3:2F:C9:39:BD:A7:91:91:21:0B:A0:4F:98:8F:17:72:52:64"
+      ]
+    }
+  }
+]

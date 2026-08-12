@@ -1,0 +1,49 @@
+{
+  "packageId": "com.kininaru.planner",
+  "host": "kininaru-planner.vercel.app",
+  "name": "Kininaru",
+  "launcherName": "Kininaru",
+  "display": "standalone",
+  "themeColor": "#F7F9FC",
+  "themeColorDark": "#16161F",
+  "navigationColor": "#F7F9FC",
+  "navigationColorDark": "#16161F",
+  "navigationDividerColor": "#F7F9FC",
+  "navigationDividerColorDark": "#16161F",
+  "backgroundColor": "#F7F9FC",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://kininaru-planner.vercel.app/icon-512x512.png",
+  "maskableIconUrl": "https://kininaru-planner.vercel.app/icon-maskable-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android-keystore/kininaru.keystore",
+    "alias": "kininaru"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://kininaru-planner.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://kininaru-planner.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "name": "test-signing-key",
+      "value": "15:F1:4C:31:17:6F:F1:FD:8B:B4:5E:89:C9:1F:C3:2F:C9:39:BD:A7:91:91:21:0B:A0:4F:98:8F:17:72:52:64"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1"
+}
