@@ -709,7 +709,9 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex gap-4 min-h-full"
+              // Horizontal scroll on small screens: three 240px-min columns
+              // would otherwise overflow the viewport on phones.
+              className="flex gap-4 min-h-full overflow-x-auto pb-2"
             >
               {KANBAN_COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.status)

@@ -302,6 +302,14 @@ export function DashboardClient({
     }
   }, [NEXT_ACTION_KEY])
 
+  // First-run onboarding: a brand-new account (nothing created yet) gets a
+  // compact 3-step guide instead of a wall of empty states.
+  const isFirstRun =
+    tasks.length === 0 &&
+    habits.length === 0 &&
+    events.length === 0 &&
+    focusSessions.length === 0
+
   const stats = [
     {
       label: 'Tâches terminées',
@@ -363,7 +371,7 @@ export function DashboardClient({
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href="/ai"
-            className="group flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
+            className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
           >
             <Sparkles className="w-4 h-4" />
             Parler au coach
@@ -379,6 +387,92 @@ export function DashboardClient({
           </div>
         </div>
       </motion.div>
+
+      {/* First-run welcome (empty account) — guides to first task → focus → coach */}
+      {isFirstRun && (
+        <motion.div
+          custom={1}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className={cn(cardVariants({ padding: 'lg', variant: 'accent' }), 'relative overflow-hidden')}
+        >
+          <div className="absolute inset-0 kin-glow pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                Bienvenue sur Kininaru
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 max-w-xl leading-relaxed">
+              Commençons par une première action. Le coach s’occupe du reste : il
+              prépare votre journée, vos priorités et vos rappels.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-2">
+              {[
+                { step: '1', label: 'Créer une tâche', href: '/tasks?new=1', icon: CheckSquare },
+                { step: '2', label: 'Lancer un Focus', href: '/focus', icon: Timer },
+                { step: '3', label: 'Parler au coach', href: '/ai', icon: Sparkles },
+              ].map((s) => (
+                <Link
+                  key={s.step}
+                  href={s.href}
+                  className="flex items-center gap-2.5 p-3 min-h-11 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-smooth"
+                >
+                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                    {s.step}
+                  </span>
+                  <s.icon className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground">{s.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Smart Next Action (§15.5 §8) — deterministic, cached, opens Focus.
+          Kept at the TOP of the dashboard so “what should I do now?” is the
+          first thing answered, before scores and statistics. */}
+      {nextAction && (
+        <motion.div
+          custom={1.1}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className={cn(cardVariants({ padding: 'lg' }), 'border-l-4 border-l-kin-sage')}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wide">
+              🎯 Ta prochaine action
+            </span>
+            <Zap className="w-4 h-4 text-kin-sage" />
+          </div>
+          <p className="text-base font-semibold text-foreground leading-snug">
+            {nextAction.title}
+          </p>
+          {nextAction.reason && (
+            <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+              Pourquoi ? {nextAction.reason}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-3.5">
+            <Link
+              href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(nextAction.title)}`}
+            >
+              <Button size="sm" className="gap-1.5">
+                ▶ Commencer
+              </Button>
+            </Link>
+            <Link href="/tasks">
+              <Button variant="outline" size="sm">
+                Voir mes tâches
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* Hero row: score + today's stats */}
       <motion.div
@@ -439,46 +533,6 @@ export function DashboardClient({
           ))}
         </div>
       </motion.div>
-
-      {/* Smart Next Action (§15.5 §8) — deterministic, cached, opens Focus */}
-      {nextAction && (
-        <motion.div
-          custom={5.4}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          className={cn(cardVariants({ padding: 'lg' }), 'border-l-4 border-l-kin-sage')}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wide">
-              🎯 Ta prochaine action
-            </span>
-            <Zap className="w-4 h-4 text-kin-sage" />
-          </div>
-          <p className="text-base font-semibold text-foreground leading-snug">
-            {nextAction.title}
-          </p>
-          {nextAction.reason && (
-            <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
-              Pourquoi ? {nextAction.reason}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2 mt-3.5">
-            <Link
-              href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(nextAction.title)}`}
-            >
-              <Button size="sm" className="gap-1.5">
-                ▶ Commencer
-              </Button>
-            </Link>
-            <Link href="/tasks">
-              <Button variant="outline" size="sm">
-                Voir mes tâches
-              </Button>
-            </Link>
-          </div>
-        </motion.div>
-      )}
 
       {/* Daily AI Insight */}
       <motion.div

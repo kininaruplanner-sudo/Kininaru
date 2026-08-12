@@ -26,7 +26,7 @@ export function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
         title="Changer de thème"
         aria-label="Changer de thème"
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth',
+          'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth',
           collapsed && 'lg:justify-center lg:px-2'
         )}
       >

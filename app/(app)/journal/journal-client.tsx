@@ -616,7 +616,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                         aria-label={tool.label}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => tool.onPress()}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+                        className="min-w-11 min-h-11 sm:min-w-8 sm:min-h-8 w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
                       >
                         <tool.icon className="w-4 h-4" />
                       </button>
@@ -630,7 +630,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setEmojiOpen((v) => !v)}
                         className={cn(
-                          'w-8 h-8 flex items-center justify-center rounded-lg transition-smooth',
+                          'min-w-11 min-h-11 sm:min-w-8 sm:min-h-8 w-8 h-8 flex items-center justify-center rounded-lg transition-smooth',
                           emojiOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                         )}
                       >

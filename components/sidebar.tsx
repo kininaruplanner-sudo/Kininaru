@@ -143,10 +143,10 @@ export function Sidebar({
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
 
-          {/* Mobile close button */}
+          {/* Mobile close button — 44×44 touch target */}
           <button
             onClick={onMobileClose}
-            className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+            className="lg:hidden p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
             aria-label="Close menu"
           >
             <X className="w-4 h-4" />
@@ -158,7 +158,7 @@ export function Sidebar({
           <button
             onClick={() => window.dispatchEvent(new Event('kininaru:open-command-palette'))}
             className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground bg-muted/60 hover:bg-muted transition-smooth border border-border/60',
+              'w-full flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm text-muted-foreground bg-muted/60 hover:bg-muted transition-smooth border border-border/60',
               collapsed && 'lg:justify-center lg:px-2'
             )}
             title={`${t('common.search')} (⌘K)`}
@@ -187,7 +187,7 @@ export function Sidebar({
                     href={href}
                     title={collapsed ? label : undefined}
                     className={cn(
-                      'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-smooth group',
+                      'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group',
                       active
                         ? 'text-foreground [&_svg]:text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5',
@@ -234,7 +234,7 @@ export function Sidebar({
             href="/settings"
             title={collapsed ? t('common.settings') : undefined}
             className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
+              'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
               collapsed && 'lg:justify-center lg:px-2'
             )}
           >
@@ -246,7 +246,7 @@ export function Sidebar({
             onClick={handleLogout}
             title={collapsed ? t('common.signOut') : undefined}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:translate-x-0.5 transition-smooth',
+              'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:translate-x-0.5 transition-smooth',
               collapsed && 'lg:justify-center lg:px-2'
             )}
           >

@@ -569,14 +569,16 @@ export function AIAssistantClient({ displayName }: Props) {
 
                   {!isEmptyPlaceholder && (
                     <div className={cn(
-                      'flex items-center gap-2 px-1 opacity-0 group-hover:opacity-100 transition-smooth',
+                      // Always visible on touch devices (no hover) — hidden until
+                      // hover on desktop only.
+                      'flex items-center gap-2 px-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-smooth',
                       msg.role === 'user' && 'flex-row-reverse'
                     )}>
                       <span className="text-[10px] text-muted-foreground/70">{format(msg.timestamp, 'HH:mm')}</span>
                       {msg.role === 'assistant' && !isActivelyStreaming && msg.content && (
                         <button
                           onClick={() => copyMessage(i, msg.content)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+                          className="min-w-11 min-h-11 sm:min-w-7 sm:min-h-7 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
                           title="Copier"
                           aria-label="Copier la réponse"
                         >
