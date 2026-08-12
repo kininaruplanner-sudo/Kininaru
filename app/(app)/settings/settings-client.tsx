@@ -44,6 +44,12 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
   const [memoryEnabled, setMemoryEnabledState] = useState(isMemoryEnabled())
   const [clearingMemory, setClearingMemory] = useState(false)
+  // "Que doit savoir le Coach sur moi ?" — add a memory by hand (insert own,
+  // RLS), opt-in: it is only injected into chats when memory is enabled.
+  const [newMemory, setNewMemory] = useState('')
+  const [memoryCategory, setMemoryCategory] = useState('fact')
+  const [savingMemory, setSavingMemory] = useState(false)
+  const [memoryError, setMemoryError] = useState<string | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug')
   const [feedbackCount, setFeedbackCount] = useState(0)
@@ -67,6 +73,32 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   const toggleMemory = (next: boolean) => {
     setMemoryEnabledState(next)
     setMemoryEnabled(next)
+  }
+
+  const addMemory = async () => {
+    const content = newMemory.trim()
+    if (!content) return
+    if (content.length > 500) {
+      setMemoryError('Maximum 500 caractères.')
+      return
+    }
+    setSavingMemory(true)
+    setMemoryError(null)
+    try {
+      const { data, error } = await supabase
+        .from('ai_memories')
+        .insert({ user_id: userId, content, category: memoryCategory })
+        .select('id, content, category, created_at')
+        .single()
+      if (error) {
+        setMemoryError('Impossible d’enregistrer ce souvenir. Réessaie dans un instant.')
+        return
+      }
+      setMemories((prev) => [data as Memory, ...prev])
+      setNewMemory('')
+    } finally {
+      setSavingMemory(false)
+    }
   }
 
   const clearAllMemories = async () => {
@@ -428,6 +460,65 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
                 )}
               />
             </button>
+          </div>
+
+          {/* “Que doit savoir le Coach sur moi ?” — manual, user-controlled */}
+          <div className="rounded-xl border border-border bg-background/60 p-3">
+            <p className="text-sm font-medium text-foreground mb-1">
+              Que doit savoir le Coach sur moi ?
+            </p>
+            <p className="text-xs text-muted-foreground leading-snug mb-2.5">
+              Un fait durable qui t’aide à avancer (ex. « Je prépare le CAP cuisine en juin »,
+              « Je travaille mieux le matin »). Rien n’est partagé — utilisé uniquement comme
+              contexte dans tes conversations, et supprimable à tout moment.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={newMemory}
+                onChange={(e) => setNewMemory(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) void addMemory()
+                }}
+                placeholder="Ex. : Je prépare le CAP cuisine en juin…"
+                maxLength={500}
+                className="flex-1"
+                aria-label="Ajouter un souvenir"
+              />
+              <select
+                value={memoryCategory}
+                onChange={(e) => setMemoryCategory(e.target.value)}
+                className="h-9 px-2.5 text-sm bg-background border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-ring transition-smooth"
+                aria-label="Catégorie du souvenir"
+              >
+                {['fact', 'goal', 'preference', 'habit', 'other'].map((c) => (
+                  <option key={c} value={c}>
+                    {c === 'fact'
+                      ? 'Fait'
+                      : c === 'goal'
+                        ? 'Objectif'
+                        : c === 'preference'
+                          ? 'Préférence'
+                          : c === 'habit'
+                            ? 'Habitude'
+                            : 'Autre'}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                onClick={() => void addMemory()}
+                disabled={savingMemory || newMemory.trim().length === 0}
+                className="gap-1.5 shrink-0"
+              >
+                {savingMemory ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Bookmark className="w-3.5 h-3.5" />
+                )}
+                Mémoriser
+              </Button>
+            </div>
+            {memoryError && <p className="text-xs text-destructive mt-2">{memoryError}</p>}
           </div>
 
           <div className="flex items-center justify-between">

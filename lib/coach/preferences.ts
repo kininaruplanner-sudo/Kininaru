@@ -21,11 +21,17 @@ export interface CoachPrefs {
   dailyBrief: boolean
   /** Weekly review suggestion. */
   weeklyReview: boolean
+  /** How often the coach may intervene: low / normal / high. */
+  frequency: CoachFrequency
   /** Communication style (never changes safety rules). */
   style: CoachStyle
   /** ISO timestamp; coach stays quiet until then. */
   pausedUntil: string | null
 }
+
+export type CoachFrequency = 'low' | 'normal' | 'high'
+
+export const COACH_FREQUENCIES: readonly CoachFrequency[] = ['low', 'normal', 'high']
 
 export const DEFAULT_COACH_PREFS: CoachPrefs = {
   enabled: true,
@@ -33,6 +39,7 @@ export const DEFAULT_COACH_PREFS: CoachPrefs = {
   notifications: false,
   dailyBrief: true,
   weeklyReview: true,
+  frequency: 'normal',
   style: 'encouraging',
   pausedUntil: null,
 }
@@ -48,6 +55,12 @@ export function loadCoachPrefs(): CoachPrefs {
     return {
       ...DEFAULT_COACH_PREFS,
       ...parsed,
+      frequency:
+        parsed.frequency === 'low' ||
+        parsed.frequency === 'normal' ||
+        parsed.frequency === 'high'
+          ? parsed.frequency
+          : DEFAULT_COACH_PREFS.frequency,
       style:
         parsed.style === 'calm' ||
         parsed.style === 'encouraging' ||

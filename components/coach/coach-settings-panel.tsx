@@ -176,6 +176,40 @@ export function CoachSettingsPanel() {
         />
       </div>
 
+      {/* Frequency (§3 / ÉTAPE 16) — how often the coach may intervene */}
+      <div className={cn('space-y-1', !prefs.enabled && 'opacity-60 pointer-events-none')}>
+        <div>
+          <p className="text-sm font-medium text-foreground mb-0.5">{t('settings.coachFrequency')}</p>
+          <p className="text-xs text-muted-foreground leading-snug mb-2">
+            {t('settings.coachFrequencyDesc')}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { value: 'low', label: t('settings.coachFrequencyLow'), desc: t('settings.coachFrequencyLowDesc') },
+                { value: 'normal', label: t('settings.coachFrequencyNormal'), desc: t('settings.coachFrequencyNormalDesc') },
+                { value: 'high', label: t('settings.coachFrequencyHigh'), desc: t('settings.coachFrequencyHighDesc') },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update({ frequency: opt.value })}
+                className={cn(
+                  'px-2 py-2 rounded-xl border-2 text-center transition-smooth',
+                  prefs.frequency === opt.value
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                )}
+              >
+                <span className="block text-sm font-medium">{opt.label}</span>
+                <span className="block text-[10px] text-muted-foreground mt-0.5">{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Style (§8 / §20) — changes tone only, never rules or safety */}
       <div>
         <p className="text-sm font-medium text-foreground mb-2">{t('settings.coachStyle')}</p>

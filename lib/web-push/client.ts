@@ -10,11 +10,15 @@
  * - All operations are best-effort and never break the app.
  */
 
+export type PushFrequency = 'low' | 'normal' | 'high'
+
 export interface PushPrefs {
   morning: boolean
   evening: boolean
   weekly: boolean
   coach: boolean
+  /** How many proactive push briefs per day: low / normal / high. */
+  frequency: PushFrequency
   quietStart: number
   quietEnd: number
 }
@@ -24,6 +28,7 @@ export const DEFAULT_PUSH_PREFS: PushPrefs = {
   evening: true,
   weekly: true,
   coach: true,
+  frequency: 'normal',
   quietStart: 22,
   quietEnd: 7,
 }

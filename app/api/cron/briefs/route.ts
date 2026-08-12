@@ -4,6 +4,7 @@ import {
   sendPushNotification,
   parsePushPrefs,
   isQuietHours,
+  PUSH_DAILY_CAP,
   type PushSubscriptionRow,
 } from '@/lib/web-push/server'
 
@@ -28,7 +29,9 @@ export const dynamic = 'force-dynamic'
  * CRON_SECRET.
  */
 
-const DAILY_PUSH_CAP = 6
+// Daily proactive-push cap is scaled by the user's frequency preference
+// (low 3 / normal 6 / high 10) — see PUSH_DAILY_CAP in lib/web-push/server.ts.
+// The scheduled morning / evening / weekly briefs are separate opt-in types.
 
 /**
  * FUSEAUX HORAIRES : Vercel exécute les crons en UTC (vercel.json : 07:00,
@@ -106,7 +109,7 @@ export async function POST(req: Request) {
         .eq('user_id', userId)
         .eq('kind', 'push')
         .gte('sent_at', dayStart)
-      if ((todayCount ?? 0) >= DAILY_PUSH_CAP) {
+      if ((todayCount ?? 0) >= PUSH_DAILY_CAP[prefs.frequency]) {
         skipped++
         continue
       }

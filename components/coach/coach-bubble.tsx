@@ -220,12 +220,13 @@ export function CoachBubble() {
     if (!prefs.enabled) return
     setLoading(true)
     setError(false)
-    const frequency = canCoachIntervene({
+    const gate = canCoachIntervene({
       enabled: prefs.enabled,
       proactive: prefs.proactive,
       pausedUntil: prefs.pausedUntil,
+      frequency: prefs.frequency,
     })
-    const wantNotify = prefs.notifications && frequency.allowed
+    const wantNotify = prefs.notifications && gate.allowed
 
     try {
       const res = await fetch('/api/coach/observe', {
@@ -258,7 +259,7 @@ export function CoachBubble() {
     } finally {
       setLoading(false)
     }
-  }, [page, prefs.enabled, prefs.proactive, prefs.notifications, prefs.pausedUntil, prefs.style])
+  }, [page, prefs.enabled, prefs.proactive, prefs.notifications, prefs.pausedUntil, prefs.frequency, prefs.style])
 
   const openCoach = () => {
     setOpen(true)

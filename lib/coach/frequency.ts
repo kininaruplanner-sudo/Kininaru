@@ -13,6 +13,28 @@ export const QUIET_END_HOUR = 7
 export const MAX_INTERVENTIONS_PER_DAY = 6
 export const MIN_GAP_MINUTES = 30
 
+/**
+ * Frequency levels (ÉTAPE 16 §3) — scale how often the coach may intervene.
+ * - low:    at most 3 interventions/day, minimum 2 h between two.
+ * - normal: at most 6/day, minimum 30 min (default, unchanged behaviour).
+ * - high:   at most 10/day, minimum 10 min.
+ * Quiet hours, per-rule daily dedupe and the user pause still apply on top.
+ */
+export type CoachFrequency = 'low' | 'normal' | 'high'
+
+export const FREQUENCY_LIMITS: Record<
+  CoachFrequency,
+  { maxPerDay: number; minGapMinutes: number }
+> = {
+  low: { maxPerDay: 3, minGapMinutes: 120 },
+  normal: { maxPerDay: MAX_INTERVENTIONS_PER_DAY, minGapMinutes: MIN_GAP_MINUTES },
+  high: { maxPerDay: 10, minGapMinutes: 10 },
+}
+
+export function isCoachFrequency(value: unknown): value is CoachFrequency {
+  return value === 'low' || value === 'normal' || value === 'high'
+}
+
 const LOG_KEY = 'kininaru-coach-log'
 const SEEN_KEY = 'kininaru-coach-seen'
 
@@ -49,6 +71,7 @@ export function canCoachIntervene(prefs: {
   enabled: boolean
   proactive: boolean
   pausedUntil: string | null
+  frequency?: CoachFrequency
 }): { allowed: boolean; reason?: InterventionReason } {
   if (!prefs.enabled) return { allowed: false, reason: 'disabled' }
   if (!prefs.proactive) return { allowed: false, reason: 'disabled' }
@@ -56,15 +79,16 @@ export function canCoachIntervene(prefs: {
     return { allowed: false, reason: 'paused' }
   if (isQuietHours()) return { allowed: false, reason: 'quiet' }
 
+  const limits = FREQUENCY_LIMITS[prefs.frequency ?? 'normal']
   const now = Date.now()
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
   const todayCount = readLog().filter((at) => at >= dayStart.getTime()).length
-  if (todayCount >= MAX_INTERVENTIONS_PER_DAY) return { allowed: false, reason: 'daily-limit' }
+  if (todayCount >= limits.maxPerDay) return { allowed: false, reason: 'daily-limit' }
 
   const log = readLog()
   const last = log[log.length - 1]
-  if (last && now - last < MIN_GAP_MINUTES * 60_000) return { allowed: false, reason: 'gap' }
+  if (last && now - last < limits.minGapMinutes * 60_000) return { allowed: false, reason: 'gap' }
 
   return { allowed: true }
 }

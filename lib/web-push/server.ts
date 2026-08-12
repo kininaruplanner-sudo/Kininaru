@@ -90,23 +90,43 @@ export function isQuietHours(now = new Date(), quietStart = 22, quietEnd = 7): b
   return h >= quietStart || h < quietEnd
 }
 
+export type PushFrequency = 'low' | 'normal' | 'high'
+
+/**
+ * Daily push cap per frequency level (ÉTAPE 16 §3): the proactive coach
+ * briefs (smart reminders) are capped so the user is never spammed. The
+ * morning / evening / weekly scheduled briefs are NOT part of this cap —
+ * they are opt-in types on their own.
+ */
+export const PUSH_DAILY_CAP: Record<PushFrequency, number> = {
+  low: 3,
+  normal: 6,
+  high: 10,
+}
+
 /** Parses + sanitizes the user push prefs stored on a subscription row. */
 export function parsePushPrefs(raw: unknown): {
   morning: boolean
   evening: boolean
   weekly: boolean
   coach: boolean
+  frequency: PushFrequency
   quietStart: number
   quietEnd: number
 } {
   const r = (raw ?? {}) as Record<string, unknown>
   const num = (v: unknown, fallback: number) =>
     typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(23, Math.round(v))) : fallback
+  const freq =
+    r.frequency === 'low' || r.frequency === 'normal' || r.frequency === 'high'
+      ? (r.frequency as PushFrequency)
+      : 'normal'
   return {
     morning: r.morning !== false,
     evening: r.evening !== false,
     weekly: r.weekly !== false,
     coach: r.coach !== false,
+    frequency: freq,
     quietStart: num(r.quietStart, 22),
     quietEnd: num(r.quietEnd, 7),
   }

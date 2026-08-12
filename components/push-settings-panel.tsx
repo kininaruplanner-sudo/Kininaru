@@ -258,6 +258,33 @@ export function PushSettingsPanel() {
             checked={prefs.coach}
             onChange={(v) => updatePrefs({ coach: v })}
           />
+          <div className="pt-3">
+            <label className="text-xs text-muted-foreground block mb-1">Fréquence des rappels intelligents</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { value: 'low', label: 'Faible', desc: '3 max/jour' },
+                  { value: 'normal', label: 'Normale', desc: '6 max/jour' },
+                  { value: 'high', label: 'Élevée', desc: '10 max/jour' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => updatePrefs({ frequency: opt.value })}
+                  className={cn(
+                    'px-2 py-2 rounded-xl border-2 text-center transition-smooth',
+                    prefs.frequency === opt.value
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  )}
+                >
+                  <span className="block text-sm font-medium">{opt.label}</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Heures silencieuses — début</label>
@@ -285,8 +312,8 @@ export function PushSettingsPanel() {
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground/80 leading-snug pt-1">
-            Aucune notification pendant les heures silencieuses, maximum 6 par jour, jamais de
-            doublon, et rien pour une tâche déjà terminée.
+            Aucune notification pendant les heures silencieuses, un plafond quotidien selon la
+            fréquence choisie, jamais de doublon, et rien pour une tâche déjà terminée.
           </p>
         </div>
       )}

@@ -20,6 +20,9 @@ import {
   TrendingUp,
   Send,
   ShieldCheck,
+  Sunrise,
+  BellRing,
+  Moon,
 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
@@ -413,6 +416,7 @@ export function Landing() {
   const navLinks = [
     { href: '#features', label: 'Fonctionnalités' },
     { href: '#ai', label: 'Coach IA' },
+    { href: '#day', label: 'Une journée' },
     { href: '#family', label: 'Famille' },
     { href: '#progress', label: 'Progression' },
   ]
@@ -510,8 +514,12 @@ export function Landing() {
               transition={{ duration: 0.55, delay: 0.12 }}
               className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-lg"
             >
-              Kininaru réunit tâches, habitudes, focus, journal et un coach IA dans un seul
-              espace chaleureux — pour avancer chaque jour, seul ou en famille.
+              Kininaru ne sert pas seulement à stocker vos tâches : il vous aide à savoir
+              <strong className="text-foreground font-semibold"> quoi faire</strong>,{' '}
+              <strong className="text-foreground font-semibold">quand le faire</strong> et{' '}
+              <strong className="text-foreground font-semibold">comment avancer</strong> —
+              grâce à un coach IA qui lit votre journée, réunit tâches, habitudes, focus,
+              journal et famille dans un seul espace chaleureux.
             </motion.p>
 
             <motion.div
@@ -624,6 +632,115 @@ export function Landing() {
 
           <Reveal delay={0.1}>
             <AiDemo />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ---------------- Une journée avec Kininaru ---------------- */}
+      <section id="day" className="py-20 sm:py-28 border-t border-border/60 bg-card/40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-14 items-center">
+          <Reveal>
+            <div className="max-w-lg">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kin-blue/15 text-kin-blue text-xs font-semibold mb-4">
+                <Sunrise className="w-3 h-3" /> Une journée avec Kininaru
+              </span>
+              <h2 className="kin-h1 text-foreground mb-5">
+                Votre journée,
+                <br /> accompagnée du matin au soir.
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-8">
+                Kininaru ne se contente pas de vous écouter : il prépare votre journée, vous
+                rappelle ce qui compte vraiment, vous aide à entrer en focus et clôture la
+                journée avec vous. Discret, jamais envahissant.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Brief du matin : vos 1 à 3 priorités du jour',
+                  'Rappels intelligents au bon moment, jamais en excès',
+                  'Sessions Focus lancées en un clic depuis une tâche',
+                  'Bilan du soir + préparation du lendemain',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-foreground/90">
+                    <span className="w-5 h-5 rounded-full bg-kin-blue/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="w-3 h-3 text-kin-blue" strokeWidth={3} />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2">
+                Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div className="relative mx-auto max-w-md w-full">
+              <div className="absolute -inset-8 rounded-[40px] bg-gradient-to-br from-kin-blue/15 via-kin-sage/10 to-transparent blur-2xl" />
+              <div className="relative rounded-3xl border border-border bg-card shadow-kin-hover p-6 sm:p-7">
+                <p className="font-serif font-bold text-foreground mb-6">Une journée type</p>
+                <div className="space-y-1">
+                  {[
+                    {
+                      time: '08:00',
+                      icon: Sunrise,
+                      title: 'Le Coach prépare la journée',
+                      text: 'Brief du matin : vos priorités, vos événements, votre première action.',
+                      color: 'bg-kin-yellow/25 text-kin-coral',
+                    },
+                    {
+                      time: '10:30',
+                      icon: BellRing,
+                      title: 'Rappel intelligent',
+                      text: '« Votre tâche prioritaire est en cours — 25 minutes de focus suffisent. »',
+                      color: 'bg-kin-coral/15 text-kin-coral',
+                    },
+                    {
+                      time: '14:00',
+                      icon: Timer,
+                      title: 'Session Focus',
+                      text: 'La tâche se pré-remplit dans Focus. Vous lancez, le coach vous laisse travailler.',
+                      color: 'bg-kin-blue/15 text-kin-blue',
+                    },
+                    {
+                      time: '18:30',
+                      icon: TrendingUp,
+                      title: 'Bilan des progrès',
+                      text: 'Tâches terminées, habitudes cochées, minutes de focus — sans culpabiliser.',
+                      color: 'bg-kin-sage/20 text-kin-sage',
+                    },
+                    {
+                      time: '21:00',
+                      icon: Moon,
+                      title: 'Journal + lendemain',
+                      text: 'Une pensée, un bilan, et demain est déjà préparé.',
+                      color: 'bg-primary/10 text-primary',
+                    },
+                  ].map((step, i) => (
+                    <div key={step.time} className="relative flex gap-4 pb-5 last:pb-0">
+                      {i < 4 && (
+                        <span className="absolute left-[15px] top-8 bottom-0 w-px bg-border" aria-hidden="true" />
+                      )}
+                      <span
+                        className={cn(
+                          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 z-10 shadow-kin',
+                          step.color
+                        )}
+                      >
+                        <step.icon className="w-4 h-4" />
+                      </span>
+                      <div className="min-w-0 pt-0.5">
+                        <p className="text-[11px] font-semibold text-muted-foreground tracking-wide tabular-nums">
+                          {step.time}
+                        </p>
+                        <p className="text-sm font-semibold text-foreground leading-snug">{step.title}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{step.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </Reveal>
         </div>
       </section>
@@ -814,6 +931,7 @@ export function Landing() {
                 <ul className="space-y-2.5 text-sm">
                   <li><a href="#features" className="text-muted-foreground hover:text-foreground transition-smooth">Fonctionnalités</a></li>
                   <li><a href="#ai" className="text-muted-foreground hover:text-foreground transition-smooth">Coach IA</a></li>
+                  <li><a href="#day" className="text-muted-foreground hover:text-foreground transition-smooth">Une journée</a></li>
                   <li><a href="#family" className="text-muted-foreground hover:text-foreground transition-smooth">Famille</a></li>
                   <li><a href="#progress" className="text-muted-foreground hover:text-foreground transition-smooth">Progression</a></li>
                 </ul>
