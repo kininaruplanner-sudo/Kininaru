@@ -42,7 +42,7 @@ Ouvrez http://localhost:3000.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé anon Supabase (publique) |
 | `GROQ_API_KEY` | Clé API Groq (**côté serveur uniquement**, jamais exposée) |
 | `NEXT_PUBLIC_SITE_URL` | URL publique du site (ex. `http://localhost:3000` en dev, le domaine en prod — utilisée par le sitemap/SEO) |
-| `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | **Optionnel** — code de vérification Google Search Console (le `content="…"` de la balise fournie par Google). S'il est défini, la balise `<meta name="google-site-verification" …/>` est générée dans le `<head>` (méthode officielle, `verification.google`). À définir dans Vercel (et Keys/API keys pour le preview). |
+| `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | **Optionnel** — code de vérification Google Search Console **supplémentaire**. Le code principal (`nltjYyoYZCKVQtSrmkSUZw9NLIHX3RKir7g770YdAJc`) est déjà intégré dans `app/layout.tsx` (`verification.google`, génère les balises `<meta name="google-site-verification" …/>` dans le `<head>`). À définir dans Vercel (et Keys/API keys pour le preview) uniquement si Google fournit un autre code. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clé `service_role` Supabase (**serveur uniquement**) — requise pour l'envoi planifié des briefs push (cron). Ne jamais exposer |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | Clé publique VAPID (publique) — requise pour les notifications Web Push |
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | Clé privée VAPID (**serveur uniquement**) |
