@@ -332,13 +332,13 @@ function AiDemo() {
         </div>
 
         {/* Suggestions */}
-        <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+        <div className="px-4 pb-3 flex flex-wrap gap-2 sm:gap-1.5">
           {available.slice(0, 3).map((s) => (
             <button
               key={s}
               onClick={() => ask(s)}
               disabled={typing}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5 transition-smooth disabled:opacity-50"
+              className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5 transition-smooth disabled:opacity-50"
             >
               {s}
             </button>
@@ -431,8 +431,8 @@ export function Landing() {
           scrolled || mobileOpen ? 'glass-topbar' : 'bg-transparent'
         )}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" aria-label="Kininaru — accueil" className="flex items-center gap-2.5">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
+          <Link href="/" aria-label="Kininaru — accueil" className="flex items-center gap-2.5 min-h-11">
             <KinLogo variant="row" markClassName="w-8 h-8" wordmarkClassName="text-lg" />
             <BetaBadge />
           </Link>
@@ -455,7 +455,7 @@ export function Landing() {
           </div>
 
           <button
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+            className="md:hidden p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           >
@@ -464,20 +464,20 @@ export function Landing() {
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t border-border bg-card/95 backdrop-blur-xl px-4 py-4 space-y-1">
+          <div className="md:hidden border-t border-border bg-card/95 backdrop-blur-xl px-5 py-4 space-y-1">
             {navLinks.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
                 onClick={() => setMobileOpen(false)}
-                className="block px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+                className="block px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
               >
                 {l.label}
               </a>
             ))}
-            <div className="flex gap-2.5 pt-3">
-              <Button variant="outline" className="flex-1" render={<Link href="/auth/login">Connexion</Link>} />
-              <Button className="flex-1" render={<Link href="/auth/sign-up">Commencer</Link>} />
+            <div className="flex gap-3 pt-3">
+              <Button variant="outline" className="flex-1 h-11" render={<Link href="/auth/login">Connexion</Link>} />
+              <Button className="flex-1 h-11" render={<Link href="/auth/sign-up">Commencer</Link>} />
             </div>
           </div>
         )}
@@ -485,7 +485,7 @@ export function Landing() {
 
       {/* ---------------- Hero ---------------- */}
       <section className="relative kin-glow">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-32 sm:pt-40 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-14 lg:gap-10 items-center">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-32 sm:pt-40 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
           <div>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -512,7 +512,7 @@ export function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.12 }}
-              className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-lg"
+              className="text-muted-foreground text-base sm:text-lg leading-[1.65] sm:leading-relaxed mb-6 sm:mb-8 max-w-lg"
             >
               Kininaru ne sert pas seulement à stocker vos tâches : il vous aide à savoir
               <strong className="text-foreground font-semibold"> quoi faire</strong>,{' '}
@@ -530,13 +530,13 @@ export function Landing() {
             >
               <Button
                 size="lg"
-                className="h-11 px-6 gap-2 text-base"
+                className="h-12 sm:h-11 px-6 gap-2 text-base"
                 render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
               />
               <Button
                 variant="outline"
                 size="lg"
-                className="h-11 px-6 gap-2 text-base"
+                className="h-12 sm:h-11 px-6 gap-2 text-base"
                 render={<Link href="#features">Découvrir Kininaru</Link>}
               />
             </motion.div>
@@ -624,7 +624,7 @@ export function Landing() {
                   </li>
                 ))}
               </ul>
-              <Button render={<Link href="/auth/sign-up">Essayer le coach IA</Link>} className="gap-2">
+              <Button render={<Link href="/auth/sign-up">Essayer le coach IA</Link>} className="gap-2 h-11 sm:h-8">
                 Essayer le coach IA <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -668,7 +668,7 @@ export function Landing() {
                   </li>
                 ))}
               </ul>
-              <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2">
+              <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2 h-11 sm:h-8">
                 Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
               </Button>
             </div>

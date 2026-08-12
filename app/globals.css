@@ -374,10 +374,19 @@
   /* --- Typographic scale (consistent across every page) --- */
   .kin-display {
     font-family: var(--font-serif);
-    font-size: clamp(2.25rem, 5vw, 3.75rem);
-    line-height: 1.04;
+    /* Mobile-first: 34px on phones (clear, no overflow at 320px), ramping
+       up smoothly to the full display size on larger screens. */
+    font-size: clamp(2.125rem, 5vw, 3.75rem);
+    /* Generous mobile line-height (1.15) so the serif display never clips
+       at small sizes; desktop keeps the tighter, editorial 1.04. */
+    line-height: 1.15;
     letter-spacing: -0.02em;
     font-weight: 700;
+  }
+  @media (min-width: 640px) {
+    .kin-display {
+      line-height: 1.04;
+    }
   }
   .kin-h1 {
     font-family: var(--font-serif);
