@@ -16,6 +16,18 @@ const THEME_INIT_SCRIPT = `
 })();
 `
 
+// Google Tag Manager — identifiant PUBLIC du conteneur (il apparaît dans le
+// code source de chaque page par conception, ce n'est pas un secret). Surcharge
+// possible via NEXT_PUBLIC_GTM_ID (optionnel) ; GTM-PVDG6TFF est la valeur par
+// défaut fournie par Google.
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || 'GTM-PVDG6TFF'
+
+const GTM_SCRIPT = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_ID}');`
+
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
@@ -127,6 +139,23 @@ export default function RootLayout({
       className={`${jakarta.variable} ${inter.variable} bg-background`}
     >
       <body className={`${inter.className} antialiased`}>
+        {/* Google Tag Manager (noscript) — placé juste après l'ouverture de
+            <body>, comme demandé par Google (fallback pour les navigateurs
+            sans JavaScript). */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
+        {/* Google Tag Manager — next/script (beforeInteractive) injecte ce
+            script dans le <head> initial de chaque page, le plus haut
+            possible (avant le script d'init du thème). */}
+        <Script id="kininaru-gtm" strategy="beforeInteractive">
+          {GTM_SCRIPT}
+        </Script>
         {/* next/script (beforeInteractive) injects the theme init in the
             initial HTML <head>, so the theme applies before first paint —
             without React's raw <script> hoisting warning. */}
