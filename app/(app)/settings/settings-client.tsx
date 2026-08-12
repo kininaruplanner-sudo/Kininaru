@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Palette, Bell, Shield, Save, Download, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info } from 'lucide-react'
+import { User, Mail, Palette, Bell, Shield, Save, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +16,8 @@ import { PageHeader } from '@/components/page-header'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
+import { InstallAppButton } from '@/components/install-app-button'
+import { useAppInstall } from '@/lib/use-app-install'
 import { useVoicePrefs } from '@/lib/voice-preferences'
 import { isMemoryEnabled, setMemoryEnabled } from '@/lib/memory'
 import { KEYBOARD_SHORTCUTS } from '@/lib/shortcuts'
@@ -155,38 +157,7 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
     }
   }
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [appInstalled, setAppInstalled] = useState(false)
-
-  useEffect(() => {
-    const onBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-    }
-    const onAppInstalled = () => {
-      setDeferredPrompt(null)
-      setAppInstalled(true)
-    }
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
-    window.addEventListener('appinstalled', onAppInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', onAppInstalled)
-    }
-  }, [])
-
-  const installApp = async () => {
-    const promptEvent = deferredPrompt as any
-    if (!promptEvent) return
-    try {
-      promptEvent.prompt()
-      await promptEvent.userChoice
-    } catch (err) {
-      console.error('[Kininaru] Install prompt failed:', err)
-    } finally {
-      setDeferredPrompt(null)
-    }
-  }
+  const { canInstall, installed: appInstalled } = useAppInstall()
 
   const save = async () => {
     setSaving(true)
@@ -237,24 +208,18 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
       title: t('settings.installation'),
       content: (
         <div className="space-y-4">
-          {deferredPrompt ? (
-            <>
-              <p className="text-sm text-muted-foreground">{t('settings.installBrowser')}</p>
-              <Button onClick={installApp} className="gap-2">
-                <Download className="w-4 h-4" />
-                {t('settings.installButton')}
-              </Button>
-            </>
-          ) : appInstalled ? (
+          {appInstalled ? (
             <div className="flex items-center gap-2 text-sm text-foreground">
               <CheckCircle2 className="w-4 h-4 text-primary" />
-              {t('settings.installed')}
+              {t('install.installedOn')}
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">{t('settings.installBrowser')}</p>
-              <p className="text-xs text-muted-foreground/80">{t('settings.installIos')}</p>
-            </div>
+            <>
+              <InstallAppButton variant="card" />
+              {!canInstall && (
+                <p className="text-xs text-muted-foreground/80">{t('settings.installIos')}</p>
+              )}
+            </>
           )}
         </div>
       ),

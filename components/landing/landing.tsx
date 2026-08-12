@@ -27,6 +27,8 @@ import {
 import { KinLogo } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
 import { Button } from '@/components/ui/button'
+import { InstallAppButton } from '@/components/install-app-button'
+import { InstallBanner } from '@/components/install-banner'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
@@ -554,6 +556,9 @@ export function Landing() {
                 <Check className="w-4 h-4 text-kin-sage" /> Gratuit pour commencer
               </span>
             </motion.div>
+
+            {/* Install affordance — only rendered when the browser supports it. */}
+            <InstallAppButton variant="card" className="mt-8 max-w-md" />
           </div>
 
           <PlannerMock />
@@ -901,13 +906,16 @@ export function Landing() {
                 <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
                   Créez votre compte gratuit en 30 secondes. Aucune carte requise.
                 </p>
-                <Button
-                  size="lg"
-                  className="h-12 px-8 text-base gap-2"
-                  render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
-                >
-                  Commencer gratuitement <ArrowRight className="w-4 h-4" />
-                </Button>
+                <div className="flex flex-col items-center gap-4">
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 text-base gap-2"
+                    render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
+                  >
+                    Commencer gratuitement <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <InstallAppButton variant="card" className="w-full sm:w-auto sm:min-w-[380px] text-left" />
+                </div>
               </div>
             </div>
           </div>
@@ -954,6 +962,10 @@ export function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Smart install banner — only when installable, never after install,
+          remembered when dismissed. */}
+      <InstallBanner />
     </div>
     </MotionConfig>
   )

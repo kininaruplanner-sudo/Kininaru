@@ -12,12 +12,35 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Kininaru',
     description:
       'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+    lang: 'fr',
+    categories: ['productivity', 'lifestyle', 'health_fitness'],
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#F7F9FC',
     theme_color: '#F7F9FC',
+    // Quick actions on long-press (Android) / right-click (desktop).
+    shortcuts: [
+      {
+        name: 'Nouvelle tâche',
+        short_name: 'Tâche',
+        url: '/tasks?new=1',
+        icons: [{ src: '/icon-192x192.png', sizes: '192x192' }],
+      },
+      {
+        name: 'Session Focus',
+        short_name: 'Focus',
+        url: '/focus',
+        icons: [{ src: '/icon-192x192.png', sizes: '192x192' }],
+      },
+      {
+        name: 'Écrire au journal',
+        short_name: 'Journal',
+        url: '/journal',
+        icons: [{ src: '/icon-192x192.png', sizes: '192x192' }],
+      },
+    ],
     icons: [
       { src: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
       { src: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },

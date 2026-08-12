@@ -25,6 +25,8 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
+import { Download } from 'lucide-react'
+import { useAppInstall } from '@/lib/use-app-install'
 import { KinLogo, KinLogoMark } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
 import { APP_VERSION_LABEL } from '@/lib/version'
@@ -226,6 +228,8 @@ export function Sidebar({
 
         {/* Footer */}
         <div className="border-t border-border p-2 space-y-0.5 shrink-0">
+          <SidebarInstallItem collapsed={collapsed} />
+
           <NotificationBell />
 
           <ThemeToggle collapsed={collapsed} />
@@ -265,5 +269,30 @@ export function Sidebar({
         </div>
       </aside>
     </>
+  )
+}
+
+/**
+ * Discrete “Install Kininaru” entry in the sidebar footer.
+ * Only rendered when a real install prompt is available — nothing otherwise.
+ */
+function SidebarInstallItem({ collapsed }: { collapsed: boolean }) {
+  const { canInstall, installed, install } = useAppInstall()
+  const { t } = useI18n()
+
+  if (!canInstall || installed) return null
+
+  return (
+    <button
+      onClick={() => void install()}
+      title={collapsed ? t('settings.installButton') : undefined}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
+        collapsed && 'lg:justify-center lg:px-2'
+      )}
+    >
+      <Download className={cn('shrink-0', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4')} />
+      <span className={cn(collapsed && 'lg:hidden')}>{t('settings.installButton')}</span>
+    </button>
   )
 }
