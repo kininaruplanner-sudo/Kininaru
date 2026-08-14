@@ -54,8 +54,8 @@ export async function POST(req: Request) {
     }
 
     const actionsRaw =
-      typeof body === 'object' && body !== null && Array.isArray((body as any).actions)
-        ? (body as any).actions
+      typeof body === 'object' && body !== null && 'actions' in body && Array.isArray(body.actions)
+        ? body.actions
         : null
     if (!actionsRaw || actionsRaw.length === 0) {
       return Response.json({ error: 'Aucune action fournie' }, { status: 400 })

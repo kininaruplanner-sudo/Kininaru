@@ -34,8 +34,8 @@ export default function ForgotPasswordPage() {
       })
       if (resetError) throw resetError
       setSent(true)
-    } catch (err: any) {
-      setError(err.message || t('auth.sendReset'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.sendReset'))
     } finally {
       setLoading(false)
     }

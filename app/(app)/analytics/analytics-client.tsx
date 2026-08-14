@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, parseISO, eachDayOfInterval, subDays, isSameMonth, subMonths } from 'date-fns'
 import {
@@ -222,35 +222,47 @@ export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journ
     [allDays, range, hasPrevPeriod]
   )
 
-  const tasksValueForDay = (d: Date) => {
-    const s = format(d, 'yyyy-MM-dd')
-    return tasks.filter((t) => t.status === 'done' && t.completed_at?.startsWith(s)).length
-  }
-  const focusValueForDay = (d: Date) => {
-    const s = format(d, 'yyyy-MM-dd')
-    return focusSessions.filter((f) => f.created_at?.startsWith(s)).reduce((a, f) => a + (f.duration_minutes ?? 0), 0)
-  }
-  const habitsValueForDay = (d: Date) => {
-    const s = format(d, 'yyyy-MM-dd')
-    return filteredHabitLogs.filter((l) => l.logged_date === s).length
-  }
+  const tasksValueForDay = useCallback(
+    (d: Date) => {
+      const s = format(d, 'yyyy-MM-dd')
+      return tasks.filter((t) => t.status === 'done' && t.completed_at?.startsWith(s)).length
+    },
+    [tasks]
+  )
+  const focusValueForDay = useCallback(
+    (d: Date) => {
+      const s = format(d, 'yyyy-MM-dd')
+      return focusSessions.filter((f) => f.created_at?.startsWith(s)).reduce((a, f) => a + (f.duration_minutes ?? 0), 0)
+    },
+    [focusSessions]
+  )
+  const habitsValueForDay = useCallback(
+    (d: Date) => {
+      const s = format(d, 'yyyy-MM-dd')
+      return filteredHabitLogs.filter((l) => l.logged_date === s).length
+    },
+    [filteredHabitLogs]
+  )
 
   /** Daily bars for 7d/30d ranges; weekly-summed buckets for 90d so the chart stays readable. */
-  const bucketedSeries = (days: Date[], valueForDay: (d: Date) => number) => {
-    if (range <= 30) {
-      return days.map((d) => ({ label: format(d, range === 7 ? 'EEE' : 'd'), value: valueForDay(d) }))
-    }
-    const buckets: { label: string; value: number }[] = []
-    for (let i = 0; i < days.length; i += 7) {
-      const chunk = days.slice(i, i + 7)
-      buckets.push({ label: format(chunk[0], 'MMM d'), value: chunk.reduce((a, d) => a + valueForDay(d), 0) })
-    }
-    return buckets
-  }
+  const bucketedSeries = useCallback(
+    (days: Date[], valueForDay: (d: Date) => number) => {
+      if (range <= 30) {
+        return days.map((d) => ({ label: format(d, range === 7 ? 'EEE' : 'd'), value: valueForDay(d) }))
+      }
+      const buckets: { label: string; value: number }[] = []
+      for (let i = 0; i < days.length; i += 7) {
+        const chunk = days.slice(i, i + 7)
+        buckets.push({ label: format(chunk[0], 'MMM d'), value: chunk.reduce((a, d) => a + valueForDay(d), 0) })
+      }
+      return buckets
+    },
+    [range]
+  )
 
-  const tasksByDay = useMemo(() => bucketedSeries(rangeDays, tasksValueForDay), [rangeDays, range, tasks])
-  const focusByDay = useMemo(() => bucketedSeries(rangeDays, focusValueForDay), [rangeDays, range, focusSessions])
-  const habitsByDay = useMemo(() => bucketedSeries(rangeDays, habitsValueForDay), [rangeDays, range, filteredHabitLogs])
+  const tasksByDay = useMemo(() => bucketedSeries(rangeDays, tasksValueForDay), [bucketedSeries, tasksValueForDay, rangeDays])
+  const focusByDay = useMemo(() => bucketedSeries(rangeDays, focusValueForDay), [bucketedSeries, focusValueForDay, rangeDays])
+  const habitsByDay = useMemo(() => bucketedSeries(rangeDays, habitsValueForDay), [bucketedSeries, habitsValueForDay, rangeDays])
 
   const moodData = useMemo(() => {
     const rangeSet = new Set(rangeDays.map((d) => format(d, 'yyyy-MM-dd')))
@@ -262,18 +274,21 @@ export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journ
   }, [journalEntries, rangeDays])
 
   // ---- Period metrics + trend vs previous equal-length period ----
-  const metricsFor = (days: Date[]) => {
-    const set = new Set(days.map((d) => format(d, 'yyyy-MM-dd')))
-    const focusMins = focusSessions.filter((f) => f.created_at && set.has(f.created_at.slice(0, 10))).reduce((a, f) => a + (f.duration_minutes ?? 0), 0)
-    const tasksDone = tasks.filter((t) => t.status === 'done' && t.completed_at && set.has(t.completed_at.slice(0, 10))).length
-    const habitCount = filteredHabitLogs.filter((l) => set.has(l.logged_date)).length
-    const moods = journalEntries.filter((e) => e.mood && set.has(e.entry_date))
-    const avgMood = moods.length ? moods.reduce((a, e) => a + (e.mood ?? 0), 0) / moods.length : null
-    return { focusMins, tasksDone, habitCount, avgMood }
-  }
+  const metricsFor = useCallback(
+    (days: Date[]) => {
+      const set = new Set(days.map((d) => format(d, 'yyyy-MM-dd')))
+      const focusMins = focusSessions.filter((f) => f.created_at && set.has(f.created_at.slice(0, 10))).reduce((a, f) => a + (f.duration_minutes ?? 0), 0)
+      const tasksDone = tasks.filter((t) => t.status === 'done' && t.completed_at && set.has(t.completed_at.slice(0, 10))).length
+      const habitCount = filteredHabitLogs.filter((l) => set.has(l.logged_date)).length
+      const moods = journalEntries.filter((e) => e.mood && set.has(e.entry_date))
+      const avgMood = moods.length ? moods.reduce((a, e) => a + (e.mood ?? 0), 0) / moods.length : null
+      return { focusMins, tasksDone, habitCount, avgMood }
+    },
+    [tasks, focusSessions, filteredHabitLogs, journalEntries]
+  )
 
-  const current = useMemo(() => metricsFor(rangeDays), [rangeDays, tasks, focusSessions, filteredHabitLogs, journalEntries])
-  const previous = useMemo(() => (hasPrevPeriod ? metricsFor(prevRangeDays) : null), [prevRangeDays, hasPrevPeriod, tasks, focusSessions, filteredHabitLogs, journalEntries])
+  const current = useMemo(() => metricsFor(rangeDays), [metricsFor, rangeDays])
+  const previous = useMemo(() => (hasPrevPeriod ? metricsFor(prevRangeDays) : null), [metricsFor, prevRangeDays, hasPrevPeriod])
 
   const pctChange = (curr: number, prev: number | null | undefined) => {
     if (prev === null || prev === undefined) return null

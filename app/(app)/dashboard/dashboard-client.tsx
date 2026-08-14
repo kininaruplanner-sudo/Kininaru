@@ -58,13 +58,51 @@ const fadeUp: Variants = {
   }),
 }
 
+interface DashboardProfile {
+  display_name?: string | null
+  level?: number | null
+  xp?: number | null
+}
+
+interface DashboardTask {
+  id: string
+  title: string
+  status: string
+  priority?: string | null
+  due_date?: string | null
+  completed_at?: string | null
+}
+
+interface DashboardEvent {
+  id: string
+  title: string
+  start_at: string
+  color?: string | null
+}
+
+interface DashboardHabit {
+  id: string
+  title: string
+  streak?: number | null
+}
+
+interface DashboardHabitLog {
+  habit_id: string
+  logged_date: string
+}
+
+interface DashboardFocusSession {
+  duration_minutes?: number | null
+  created_at?: string | null
+}
+
 interface Props {
-  profile: any
-  tasks: any[]
-  events: any[]
-  habits: any[]
-  habitLogs: any[]
-  focusSessions: any[]
+  profile: DashboardProfile | null
+  tasks: DashboardTask[]
+  events: DashboardEvent[]
+  habits: DashboardHabit[]
+  habitLogs: DashboardHabitLog[]
+  focusSessions: DashboardFocusSession[]
   families: { family_id: string; role: string; families: { name: string } | null }[]
   userId: string
 }
@@ -251,7 +289,6 @@ export function DashboardClient({
           }
         }
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [doneTasks.length, tasks.length, localHabitLogs.length, habits.length, todayFocusMinutes, INSIGHT_KEY]
   )
@@ -350,6 +387,31 @@ export function DashboardClient({
       bg: 'bg-kin-blue/15',
     },
   ]
+
+  // ---- « Ma journée évolue » (§3-4) — the product identity. The narrative
+  // is rebuilt from REAL data only (never invented) and changes with the
+  // time of day: morning = plan, afternoon = progress, evening = bilan +
+  // a SUGGESTION for tomorrow (never an automatic replan).
+  const hour = time.getHours()
+  const overdueTasks = todoTasks.filter((t) => t.due_date && isPastDate(t.due_date))
+  const prioritiesLeft = priorityTasks.length
+  const dayPhase = hour >= 19 ? 'evening' : hour >= 12 ? 'afternoon' : 'morning'
+  const dayNarrative =
+    dayPhase === 'morning'
+      ? 'Ta journée commence.'
+      : dayPhase === 'afternoon'
+      ? doneTasks.length > 0
+        ? `Tu as déjà terminé ${doneTasks.length} tâche${doneTasks.length > 1 ? 's' : ''}.`
+        : 'La journée avance — une petite action suffit pour la lancer.'
+      : doneTasks.length > 0 || localHabitLogs.length > 0 || todayFocusMinutes > 0
+      ? 'Bilan de ta journée.'
+      : 'Journée calme — pas grave. On reprend demain.'
+  const tomorrowSuggestion =
+    overdueTasks.length > 0
+      ? `Reprendre ${overdueTasks.length} tâche${overdueTasks.length > 1 ? 's' : ''} reportée${overdueTasks.length > 1 ? 's' : ''}`
+      : prioritiesLeft > 0
+      ? 'Attaquer tes priorités restantes'
+      : null
 
   return (
     <div className="p-5 sm:p-6 lg:p-8 max-w-[1280px] mx-auto space-y-5 lg:space-y-7">
@@ -474,6 +536,84 @@ export function DashboardClient({
           </div>
         </motion.div>
       )}
+
+      {/* Ma journée évolue — the product identity: a calm narrative built
+          from REAL data, refreshed with the time of day. The evening block
+          ends with a SUGGESTION for tomorrow — never an automatic replan. */}
+      <motion.div
+        custom={1.05}
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        className={cn(cardVariants({ padding: 'lg', variant: 'accent' }), 'relative overflow-hidden')}
+      >
+        <div className="absolute inset-0 kin-glow pointer-events-none" />
+        <div className="relative">
+          <span className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide mb-2">
+            <CloudSun className="w-4 h-4" />
+            Ma journée évolue
+          </span>
+          <p className="text-base font-semibold text-foreground leading-snug">
+            {dayNarrative}
+          </p>
+
+          {dayPhase === 'evening' ? (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {[
+                { label: `${doneTasks.length} accomplie${doneTasks.length > 1 ? 's' : ''}`, show: doneTasks.length > 0 },
+                { label: `${overdueTasks.length} reportée${overdueTasks.length > 1 ? 's' : ''}`, show: overdueTasks.length > 0 },
+                { label: `${localHabitLogs.length} habitude${localHabitLogs.length > 1 ? 's' : ''}`, show: localHabitLogs.length > 0 },
+                { label: `${todayFocusMinutes} min de Focus`, show: todayFocusMinutes > 0 },
+              ]
+                .filter((c) => c.show)
+                .map((c) => (
+                  <span
+                    key={c.label}
+                    className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin"
+                  >
+                    {c.label}
+                  </span>
+                ))}
+              {tomorrowSuggestion && (
+                <Link
+                  href="/tasks"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary hover:bg-primary/15 transition-smooth"
+                >
+                  Demain pourrait être : {tomorrowSuggestion} →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {prioritiesLeft > 0 && (
+                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
+                  🎯 {prioritiesLeft} priorité{prioritiesLeft > 1 ? 's' : ''}
+                </span>
+              )}
+              {localHabitLogs.length < habits.length && habits.length > 0 && (
+                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
+                  🌱 {habits.length - localHabitLogs.length} habitude{(habits.length - localHabitLogs.length) > 1 ? 's' : ''} à faire
+                </span>
+              )}
+              {todayFocusMinutes > 0 && (
+                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
+                  🧠 {todayFocusMinutes} min de concentration
+                </span>
+              )}
+              {nextEvent && (
+                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
+                  📅 {nextEvent.title} ·{' '}
+                  {nextEventMinutes !== null && nextEventMinutes < 60
+                    ? `dans ${nextEventMinutes} min`
+                    : nextEventMinutes !== null
+                    ? `dans ${Math.round(nextEventMinutes / 60)} h`
+                    : 'à venir'}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Install prompt — slim row on mobile/tablet only (desktop has it in
           the sidebar footer, so it never duplicates). Hidden once installed. */}
@@ -873,7 +1013,7 @@ export function DashboardClient({
                           <span className={cn('text-sm truncate', done ? 'text-primary line-through opacity-60' : 'text-foreground')}>
                             {habit.title}
                           </span>
-                          {habit.streak > 0 && (
+                          {(habit.streak ?? 0) > 0 && (
                             <span className="flex items-center gap-0.5 text-xs text-kin-coral shrink-0">
                               <Flame className="w-3 h-3" />
                               {habit.streak}

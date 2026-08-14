@@ -45,7 +45,7 @@ export default async function DashboardPage() {
 
   // The `families` embed can come back shaped as an array depending on
   // PostgREST's relation inference — normalize to a single row (or null).
-  const families = (memberships ?? []).map((m: any) => ({
+  const families = (memberships ?? []).map((m) => ({
     ...m,
     families: Array.isArray(m.families) ? (m.families[0] ?? null) : (m.families ?? null),
   }))

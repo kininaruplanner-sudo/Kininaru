@@ -16,7 +16,10 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Analyses & Récompenses** : graphiques 30 jours, badges
 - **Version bêta** : badge « BÊTA » discret près du logo, message bêta fermable (mémorisé), version affichée dans Paramètres → À propos
 - **Retours utilisateurs** : depuis Paramètres → Aider à améliorer Kininaru, l'utilisateur connecté peut **signaler un bug** (type, description, étapes pour reproduire, gravité) ou **envoyer une suggestion** (réservé aux utilisateurs connectés, pas de retour anonyme en bêta) — enregistrés dans la table `feedback` (RLS), avec informations techniques automatiques (page, navigateur, appareil, version) mais jamais de contenu privé
-- **PWA** : installable, service worker, icônes complètes
+- **PWA** : installable, service worker, icônes complètes (lotus), expérience standalone
+- **Hors ligne** : création/édition/suppression de tâches mises en file localement (IndexedDB) puis synchronisées à la reconnexion, avec indicateur d'état (hors ligne · synchronisation · synchronisé) ; conflits jamais écrasés silencieusement (`lib/offline/sync-queue.ts`)
+- **Alarmes** : créneaux quotidiens (heure locale, jours, son, vibration, snooze) distincts des rappels — planifiés localement, limites PWA documentées dans l'UI
+- **Calendriers externes** : abstraction multi-fournisseurs (Google, Microsoft, Apple/iCloud en ICS), schéma de déduplication, section « Calendriers connectés » dans les Paramètres, guide `docs/calendar-integrations.md`
 - **i18n** : français / anglais
 - **Thèmes** : 6 palettes de couleurs (clair et sombre)
 
@@ -42,7 +45,7 @@ Ouvrez http://localhost:3000.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé anon Supabase (publique) |
 | `GROQ_API_KEY` | Clé API Groq (**côté serveur uniquement**, jamais exposée) |
 | `NEXT_PUBLIC_SITE_URL` | URL publique du site (ex. `http://localhost:3000` en dev, le domaine en prod — utilisée par le sitemap/SEO) |
-| `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | **Optionnel** — code de vérification Google Search Console **supplémentaire**. Le code principal (`nltjYyoYZCKVQtSrmkSUZw9NLIHX3RKir7g770YdAJc`) est déjà intégré dans `app/layout.tsx` (`verification.google`, génère les balises `<meta name="google-site-verification" …/>` dans le `<head>`). À définir dans Vercel (et Keys/API keys pour le preview) uniquement si Google fournit un autre code. |
+| `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | **Optionnel** — code Google Search Console **supplémentaire**. Le code principal est déjà intégré dans `app/layout.tsx` (propriété `verification.google` de la metadata Next.js). À définir uniquement si Google fournit un autre code. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clé `service_role` Supabase (**serveur uniquement**) — requise pour l'envoi planifié des briefs push (cron). Ne jamais exposer |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | Clé publique VAPID (publique) — requise pour les notifications Web Push |
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | Clé privée VAPID (**serveur uniquement**) |
@@ -70,6 +73,9 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 1. `supabase/coach.sql` — active l'historique des conversations de l'AI Coach (`coach_conversations` + `coach_messages`, RLS par utilisateur). Sans lui, le chat fonctionne mais les conversations ne sont pas sauvegardées.
 2. `supabase/push.sql` — active les notifications Web Push (`push_subscriptions` + `push_send_log`, RLS par utilisateur). Sans lui, tout fonctionne sauf le push réel.
 3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). **Décision bêta : les retours sont réservés aux utilisateurs connectés** — l'API `/api/feedback` exige une session et pose `user_id` depuis celle-ci ; aucun retour anonyme n'est accepté. Sans lui, le formulaire affiche une erreur à l'envoi.
+4. `supabase/alarms.sql` — active les **alarmes** (table `alarms`, RLS par utilisateur). Sans lui, la page Alarmes s'affiche mais rien ne peut être enregistré.
+5. `supabase/calendar.sql` — active les **calendriers externes** (`calendar_connections` + `calendar_synced_events`, RLS par utilisateur). Sans lui, la section « Calendriers connectés » des Paramètres reste vide.
+6. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -97,6 +103,9 @@ Le code est prêt. Pour activer « Continuer avec Google » :
 
 ## Scripts
 
+- `npm run icons` — régénère toutes les icônes (PNG/ICO) depuis `public/icon.svg` (source unique, lotus).
+
+
 | Commande | Description |
 |---|---|
 | `npm run dev` | Serveur de développement |
@@ -105,6 +114,43 @@ Le code est prêt. Pour activer « Continuer avec Google » :
 | `npm run lint` | ESLint |
 | `npm run test:ai` | Tests de validation des actions IA (hors-ligne) |
 | `npm run test:ai:live` | Test de bout en bout authentifié IA → action → Supabase (nécessite `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `KIN_TEST_EMAIL`, `KIN_TEST_PASSWORD`) |
+
+## Architecture
+
+```
+app/
+  (app)/              Pages authentifiées (layout + navigation commune)
+    dashboard/        « Que faire maintenant ? » — prochaine action, focus, habitudes, progression
+    tasks/            Tâches (liste, priorités, sous-tâches, kanban)
+    habits/           Habitudes (séries, XP)
+    calendar/         Événements
+    journal/          Journal avec éditeur riche + auto-save
+    focus/            Sessions Focus / Pomodoro
+    ai/               Assistant IA (conversation, mémoire, actions)
+    analytics/        Statistiques (30 j)
+    achievements/     Récompenses / badges
+    family/           Espace famille partagé
+    settings/         Préférences, notifications, PWA, voix, compte
+  api/                Routes serveur (chat IA, actions IA, coach, push, cron, feedback)
+  auth/               Connexion / inscription / réinitialisation
+  legal/              Pages légales
+components/           UI réutilisable (shell, sidebar, mobile-nav, coach, install PWA…)
+lib/
+  ai/                 Prompts + whitelist des actions IA (validation serveur)
+  coach/              Règles du coach (déterministes, hors IA), préférences, fréquences, briefs
+  supabase/           Clients serveur / navigateur / service (RLS respectées)
+  web-push/           Abonnement, envoi VAPID, format des notifications
+  journal/            Conversion markdown de l'éditeur
+  i18n.tsx            Traductions fr / en
+public/               PWA : icônes, manifest, service worker (sw.js), assetlinks
+scripts/              Tests hors-ligne de validation IA
+supabase/             Schéma SQL, RLS, migrations additives (coach, push, feedback)
+```
+
+Séparation des responsabilités : les composants gèrent l'UI, les hooks et `lib/`
+portent la logique métier, les routes `app/api/*` encapsulent les appels serveur
+(Groq, cron, push), et tout accès Supabase passe par les clients typés de
+`lib/supabase` (RLS actives — jamais de `service_role` côté client).
 
 ## Sécurité
 
@@ -115,8 +161,9 @@ Le code est prêt. Pour activer « Continuer avec Google » :
 - Les données IA sont **minimales** : le journal n'envoie que l'entrée sélectionnée, la mémoire n'est injectée que si l'utilisateur l'active.
 - Les pages privées sont protégées par le middleware + les layouts (`/auth/login?returnTo=…`).
 
-## Notes de livraison
+## Informations complémentaires
 
-- La branche finale est `final-kininaru-v5` : projet à la **racine du dépôt** (après restructuration).
 - Pages légales : `/legal/conditions`, `/legal/confidentialite`, `/legal/suppression-compte`.
 - SEO : `sitemap.xml` (routes publiques uniquement) et `robots.txt` (pages privées et API désindexées).
+- PWA Android (TWA) : le manifest et l'icône maskable sont dans `public/` ; `public/.well-known/assetlinks.json` contient la liaison de domaine attendue.
+- Variables d'environnement : la liste complète des noms figure dans le tableau ci-dessus — copiez-les dans un fichier `.env.local` (ou dans le panneau API Keys / Vercel) et renseignez chaque valeur. Ne commitez jamais de vraies clés.

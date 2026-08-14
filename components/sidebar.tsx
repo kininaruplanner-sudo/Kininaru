@@ -21,6 +21,7 @@ import {
   Trophy,
   Search,
   X,
+  AlarmClock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -54,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/focus', key: 'nav.focus', icon: Timer },
       { href: '/habits', key: 'nav.habits', icon: Repeat2 },
       { href: '/journal', key: 'nav.journal', icon: BookOpen },
+      { href: '/alarms', key: 'nav.alarms', icon: AlarmClock },
     ],
   },
   {

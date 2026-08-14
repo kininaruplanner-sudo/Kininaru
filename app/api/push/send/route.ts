@@ -3,6 +3,7 @@ import {
   sendPushNotification,
   parsePushPrefs,
   isQuietHours,
+  buildActionsForLink,
   type PushSubscriptionRow,
 } from '@/lib/web-push/server'
 
@@ -90,7 +91,19 @@ export async function POST(req: Request) {
       }
     }
 
-    const payload = { title, body: message, link, tag: 'kininaru' }
+    // Instant, actionable notifications: every push carries the action
+    // buttons matching its deep link (Commencer / Plus tard / Ouvrir), so
+    // the OS shows them immediately and the SW routes the tap (§14).
+    const actions = buildActionsForLink(link)
+    const payload = {
+      title,
+      body: message,
+      link,
+      tag: 'kininaru',
+      actions,
+      // Subtle haptic pulse on devices that support it (never intrusive).
+      vibrate: [80, 60, 80],
+    }
     let sent = 0
     let failed = 0
 

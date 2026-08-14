@@ -19,9 +19,9 @@
    must be invalidated immediately (old caches are purged on activate).
    ===================================================================== */
 
-// v2: new brand icons (lotus + wordmark) — old cached icons are purged on
-// activate so installed PWA / push notification icons refresh immediately.
-const CACHE_VERSION = 'v2'
+// v3: lotus icon refresh — old cached icons are purged on activate so
+// installed PWA / push notification icons refresh immediately.
+const CACHE_VERSION = 'v3'
 const ASSET_CACHE = `kininaru-assets-${CACHE_VERSION}`
 const CACHE_WHITELIST = [ASSET_CACHE]
 
@@ -85,51 +85,111 @@ self.addEventListener('message', (event) => {
    -------------------------------------------------------------------- */
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Kininaru', body: '', link: '/', tag: 'kininaru' }
+  let data = {
+    title: 'Kininaru',
+    body: '',
+    link: '/',
+    tag: 'kininaru',
+    actions: [],
+    vibrate: [],
+    requireInteraction: false,
+  }
   try {
     if (event.data) {
       const parsed = event.data.json()
+      const safeActions =
+        Array.isArray(parsed.actions) && parsed.actions.length <= 2
+          ? parsed.actions
+              .filter(
+                (a) =>
+                  a &&
+                  typeof a.action === 'string' &&
+                  typeof a.title === 'string' &&
+                  a.action.length <= 24 &&
+                  a.title.length <= 40
+              )
+              .map((a) => ({ action: a.action, title: a.title }))
+          : []
       data = {
         title: typeof parsed.title === 'string' ? parsed.title : 'Kininaru',
         body: typeof parsed.body === 'string' ? parsed.body : '',
         link: typeof parsed.link === 'string' && parsed.link.startsWith('/') ? parsed.link : '/',
         tag: typeof parsed.tag === 'string' ? parsed.tag : 'kininaru',
+        actions: safeActions,
+        vibrate: Array.isArray(parsed.vibrate) ? parsed.vibrate.map(Number).filter(Number.isFinite) : [],
+        requireInteraction: parsed.requireInteraction === true,
       }
     }
   } catch {
     // Payload not JSON — fall back to defaults (still show a notification).
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      tag: data.tag,
-      data: { link: data.link },
-    })
-  )
+  const options = {
+    body: data.body,
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
+    tag: data.tag,
+    data: { link: data.link },
+    actions: data.actions,
+    vibrate: data.vibrate,
+    requireInteraction: data.requireInteraction,
+  }
+
+  event.waitUntil(self.registration.showNotification(data.title, options))
 })
+
+/** Opens (or focuses) the app on a deep link — shared by click + actions. */
+function openOrFocus(link) {
+  return self.clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus()
+          if (link && 'navigate' in client) {
+            client.navigate(link)
+          }
+          return
+        }
+      }
+      return self.clients.openWindow(link || '/')
+    })
+}
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const link = event.notification.data && event.notification.data.link
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          if ('focus' in client) {
-            client.focus()
-            if (link && 'navigate' in client) {
-              client.navigate(link)
+
+  switch (event.action) {
+    case 'later':
+      // Dismiss — the user explicitly postponed; no rescheduling here.
+      return
+    case 'snooze':
+    case 'stop':
+      // Alarm actions (§15): tell any open tab to reschedule (snooze) or
+      // stop. If no tab is open, nothing can reschedule — honest limit.
+      event.waitUntil(
+        self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clients) => {
+            const data = (event.notification && event.notification.data) || {}
+            for (const client of clients) {
+              client.postMessage({
+                type: 'KIN_ALARM_ACTION',
+                action: event.action,
+                alarmId: data.alarmId,
+                snoozeMinutes: data.snoozeMinutes,
+              })
             }
-            return
-          }
-        }
-        return self.clients.openWindow(link || '/')
-      })
-  )
+          })
+      )
+      return
+    case 'start':
+    case 'open':
+    default:
+      // Main body tap or ▶ Commencer → deep link (e.g. /focus?taskId=…).
+      event.waitUntil(openOrFocus(link))
+  }
 })
 
 self.addEventListener('notificationclose', () => {

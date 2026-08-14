@@ -38,8 +38,8 @@ export default function SignUpPage() {
         },
       })
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message || t('auth.googleFailed'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.googleFailed'))
       setGoogleLoading(false)
     }
   }
@@ -66,8 +66,8 @@ export default function SignUpPage() {
       if (signUpError) throw signUpError
 
       router.push('/auth/sign-up-success')
-    } catch (err: any) {
-      setError(err.message || t('auth.createAccount'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.createAccount'))
     } finally {
       setLoading(false)
     }

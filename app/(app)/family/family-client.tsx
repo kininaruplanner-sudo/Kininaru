@@ -142,8 +142,8 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
       setSelectedId(data.id)
       setShowCreate(false)
       setCreateName('')
-    } catch (err: any) {
-      setError(err.message || 'Impossible de créer la famille')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de créer la famille')
     } finally {
       setBusy(false)
     }
@@ -175,8 +175,8 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
       }
       setShowJoin(false)
       setJoinCode('')
-    } catch (err: any) {
-      setError(err.message || "Code d'invitation invalide")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Code d'invitation invalide")
     } finally {
       setBusy(false)
     }

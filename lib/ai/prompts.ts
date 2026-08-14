@@ -132,11 +132,17 @@ export async function buildUserContext(
     .filter((s) => s.created_at?.startsWith(todayKeyUtc))
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
 
-  const normalizedFamilies = (families ?? []).map((m: any) => ({
-    family_id: m.family_id,
-    role: m.role,
-    name: Array.isArray(m.families) ? m.families[0]?.name ?? null : m.families?.name ?? null,
-  }))
+  const normalizedFamilies = (families ?? []).map(
+    (m: {
+      family_id: string
+      role: string
+      families: { name: string } | { name: string }[] | null
+    }) => ({
+      family_id: m.family_id,
+      role: m.role,
+      name: Array.isArray(m.families) ? m.families[0]?.name ?? null : m.families?.name ?? null,
+    })
+  )
 
   const lines: string[] = ['APERÇU DE VOS DONNÉES (extrait minimal — utilisez-le pour personnaliser) :']
 

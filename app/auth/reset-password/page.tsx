@@ -56,8 +56,8 @@ export default function ResetPasswordPage() {
       if (updateError) throw updateError
       setDone(true)
       setTimeout(() => router.push('/auth/login'), 2500)
-    } catch (err: any) {
-      setError(err.message || t('auth.updatePassword'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.updatePassword'))
     } finally {
       setLoading(false)
     }

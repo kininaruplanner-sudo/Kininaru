@@ -505,9 +505,16 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
+  // Keep the mini-calendar in sync with the month currently displayed.
+  // Deliberately depends on month/year only, not the full date: panning
+  // within the same month must not reset the mini-calendar's position.
+  const currentMonth = currentDate.getMonth()
+  const currentYear = currentDate.getFullYear()
+  /* eslint-disable react-hooks/exhaustive-deps -- `currentDate` intentionally excluded, see comment above */
   useEffect(() => {
     setMiniMonth(currentDate)
-  }, [currentDate.getMonth(), currentDate.getFullYear()])
+  }, [currentMonth, currentYear])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const [form, setForm] = useState({
     title: '',

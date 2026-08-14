@@ -8,6 +8,7 @@ import { PageTransition } from '@/components/page-transition'
 import { CommandPalette } from '@/components/command-palette'
 import { CoachBubble } from '@/components/coach/coach-bubble'
 import { MobileNav } from '@/components/mobile-nav'
+import { ConnectionStatus } from '@/components/connection-status'
 import { KinLogo } from '@/components/kin-logo'
 import { Button } from '@/components/ui/button'
 import { BetaBadge } from '@/components/beta-badge'
@@ -30,6 +31,8 @@ export function AppShell({ displayName, children }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Connection pill (hors ligne / synchronisation) — app-wide, calm. */}
+      <ConnectionStatus />
       <Sidebar
         displayName={displayName}
         collapsed={collapsed}

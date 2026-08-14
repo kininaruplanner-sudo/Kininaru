@@ -47,11 +47,40 @@ function buildWebPush(): typeof webpush {
   return webpush
 }
 
+export interface PushAction {
+  action: string
+  title: string
+}
+
 export interface PushPayload {
   title: string
   body?: string
   link?: string
   tag?: string
+  /** Notification action buttons (shown by the OS, handled by the SW). */
+  actions?: PushAction[]
+  /** Vibrate pattern (ms) when the platform allows it. */
+  vibrate?: number[]
+  /** Keep the notification on screen until the user interacts. */
+  requireInteraction?: boolean
+}
+
+/**
+ * Action buttons for a notification, derived from its deep link.
+ * - Focus links (/focus?taskId=…) get the two actions that matter:
+ *   ▶ Commencer (navigates to the pre-filled Focus) and Plus tard (close).
+ * - Everything else gets a simple Ouvrir.
+ * Kept deliberately small: Web Push payloads are capped at ~4 KB.
+ */
+export function buildActionsForLink(link?: string): PushAction[] | undefined {
+  if (!link) return undefined
+  if (link.startsWith('/focus')) {
+    return [
+      { action: 'start', title: '▶ Commencer' },
+      { action: 'later', title: 'Plus tard' },
+    ]
+  }
+  return [{ action: 'open', title: 'Ouvrir' }]
 }
 
 /**

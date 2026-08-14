@@ -23,6 +23,7 @@ import {
   Sunrise,
   BellRing,
   Moon,
+  Target,
 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
@@ -366,6 +367,85 @@ function AiDemo() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Coach in action — “du conseil à l’action”                           */
+/* ------------------------------------------------------------------ */
+
+function CoachActionDemo() {
+  const steps = [
+    { icon: Timer, label: 'Focus pré-rempli' },
+    { icon: Play, label: 'Session lancée' },
+    { icon: Check, label: 'Tâche terminée' },
+    { icon: TrendingUp, label: 'Progression +' },
+  ]
+
+  return (
+    <div className="relative mx-auto max-w-3xl">
+      <div className="absolute -inset-8 rounded-[40px] bg-gradient-to-br from-kin-sage/20 via-kin-blue/10 to-transparent blur-2xl" />
+      <div className="relative rounded-3xl border border-border bg-card shadow-kin-hover p-6 sm:p-8">
+        <div className="text-center mb-7">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-3">
+            <Sparkles className="w-3 h-3" /> Le coach, du conseil à l’action
+          </span>
+          <h3 className="kin-h1 text-foreground">Un coach qui vous mène à l’action</h3>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto leading-relaxed">
+            Observation → suggestion → action. Le coach propose toujours un prochain pas
+            précis, basé sur vos vraies données — jamais de commentaires génériques.
+          </p>
+        </div>
+
+        {/* Conversation */}
+        <div className="space-y-3 max-w-lg mx-auto">
+          <div className="flex justify-end">
+            <p className="max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground shadow-kin">
+              J’ai 5 choses à faire.
+            </p>
+          </div>
+          <div className="flex justify-start gap-2">
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <div className="max-w-[85%]">
+              <p className="text-sm px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-muted text-foreground border border-border/60 leading-relaxed">
+                Commence par « Préparer la présentation ». Ça te prendra environ 25 minutes —
+                je pré-remplis une session Focus pour toi.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-11 sm:h-9"
+                  render={<Link href="/auth/sign-up">▶ Commencer</Link>}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 sm:h-9"
+                  render={<Link href="/auth/sign-up">Voir le plan</Link>}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ce qui se passe ensuite */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-y-2.5">
+          {steps.map((step, i) => (
+            <div key={step.label} className="flex items-center">
+              {i > 0 && (
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
+              )}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background/60 text-xs sm:text-sm font-medium text-foreground/90">
+                <step.icon className="w-3.5 h-3.5 text-kin-sage" />
+                {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* Sections                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -503,11 +583,11 @@ export function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.05 }}
-              className="kin-display text-foreground mb-6"
+              className="kin-display text-foreground mb-5"
             >
-              Organisez votre vie
+              Ton coach pour savoir
               <br />
-              avec <span className="kin-gradient-text">curiosité</span>.
+              <span className="kin-gradient-text">quoi faire maintenant</span>.
             </motion.h1>
 
             <motion.p
@@ -528,18 +608,19 @@ export function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.19 }}
-              className="flex flex-col sm:flex-row gap-3 mb-10"
+              className="flex flex-col sm:flex-row gap-3 mb-8"
             >
               <Button
                 size="lg"
                 className="h-12 sm:h-11 px-6 gap-2 text-base"
                 render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
               />
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-12 sm:h-11 px-6 gap-2 text-base"
-                render={<Link href="#features">Découvrir Kininaru</Link>}
+              {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
+                  peut réellement installer la PWA (beforeinstallprompt) ;
+                  disparaît une fois installée ou en mode standalone. */}
+              <InstallAppButton
+                variant="button"
+                className="h-12 sm:h-11 sm:w-auto sm:px-6 text-base border-primary/30 text-primary hover:border-primary/50"
               />
             </motion.div>
 
@@ -557,11 +638,87 @@ export function Landing() {
               </span>
             </motion.div>
 
-            {/* Install affordance — only rendered when the browser supports it. */}
-            <InstallAppButton variant="card" className="mt-8 max-w-md" />
+            {/* Le principe en 5 secondes — la boucle quotidienne. */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="mt-8"
+            >
+              <div className="flex flex-wrap items-center gap-y-2.5">
+                {[
+                  { icon: CheckSquare, label: 'Tâches' },
+                  { icon: Sparkles, label: 'Coach' },
+                  { icon: Target, label: 'Prochaine action' },
+                  { icon: Timer, label: 'Focus' },
+                  { icon: TrendingUp, label: 'Progression' },
+                ].map((step, i) => (
+                  <div key={step.label} className="flex items-center">
+                    {i > 0 && (
+                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
+                    )}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 shadow-kin text-xs sm:text-sm font-medium text-foreground/90">
+                      <step.icon className="w-3.5 h-3.5 text-primary" />
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Des tâches à la prochaine action, en une boucle guidée par votre coach.
+              </p>
+            </motion.div>
           </div>
 
           <PlannerMock />
+        </div>
+      </section>
+
+      {/* ---------------- Pourquoi Kininaru ? ---------------- */}
+      <section className="py-16 sm:py-20 border-t border-border/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <Reveal>
+            <div className="text-center mb-10 sm:mb-12">
+              <p className="kin-h1 text-foreground mb-2">
+                Vous avez déjà une liste de choses à faire.
+              </p>
+              <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed">
+                Kininaru vous aide à choisir{' '}
+                <strong className="text-foreground font-semibold">laquelle faire maintenant</strong> —
+                et vous accompagne jusqu’au bout.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {[
+              {
+                icon: Target,
+                title: 'Prioriser',
+                text: 'Une seule prochaine action claire, pas une liste de 47 choses à trier.',
+              },
+              {
+                icon: Sparkles,
+                title: 'Être guidé',
+                text: 'Un coach qui observe vos vraies données et propose la suite concrète.',
+              },
+              {
+                icon: Timer,
+                title: 'Passer à l’action',
+                text: 'Le Focus se pré-remplit d’un clic : vous commencez, sans friction.',
+              },
+            ].map((item, i) => (
+              <Reveal key={item.title} delay={i * 0.08}>
+                <div className="h-full rounded-3xl border border-border bg-card p-6 hover-lift hover:border-primary/25 transition-smooth text-center">
+                  <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <item.icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="kin-h3 text-foreground mb-1.5">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{item.text}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -599,7 +756,8 @@ export function Landing() {
 
       {/* ---------------- AI Coach ---------------- */}
       <section id="ai" className="py-20 sm:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-14 items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
           <Reveal>
             <div className="max-w-lg">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
@@ -637,6 +795,14 @@ export function Landing() {
 
           <Reveal delay={0.1}>
             <AiDemo />
+          </Reveal>
+          </div>
+
+          {/* Le coach, du conseil à l’action — démonstration visuelle simple. */}
+          <Reveal delay={0.05}>
+            <div className="mt-16 sm:mt-24">
+              <CoachActionDemo />
+            </div>
           </Reveal>
         </div>
       </section>
@@ -696,8 +862,8 @@ export function Landing() {
                     {
                       time: '10:30',
                       icon: BellRing,
-                      title: 'Rappel intelligent',
-                      text: '« Votre tâche prioritaire est en cours — 25 minutes de focus suffisent. »',
+                      title: 'Coach → prochaine action',
+                      text: '« Votre prochaine action est prête — 25 minutes de focus suffisent. »',
                       color: 'bg-kin-coral/15 text-kin-coral',
                     },
                     {
@@ -708,9 +874,9 @@ export function Landing() {
                       color: 'bg-kin-blue/15 text-kin-blue',
                     },
                     {
-                      time: '18:30',
+                      time: '18:00',
                       icon: TrendingUp,
-                      title: 'Bilan des progrès',
+                      title: 'Progression',
                       text: 'Tâches terminées, habitudes cochées, minutes de focus — sans culpabiliser.',
                       color: 'bg-kin-sage/20 text-kin-sage',
                     },

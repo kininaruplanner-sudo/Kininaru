@@ -39,7 +39,7 @@ export default async function FamilyPage() {
   // The `profiles` embed can come back shaped as an array depending on
   // PostgREST's relation inference — normalize to a single row (or null) so
   // the client component always receives the same object shape.
-  const members = (membersRes.data ?? []).map((m: any) => ({
+  const members = (membersRes.data ?? []).map((m) => ({
     ...m,
     profiles: Array.isArray(m.profiles) ? (m.profiles[0] ?? null) : (m.profiles ?? null),
   }))

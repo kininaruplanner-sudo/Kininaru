@@ -1,17 +1,19 @@
 import { cn } from '@/lib/utils'
 
 /**
- * Kininaru brand mark — the new logo: three dots above a stylized lotus
- * flower (multiple curved petal layers), in the brand dusty blue #5B8296.
- * One source of truth so the brand never drifts across surfaces.
- *
- * - `KinLogoMark`  : the mark alone (favicon, bubble, collapsed sidebar).
- * - `KinLogo`      : full lockup — mark + lowercase "kininaru" wordmark.
- *   * variant "stack" (default): wordmark BELOW the lotus (the brand lockup)
- *   * variant "row"            : wordmark beside the lotus (navbars, sidebar)
+ * Kininaru brand mark — a lotus flower, drawn as a wide open cup of
+ * layered petals. Deliberately NOT a cactus: no dots, no tall vertical
+ * spike; the silhouette is wider than it is tall, with petals that splay
+ * outward and a gently rounded dome (growth → evolution → new day).
  *
  * The mark uses `currentColor` — surfaces can override the color by passing
  * a `color` prop or a text-color class on the wrapper.
+ *
+ * ⚠️ The petal paths live in THREE places that must stay in sync:
+ *   1. here (React component)
+ *   2. `public/icon.svg` (the visual source for generated PNG icons)
+ *   3. `scripts/generate-icons.mjs` parses `public/icon.svg` — never hand-edit
+ *      the PNGs in `public/`, re-run `npm run icons` instead.
  */
 
 export function KinLogoMark({ className }: { className?: string }) {
@@ -22,21 +24,17 @@ export function KinLogoMark({ className }: { className?: string }) {
       fill="currentColor"
       className={cn('shrink-0', className)}
     >
-      {/* Three dots — center raised */}
-      <rect x="24.5" y="9" width="4.5" height="4.5" rx="1.1" />
-      <rect x="29.75" y="5" width="4.5" height="4.5" rx="1.1" />
-      <rect x="35" y="9" width="4.5" height="4.5" rx="1.1" />
-      {/* Lotus — center petal */}
-      <path d="M32 54 C 28 44 27 30 32 20 C 37 30 36 44 32 54 Z" />
-      {/* Inner petals */}
-      <path d="M32 52 C 26 46 21 36 20 28 C 25 32 29 41 32 52 Z" />
-      <path d="M32 52 C 38 46 43 36 44 28 C 39 32 35 41 32 52 Z" />
-      {/* Outer petals */}
-      <path d="M32 55 C 24 50 15 44 12 38 C 19 42 26 48 32 55 Z" />
-      <path d="M32 55 C 40 50 49 44 52 38 C 45 42 38 48 32 55 Z" />
-      {/* Base petals */}
-      <path d="M32 57 C 25 58 18 57 15 53 C 20 58 26 59 32 57 Z" />
-      <path d="M32 57 C 39 58 46 57 49 53 C 44 58 38 59 32 57 Z" />
+      {/* Center petal — short, wide, rounded (the lotus cup, never a spike) */}
+      <path d="M32 25 C 36.8 32 36.8 44 32 50 C 27.2 44 27.2 32 32 25 Z" />
+      {/* Inner petals — sweep outward and up */}
+      <path d="M30.5 47 C 24.5 44.5 18.5 38.5 18 28.5 C 23 30.5 28 39.5 30.5 47 Z" />
+      <path d="M33.5 47 C 39.5 44.5 45.5 38.5 46 28.5 C 41 30.5 36 39.5 33.5 47 Z" />
+      {/* Outer petals — the wide open bowl */}
+      <path d="M30 51.5 C 21.5 51 13 48 10 41 C 17 43.5 24.5 47.5 30 51.5 Z" />
+      <path d="M34 51.5 C 42.5 51 51 48 54 41 C 47 43.5 39.5 47.5 34 51.5 Z" />
+      {/* Base petals — close the flower */}
+      <path d="M31.5 53.5 C 27.5 55.5 24.5 55.5 22.5 54 C 25.5 56 28.5 56 31.5 53.5 Z" />
+      <path d="M32.5 53.5 C 36.5 55.5 39.5 55.5 41.5 54 C 38.5 56 35.5 56 32.5 53.5 Z" />
     </svg>
   )
 }

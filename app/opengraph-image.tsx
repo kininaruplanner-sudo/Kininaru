@@ -22,7 +22,7 @@ import { SITE_URL } from '@/lib/site-url'
 
 export const runtime = 'edge'
 
-export const alt = 'Kininaru — Organisez votre vie avec curiosité'
+export const alt = 'Kininaru — Ton coach pour savoir quoi faire maintenant'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -136,13 +136,13 @@ export default async function Image() {
             <div
               style={{
                 color: 'rgba(255,255,255,0.95)',
-                fontSize: 38,
+                fontSize: 34,
                 fontWeight: 500,
                 marginTop: 22,
                 letterSpacing: 0.2,
               }}
             >
-              Organisez votre vie avec curiosité
+              Ton coach pour savoir quoi faire maintenant
             </div>
             <div
               style={{

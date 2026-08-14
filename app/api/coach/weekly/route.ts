@@ -36,7 +36,7 @@ function isRateLimited(key: string): boolean {
   return false
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const supabase = await createClient()
     const {
@@ -51,7 +51,6 @@ export async function POST(req: Request) {
 
     const now = new Date()
     const weekAgo = subDays(now, 7).toISOString()
-    const todayKey = format(now, 'yyyy-MM-dd')
     const dayKeys: string[] = []
     for (let i = 6; i >= 0; i--) dayKeys.push(format(subDays(now, i), 'yyyy-MM-dd'))
 

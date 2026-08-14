@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { User, Mail, Palette, Bell, Shield, Save, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info } from 'lucide-react'
+import { User, Palette, Bell, Shield, Save, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/page-header'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
+import { CalendarConnections } from '@/components/calendar-connections'
 import { InstallAppButton } from '@/components/install-app-button'
 import { useAppInstall } from '@/lib/use-app-install'
 import { useVoicePrefs } from '@/lib/voice-preferences'
@@ -35,7 +36,7 @@ interface Memory {
 }
 
 interface Props {
-  profile: any
+  profile: { id: string; display_name?: string | null } | null
   user: { email: string }
   userId: string
   memories: Memory[]
@@ -381,6 +382,12 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
       title: t('settings.notifications'),
       desc: 'Vraies notifications Web Push — même quand l’application est fermée.',
       content: <PushSettingsPanel />,
+    },
+    {
+      icon: CalendarDays,
+      title: 'Calendriers',
+      desc: 'Vos calendriers externes (Google, Outlook, iCloud) dans Kininaru.',
+      content: <CalendarConnections />,
     },
     {
       icon: Sparkles,

@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
 import { palette } from '@/lib/palette'
 import { PageHeader } from '@/components/page-header'
+import { enqueueOp, newLocalId } from '@/lib/offline/sync-queue'
 
 type Priority = 'low' | 'medium' | 'high' | 'urgent'
 type Status = 'todo' | 'in_progress' | 'done'
@@ -277,6 +278,12 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     setShowModal(true)
   }
 
+  // Offline-first: while offline (or on a network failure) every task
+  // mutation is queued locally (IndexedDB) and the UI updates optimistically;
+  // the ConnectionStatus banner flushes the queue when the connection returns.
+  const isNetworkError = (err: { code?: string; message?: string } | null) =>
+    !err || !err.code || /fetch|network|load failed/i.test(err.message ?? '')
+
   const saveTask = async () => {
     if (!form.title.trim()) return
     setLoading(true)
@@ -291,30 +298,78 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     }
 
     if (editingTask) {
-      const { data } = await supabase
-        .from('tasks')
-        .update(payload)
-        .eq('id', editingTask.id)
-        .select()
-        .single()
-      if (data) {
-        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)))
+      const applyOptimisticUpdate = (prev: Task[]) =>
+        prev.map((t) =>
+          t.id === editingTask.id
+            ? { ...t, ...payload, due_date: payload.due_date ?? undefined }
+            : t
+        )
+      if (!navigator.onLine) {
+        await enqueueOp({ table: 'tasks', op: 'update', recordId: editingTask.id, payload })
+        setTasks(applyOptimisticUpdate)
         setShowModal(false)
+      } else {
+        const { data, error } = await supabase
+          .from('tasks')
+          .update(payload)
+          .eq('id', editingTask.id)
+          .select()
+          .single()
+        if (data) {
+          setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)))
+          setShowModal(false)
+        } else if (isNetworkError(error)) {
+          await enqueueOp({ table: 'tasks', op: 'update', recordId: editingTask.id, payload })
+          setTasks(applyOptimisticUpdate)
+          setShowModal(false)
+        }
       }
     } else {
-      const { data } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: userId,
-          ...payload,
-          status: 'todo',
+      const recordId = newLocalId()
+      const optimistic: Task = {
+        id: recordId,
+        title: payload.title,
+        description: payload.description,
+        priority: payload.priority,
+        status: 'todo',
+        due_date: payload.due_date ?? undefined,
+        tags: payload.tags,
+        color: payload.color,
+        created_at: new Date().toISOString(),
+      }
+      const offline = !navigator.onLine
+      if (offline) {
+        await enqueueOp({
+          table: 'tasks',
+          op: 'create',
+          recordId,
+          payload: { ...payload, status: 'todo' },
         })
-        .select()
-        .single()
-
-      if (data) {
-        setTasks((prev) => [data, ...prev])
+        setTasks((prev) => [optimistic, ...prev])
         setShowModal(false)
+      } else {
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: userId,
+            ...payload,
+            status: 'todo',
+          })
+          .select()
+          .single()
+        if (data) {
+          setTasks((prev) => [data, ...prev])
+          setShowModal(false)
+        } else if (isNetworkError(error)) {
+          await enqueueOp({
+            table: 'tasks',
+            op: 'create',
+            recordId,
+            payload: { ...payload, status: 'todo' },
+          })
+          setTasks((prev) => [optimistic, ...prev])
+          setShowModal(false)
+        }
       }
     }
     setLoading(false)
@@ -322,37 +377,88 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
 
   const updateStatus = async (id: string, status: Status) => {
     const completedAt = status === 'done' ? new Date().toISOString() : null
-    await supabase
-      .from('tasks')
-      .update({
-        status,
-        completed_at: completedAt,
-      })
-      .eq('id', id)
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status, completed_at: completedAt ?? undefined } : t)))
+    const patch = { status, completed_at: completedAt }
+    const apply = (prev: Task[]) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, status, completed_at: completedAt ?? undefined } : t
+      )
+    if (!navigator.onLine) {
+      await enqueueOp({ table: 'tasks', op: 'update', recordId: id, payload: patch })
+      setTasks(apply)
+      return
+    }
+    const { error } = await supabase.from('tasks').update(patch).eq('id', id)
+    if (isNetworkError(error)) {
+      await enqueueOp({ table: 'tasks', op: 'update', recordId: id, payload: patch })
+    }
+    setTasks(apply)
   }
 
   const deleteTask = async (id: string) => {
-    await supabase.from('tasks').delete().eq('id', id)
+    if (!navigator.onLine) {
+      await enqueueOp({ table: 'tasks', op: 'delete', recordId: id, payload: {} })
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+      return
+    }
+    const { error } = await supabase.from('tasks').delete().eq('id', id)
+    if (isNetworkError(error)) {
+      await enqueueOp({ table: 'tasks', op: 'delete', recordId: id, payload: {} })
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id))
   }
 
   const addSubtask = async (parentId: string) => {
     const title = (subtaskDraft[parentId] || '').trim()
     if (!title) return
-    const { data } = await supabase
+    const payload = {
+      parent_id: parentId,
+      title,
+      priority: 'medium' as Priority,
+      status: 'todo' as Status,
+    }
+    if (!navigator.onLine) {
+      const recordId = newLocalId()
+      await enqueueOp({ table: 'tasks', op: 'create', recordId, payload })
+      setTasks((prev) => [
+        ...prev,
+        {
+          id: recordId,
+          parent_id: parentId,
+          title,
+          priority: 'medium',
+          status: 'todo',
+          tags: [],
+          color: palette('sage'),
+          created_at: new Date().toISOString(),
+        } as Task,
+      ])
+      setSubtaskDraft((prev) => ({ ...prev, [parentId]: '' }))
+      return
+    }
+    const { data, error } = await supabase
       .from('tasks')
-      .insert({
-        user_id: userId,
-        parent_id: parentId,
-        title,
-        priority: 'medium',
-        status: 'todo',
-      })
+      .insert({ user_id: userId, ...payload })
       .select()
       .single()
     if (data) {
       setTasks((prev) => [...prev, data])
+      setSubtaskDraft((prev) => ({ ...prev, [parentId]: '' }))
+    } else if (isNetworkError(error)) {
+      const recordId = newLocalId()
+      await enqueueOp({ table: 'tasks', op: 'create', recordId, payload })
+      setTasks((prev) => [
+        ...prev,
+        {
+          id: recordId,
+          parent_id: parentId,
+          title,
+          priority: 'medium',
+          status: 'todo',
+          tags: [],
+          color: palette('sage'),
+          created_at: new Date().toISOString(),
+        } as Task,
+      ])
       setSubtaskDraft((prev) => ({ ...prev, [parentId]: '' }))
     }
   }

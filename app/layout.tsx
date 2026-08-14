@@ -62,25 +62,25 @@ export const metadata: Metadata = {
   // (WhatsApp, Discord, Facebook, Twitter/X…) ne peuvent pas récupérer l'image
   // de partage. En production : https://kininaru-planner.vercel.app.
   metadataBase: new URL(SITE_URL),
-  title: 'Kininaru — Organisez votre vie avec curiosité',
+  title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
   description:
-    'Le planificateur chaleureux qui réunit tâches, habitudes, focus, journal, espace famille et un coach IA — pour avancer chaque jour, seul ou en famille.',
+    "Tu as déjà une liste de choses à faire. Kininaru t'aide à choisir laquelle faire maintenant — tâches, habitudes, focus, journal, famille et un coach IA qui guide ta journée.",
   openGraph: {
     type: 'website',
     url: SITE_URL,
     siteName: 'Kininaru',
-    title: 'Kininaru — Organisez votre vie avec curiosité',
+    title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
     description:
-      'Tâches, habitudes, focus, journal, famille et coach IA dans un seul espace chaleureux.',
+      'Choisis quoi faire maintenant : tâches, habitudes, focus, journal, famille et un coach IA qui observe tes vraies données.',
     // Image 1200×630 dédiée (app/opengraph-image.tsx), résolue en URL absolue
     // via metadataBase → https://kininaru-planner.vercel.app/opengraph-image
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Kininaru — Organisez votre vie avec curiosité' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Kininaru — Ton coach pour savoir quoi faire maintenant' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kininaru — Organisez votre vie avec curiosité',
+    title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
     description:
-      'Tâches, habitudes, focus, journal, famille et coach IA dans un seul espace chaleureux.',
+      'Choisis quoi faire maintenant : tâches, habitudes, focus, journal, famille et un coach IA qui guide ta journée.',
     images: ['/opengraph-image'],
   },
   // Balises Google Search Console (codes actifs uniquement).
@@ -113,7 +113,7 @@ export const metadata: Metadata = {
         type: 'image/svg+xml',
       },
     ],
-    apple: ['/apple-icon.png', '/apple-touch-icon.png'],
+    apple: ['/apple-icon.png'],
   },
 }
 

@@ -1,24 +1,24 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type ComponentType } from 'react'
 import { motion } from 'framer-motion'
-import { Trophy, Star, Zap, Target, Timer, Repeat2, BookOpen, Flame, Award } from 'lucide-react'
+import { Trophy, Star, Zap, Target, Timer, Repeat2, Flame, Award } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { cardVariants } from '@/components/ui/card'
 
 interface Props {
-  profile: any
-  tasks: any[]
-  focusSessions: any[]
-  habits: any[]
+  profile: { xp?: number | null; level?: number | null } | null
+  tasks: { status: string }[]
+  focusSessions: { duration_minutes?: number | null }[]
+  habits: { best_streak?: number | null }[]
 }
 
 interface Badge {
   id: string
   title: string
   description: string
-  icon: any
+  icon: ComponentType<{ className?: string }>
   color: string
   bg: string
   unlocked: boolean

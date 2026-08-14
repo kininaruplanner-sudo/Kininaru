@@ -148,9 +148,12 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actions: targets.map((t) => t.action) }),
       })
-      const json = await res.json().catch(() => null)
+      const json = (await res.json().catch(() => null)) as {
+        error?: string
+        results?: { ok: boolean; message: string }[]
+      } | null
       if (!res.ok) {
-        const err = (json as any)?.error ?? "L'action n'a pas pu être enregistrée."
+        const err = json?.error ?? "L'action n'a pas pu être enregistrée."
         setStatuses((prev) => {
           const next = { ...prev }
           for (const t of targets) next[t.id] = 'error'
@@ -163,7 +166,7 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
         })
         return
       }
-      const results = ((json as any)?.results ?? []) as { ok: boolean; message: string }[]
+      const results = json?.results ?? []
       setStatuses((prev) => {
         const next = { ...prev }
         results.forEach((r, i) => {

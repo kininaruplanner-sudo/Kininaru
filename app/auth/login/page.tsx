@@ -41,8 +41,8 @@ export default function LoginPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (err: any) {
-      setError(err.message || t('auth.signIn'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.signIn'))
     } finally {
       setLoading(false)
     }
@@ -59,8 +59,8 @@ export default function LoginPage() {
         },
       })
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message || t('auth.googleFailed'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.googleFailed'))
       setGoogleLoading(false)
     }
   }
