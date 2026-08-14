@@ -28,6 +28,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${GTM_ID}');`
 
+// Google tag (gtag.js) — GA4 `G-1LELPWQS5D` fourni par le compte Google
+// (identifiant PUBLIC par conception, visible dans le code source de chaque
+// page). Surcharge possible via NEXT_PUBLIC_GA4_ID (optionnel). Le dataLayer
+// est partagé avec GTM. next/script injecte le script dans le <head> initial
+// (avantInteractive) et l'init juste après l'hydratation (afterInteractive),
+// pour ne jamais bloquer le rendu.
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID || 'G-1LELPWQS5D'
+
+const GA4_SCRIPT = `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA4_ID}');
+`
+
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
@@ -155,6 +170,16 @@ export default function RootLayout({
             possible (avant le script d'init du thème). */}
         <Script id="kininaru-gtm" strategy="beforeInteractive">
           {GTM_SCRIPT}
+        </Script>
+        {/* Google tag (gtag.js) — chargé en async juste après l'hydratation,
+            une seule balise, présente sur toutes les pages via ce layout. */}
+        <Script
+          id="kininaru-ga4"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="kininaru-ga4-init" strategy="afterInteractive">
+          {GA4_SCRIPT}
         </Script>
         {/* next/script (beforeInteractive) injects the theme init in the
             initial HTML <head>, so the theme applies before first paint —
