@@ -22,7 +22,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **PWA** : installable, service worker, icônes complètes (lotus), expérience standalone
 - **Hors ligne** : création/édition/suppression de tâches mises en file localement (IndexedDB) puis synchronisées à la reconnexion, avec indicateur d'état (hors ligne · synchronisation · synchronisé) ; conflits jamais écrasés silencieusement (`lib/offline/sync-queue.ts`)
 - **Alarmes** : créneaux quotidiens (heure locale, jours, son, vibration, snooze) distincts des rappels — planifiés localement, limites PWA documentées dans l'UI
-- **Calendriers externes** : abstraction multi-fournisseurs (Google, Microsoft, Apple/iCloud en ICS), schéma de déduplication, section « Calendriers connectés » dans les Paramètres, guide `docs/calendar-integrations.md`
+- **Calendriers externes** : flux OAuth réels (Google Calendar, Microsoft Graph) avec callback, refresh de token et synchronisation serveur, abonnement **ICS** réel (URL validée, flux parsé, déduplication `(connection_id, external_event_id)`), section « Calendriers connectés » dans les Paramètres, guide public [`/docs/calendar-integrations.md`](/docs/calendar-integrations.md)
 - **i18n** : français / anglais
 - **Thèmes** : 6 palettes de couleurs (clair et sombre)
 
@@ -78,10 +78,12 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). **Décision bêta : les retours sont réservés aux utilisateurs connectés** — l'API `/api/feedback` exige une session et pose `user_id` depuis celle-ci ; aucun retour anonyme n'est accepté. Sans lui, le formulaire affiche une erreur à l'envoi.
 4. `supabase/alarms.sql` — active les **alarmes** (table `alarms`, RLS par utilisateur). Sans lui, la page Alarmes s'affiche mais rien ne peut être enregistré.
 5. `supabase/calendar.sql` — active les **calendriers externes** (`calendar_connections` + `calendar_synced_events`, RLS par utilisateur). Sans lui, la section « Calendriers connectés » des Paramètres reste vide.
+6. `supabase/calendar-security.sql` — **sécurité des tokens OAuth** : révoque tout accès client aux tables de connexion et expose une fonction `my_calendar_connections()` qui ne renvoie QUE les champs sûrs (jamais `access_token`/`refresh_token`). Toutes les mutations passent par les routes API. Sans lui, les tokens restent théoriquement lisibles par le navigateur.
 6. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
 7. `supabase/goals.sql` — active les **Objectifs** (table `goals` + colonne `tasks.goal_id`, RLS par utilisateur). Sans lui, la page Objectifs s'affiche mais rien ne peut être enregistré et l'action IA `create_goal` échoue.
 8. `supabase/reminders.sql` — active les **rappels temporels** (colonne `tasks.scheduled_time` + déduplication `push_send_log.reminder_key`). Sans lui, l'heure planifiée n'est pas persistée et le cron de rappels ne peut pas dédupliquer.
-9. `supabase/scheduler.sql` — planifie les crons dans Supabase (pg_cron + pg_net : brief du soir 20:00 UTC, brief hebdo lundi 08:00 UTC, rappels toutes les 15 min) et autorise le type de notification `reminder`. **Remplacez d'abord** `CHANGE_ME_CRON_SECRET` par la vraie valeur de `CRON_SECRET` (jamais commitée). Sans lui : brief du matin et maintenance via le cron Vercel unique, briefs soir/hebdo et rappels uniquement quand l'app est ouverte.
+9. `supabase/scheduler.sql` — planifie les crons dans Supabase (pg_cron + pg_net : brief du soir 20:00 UTC, brief hebdo lundi 08:00 UTC, rappels toutes les 15 min) et autorise le type de notification `reminder`. Aucun secret ni domaine codé en dur : les valeurs sont lues dans la table serveur `public.app_config` (`app_url`, `cron_secret`) — **à renseigner une fois dans le SQL Editor** (voir l'en-tête du fichier). Sans lui : brief du matin et maintenance via le cron Vercel unique, briefs soir/hebdo et rappels uniquement quand l'app est ouverte.
+10. `supabase/timezone.sql` — ajoute `profiles.timezone` (nom IANA) : le cron de rappels convertit alors `scheduled_time` (heure mur locale) en instant UTC exact pour chaque utilisateur. Sans lui, les rappels serveur retombent sur UTC.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -106,7 +108,12 @@ Tout le reste est planifié **dans Supabase** (plan gratuit, déjà utilisé par
 | **Weekly Brief** | 1×/semaine, lundi 08:00 UTC | Supabase pg_cron | `/api/cron/briefs` |
 | **Rappels temporels** (tâches/événements imminents) | toutes les 15 min | Supabase pg_cron | `/api/cron/reminders` |
 
-**Mise en place (Supabase)** : exécutez `supabase/scheduler.sql` dans le SQL Editor, en **remplaçant d'abord** `CHANGE_ME_CRON_SECRET` par la vraie valeur de `CRON_SECRET` (jamais commitée). Le fichier est relançable (`cron.unschedule` avant `cron.schedule`). Il corrige aussi la contrainte `notifications.type` pour autoriser les rappels (`'reminder'`).
+**Mise en place (Supabase)** : exécutez `supabase/calendar-security.sql` (table serveur `public.app_config`), puis `supabase/scheduler.sql`, puis renseignez une fois dans le SQL Editor :
+```sql
+update public.app_config set value = 'https://kininaru-planner.vercel.app' where key = 'app_url';
+update public.app_config set value = 'VOTRE_VRAI_SECRET' where key = 'cron_secret';
+```
+Aucun secret réel n'est commité (placeholders uniquement) et les jobs se relancent sans doublon (`cron.unschedule` avant `cron.schedule`). Le fichier corrige aussi la contrainte `notifications.type` pour autoriser les rappels (`'reminder'`).
 
 **Coût** : ~3 000 invocations Vercel/mois (96/jour pour les rappels + ~3/jour briefs + 1/jour daily) — très en dessous des limites du plan gratuit. Pas de changement nécessaire ailleurs (SendGrid : emails de feedback uniquement, limites intactes).
 

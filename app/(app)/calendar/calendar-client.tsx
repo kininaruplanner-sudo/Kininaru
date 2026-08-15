@@ -516,6 +516,20 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
   }, [currentMonth, currentYear])
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  // Deep link depuis la command palette (?date=YYYY-MM-DD) : ouvre le
+  // calendrier sur le jour de l'événement trouvé.
+  useEffect(() => {
+    const d = searchParams.get('date')
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const t = setTimeout(() => {
+        const target = new Date(`${d}T12:00:00`)
+        if (!Number.isNaN(target.getTime())) setCurrentDate(target)
+        router.replace('/calendar', { scroll: false })
+      }, 0)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams, router])
+
   const [form, setForm] = useState({
     title: '',
     start_at: '',

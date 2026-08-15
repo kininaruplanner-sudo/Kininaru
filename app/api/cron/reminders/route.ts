@@ -7,6 +7,7 @@ import {
   PUSH_DAILY_CAP,
   type PushSubscriptionRow,
 } from '@/lib/web-push/server'
+import { localDateKey, localToUtcDate, minutesBetween } from '@/lib/time'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,19 +23,22 @@ export const dynamic = 'force-dynamic'
  *
  * Pour chaque appareil abonné au push (opt-in), on regarde les données RÉELLES
  * du jour :
- *   - tâches planifiées (due_date = aujourd'hui, scheduled_time renseigné,
- *     non terminées) dont l'heure est dans les 10 prochaines minutes
- *     (« commence dans 10 minutes ») ou dépassée de moins de 35 min
- *     (« était prévue à HH:MM ») ;
+ *   - tâches planifiées (due_date = aujourd'hui LOCAL de l'utilisateur,
+ *     scheduled_time renseigné, non terminées) dont l'heure est dans les
+ *     10 prochaines minutes (« commence dans 10 minutes ») ou dépassée de
+ *     moins de 35 min (« était prévue à HH:MM ») ;
  *   - événements commençant dans les 15 prochaines minutes.
+ *
+ * FUSEAUX HORAIRES (cf. lib/time.ts) : scheduled_time est une heure mur
+ * « HH:MM » dans le fuseau de l'utilisateur (profiles.timezone, nom IANA).
+ * La conversion en instant UTC exact se fait via localToUtcDate — jamais
+ * de comparaison naïve getHours()/getUTCHours(). Tant que profiles.timezone
+ * est NULL (SQL timezone.sql pas appliqué, ou utilisateur jamais passé sur
+ * l'app), le serveur retombe sur UTC (comportement historique documenté).
  *
  * Anti-spam identique au reste du produit : heures silencieuses, cap
  * journalier (selon la fréquence choisie), déduplication par tâche/jour
  * (push_send_log.reminder_key), nettoyage des abonnements morts.
- *
- * Limite honnête : les comparaisons horaires se font en UTC (comme les
- * briefs). La fenêtre ±15 min absorbe les décalages de fuseaux courants ;
- * une préférence de timezone par utilisateur est une amélioration future.
  */
 
 const BATCH = 200
@@ -50,39 +54,43 @@ interface ReminderCandidate {
   reminderKey: string
 }
 
-function minutesFromMidnight(iso: string | Date): number {
-  const d = new Date(iso)
-  return d.getUTCHours() * 60 + d.getUTCMinutes()
-}
-
-function parseTime(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return (h || 0) * 60 + (m || 0)
-}
-
-function buildCandidates(tasks: unknown[], events: unknown[], now: Date, today: string): ReminderCandidate[] {
-  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+function buildCandidates(
+  tasks: unknown[],
+  events: unknown[],
+  now: Date,
+  todayKey: string,
+  tz: string
+): ReminderCandidate[] {
   const out: ReminderCandidate[] = []
 
-  for (const raw of tasks as { id: string; title: string; status: string; due_date: string | null; scheduled_time: string | null }[]) {
-    if (raw.status === 'done' || raw.due_date !== today || !raw.scheduled_time) continue
-    const start = parseTime(raw.scheduled_time)
-    const diff = nowMin - start
+  for (const raw of tasks as {
+    id: string
+    title: string
+    status: string
+    due_date: string | null
+    scheduled_time: string | null
+  }[]) {
+    if (raw.status === 'done' || raw.due_date !== todayKey || !raw.scheduled_time) continue
+    const target = localToUtcDate(todayKey, raw.scheduled_time, tz)
+    if (Number.isNaN(target.getTime())) continue
+    const diff = minutesBetween(now, target)
     if (diff < -LEAD_MINUTES || diff > LATE_WINDOW_MINUTES) continue
     const hhmm = raw.scheduled_time.slice(0, 5)
     out.push({
       kind: 'task',
       id: raw.id,
-      title: diff < 0 ? `🎯 « ${raw.title} » commence dans ${Math.abs(diff)} min` : `⏰ ${raw.title} était prévu·e à ${hhmm}`,
+      title:
+        diff < 0
+          ? `🎯 « ${raw.title} » commence dans ${Math.abs(diff)} min`
+          : `⏰ ${raw.title} était prévu·e à ${hhmm}`,
       body: diff < 0 ? "Prêt·e à t'y mettre ?" : "On commence maintenant ou on le déplace ?",
       link: `/focus?taskId=${raw.id}&task=${encodeURIComponent(raw.title)}`,
-      reminderKey: `task:${raw.id}:${today}`,
+      reminderKey: `task:${raw.id}:${todayKey}`,
     })
   }
 
   for (const raw of events as { id: string; title: string; start_at: string }[]) {
-    const startMin = minutesFromMidnight(raw.start_at)
-    const diff = startMin - nowMin
+    const diff = minutesBetween(now, new Date(raw.start_at))
     if (diff < 0 || diff > LEAD_MINUTES + 5) continue
     out.push({
       kind: 'event',
@@ -90,7 +98,7 @@ function buildCandidates(tasks: unknown[], events: unknown[], now: Date, today: 
       title: `📅 ${raw.title} commence dans ${diff <= 1 ? 'quelques instants' : `${Math.round(diff)} min`}`,
       body: 'Le coach peut t’aider à préparer la suite.',
       link: '/calendar',
-      reminderKey: `event:${raw.id}:${today}`,
+      reminderKey: `event:${raw.id}:${localDateKey(tz, now)}`,
     })
   }
   return out
@@ -99,7 +107,10 @@ function buildCandidates(tasks: unknown[], events: unknown[], now: Date, today: 
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET
   if (!secret) {
-    return Response.json({ error: 'CRON_SECRET non configuré — planification désactivée.' }, { status: 503 })
+    return Response.json(
+      { error: 'CRON_SECRET non configuré — planification désactivée.' },
+      { status: 503 }
+    )
   }
   if (req.headers.get('x-cron-secret') !== secret) {
     return Response.json({ error: 'Non autorisé' }, { status: 401 })
@@ -107,7 +118,6 @@ export async function POST(req: Request) {
 
   const supabase = createServiceClient()
   const now = new Date()
-  const today = now.toISOString().slice(0, 10)
 
   const { data: subs, error: subsErr } = await supabase
     .from('push_subscriptions')
@@ -121,6 +131,16 @@ export async function POST(req: Request) {
   if (subscriptions.length === 0) {
     return Response.json({ ok: true, checked: 0, sent: 0 })
   }
+
+  // Fuseau horaire explicite de chaque utilisateur (IANA), si renseigné.
+  const ids = [...new Set(subscriptions.map((s) => s.user_id))]
+  const { data: profs } = await supabase
+    .from('profiles')
+    .select('id, timezone')
+    .in('id', ids)
+  const tzByUser = new Map<string, string>(
+    (profs ?? []).map((p) => [p.id as string, (p.timezone as string | null) ?? 'UTC'])
+  )
 
   let sent = 0
   let skipped = 0
@@ -138,13 +158,16 @@ export async function POST(req: Request) {
       continue
     }
 
+    const tz = tzByUser.get(sub.user_id) ?? 'UTC'
+    const todayKey = localDateKey(tz, now)
+
     // Données réelles du jour (service role, jamais de données d'autrui).
     const [{ data: tasks }, { data: events }] = await Promise.all([
       supabase
         .from('tasks')
         .select('id, title, status, due_date, scheduled_time')
         .eq('user_id', sub.user_id)
-        .eq('due_date', today)
+        .eq('due_date', todayKey)
         .in('status', ['todo', 'in_progress']),
       supabase
         .from('events')
@@ -154,7 +177,7 @@ export async function POST(req: Request) {
         .lte('start_at', new Date(Date.now() + 20 * 60_000).toISOString()),
     ])
 
-    const candidates = buildCandidates(tasks ?? [], events ?? [], now, today)
+    const candidates = buildCandidates(tasks ?? [], events ?? [], now, todayKey, tz)
     if (candidates.length === 0) {
       skipped++
       continue

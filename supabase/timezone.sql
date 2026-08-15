@@ -1,0 +1,21 @@
+-- =====================================================================
+-- Kininaru — Fuseau horaire utilisateur explicite
+--
+-- Run in the Supabase SQL Editor (additive, safe to re-run).
+--
+-- Stratégie (cf. lib/time.ts) :
+--   * les instants absolus sont stockés en UTC (timestamptz) ;
+--   * les dates calendaires (due_date, entry_date) sont des jours
+--     « mur » YYYY-MM-DD dans le fuseau de l'utilisateur ;
+--   * tasks.scheduled_time est une heure mur HH:MM dans le fuseau de
+--     l'utilisateur ;
+--   * profiles.timezone (nom IANA, ex. « Europe/Paris »,
+--     « Africa/Casablanca ») est le fuseau explicite utilisé par le
+--     cron serveur pour convertir scheduled_time en instant UTC exact.
+--
+-- Le client enregistre automatiquement le fuseau de l'appareil à la
+-- première ouverture (lib/coach/scheduler.ts). Tant qu'il est NULL, le
+-- serveur retombe sur UTC (comportement historique, documenté).
+-- =====================================================================
+
+alter table public.profiles add column if not exists timezone text;

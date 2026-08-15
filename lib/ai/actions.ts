@@ -316,6 +316,8 @@ export async function executeAiAction(
         // Journal → VRAI objectif : la ligne goals est créée et chaque tâche
         // (parent + étapes) lui est reliée via goal_id, pour alimenter la
         // progression affichée sur la page Objectifs.
+        // Atomicité : en cas d'échec d'une étape, tout ce qui a été créé est
+        // supprimé (compensation) — jamais de données partielles en base.
         const { data: goal, error: goalErr } = await supabase
           .from('goals')
           .insert({ user_id: userId, title: action.data.parent_title, status: 'active' })
@@ -333,7 +335,10 @@ export async function executeAiAction(
           })
           .select('id')
           .single()
-        if (parentErr) throw parentErr
+        if (parentErr) {
+          await supabase.from('goals').delete().eq('id', goal?.id)
+          throw parentErr
+        }
         const { error: stepsErr } = await supabase.from('tasks').insert(
           action.data.steps.map((title) => ({
             user_id: userId,
@@ -344,7 +349,11 @@ export async function executeAiAction(
             status: 'todo',
           }))
         )
-        if (stepsErr) throw stepsErr
+        if (stepsErr) {
+          await supabase.from('goals').delete().eq('id', goal?.id)
+          if (parent?.id) await supabase.from('tasks').delete().eq('id', parent.id)
+          throw stepsErr
+        }
         return {
           action: action.action,
           ok: true,
@@ -367,6 +376,8 @@ export async function executeAiAction(
         if (goalErr) throw goalErr
         const steps = action.data.steps ?? []
         if (steps.length > 0) {
+          // Compensation en cas d'échec : l'objectif seul (sans ses étapes)
+          // ne doit jamais rester en base.
           const { data: parent, error: parentErr } = await supabase
             .from('tasks')
             .insert({
@@ -378,7 +389,10 @@ export async function executeAiAction(
             })
             .select('id')
             .single()
-          if (parentErr) throw parentErr
+          if (parentErr) {
+            await supabase.from('goals').delete().eq('id', goal?.id)
+            throw parentErr
+          }
           const { error: stepsErr } = await supabase.from('tasks').insert(
             steps.map((title) => ({
               user_id: userId,
@@ -389,7 +403,11 @@ export async function executeAiAction(
               status: 'todo',
             }))
           )
-          if (stepsErr) throw stepsErr
+          if (stepsErr) {
+            await supabase.from('goals').delete().eq('id', goal?.id)
+            if (parent?.id) await supabase.from('tasks').delete().eq('id', parent.id)
+            throw stepsErr
+          }
         }
         return {
           action: action.action,

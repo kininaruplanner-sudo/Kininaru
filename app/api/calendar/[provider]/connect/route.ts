@@ -1,67 +1,83 @@
+import { createClient } from '@/lib/supabase/server'
 import { getProvider } from '@/lib/calendar/providers'
+import {
+  googleOAuthConfig,
+  microsoftOAuthConfig,
+  googleAuthorizeUrl,
+  microsoftAuthorizeUrl,
+} from '@/lib/calendar/oauth'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/calendar/:provider/connect
  *
- * Starts the OAuth flow for an external calendar provider (§28).
- * Honest scaffolding: once the public client id AND the server-side secret
- * are configured (see docs/calendar-integrations.md), this route redirects
- * to the provider's official authorize URL. Until then it answers 501 with
- * the exact reason — it never fakes a working connection.
+ * Starts the real OAuth flow for Google / Microsoft. The authenticated
+ * user id is embedded in `state` so the callback can bind the connection
+ * to the right account (and reject mismatches). Returns a redirect to the
+ * provider's authorize URL — or an honest JSON error when credentials are
+ * missing (never a fake button).
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider } = await params
   const p = getProvider(provider)
   if (!p) {
-    return Response.json({ error: 'Fournisseur inconnu' }, { status: 400 })
+    return Response.json({ error: "Fournisseur inconnu" }, { status: 400 })
   }
   if (p.kind !== 'oauth') {
     return Response.json(
-      { error: 'Ce fournisseur utilise un abonnement, pas OAuth. Voir le guide.' },
+      { error: "Ce fournisseur utilise un abonnement, pas OAuth." },
       { status: 400 }
     )
   }
 
-  const clientId = process.env[p.clientIdEnv]
-  const secret = process.env[p.serverConfigEnv]
-  if (!clientId || !secret) {
-    return Response.json(
-      {
-        error: `OAuth non configuré pour ${p.label}`,
-        missing: [p.clientIdEnv, p.serverConfigEnv].filter((k) => !process.env[k]),
-        guide: '/docs/calendar-integrations.md',
-      },
-      { status: 501 }
-    )
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return Response.json({ error: "Connectez-vous d'abord." }, { status: 401 })
   }
 
-  const redirectUri = `${new URL(_req.url).origin}/api/calendar/${p.id}/callback`
+  const origin = new URL(req.url).origin
 
   if (p.id === 'google') {
-    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-    url.searchParams.set('client_id', clientId)
-    url.searchParams.set('redirect_uri', redirectUri)
-    // calendar.readonly: afficher les événements (jamais plus que nécessaire).
-    url.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar.readonly')
-    url.searchParams.set('response_type', 'code')
-    url.searchParams.set('access_type', 'offline')
-    url.searchParams.set('prompt', 'consent')
-    return Response.redirect(url.toString())
+    const cfg = googleOAuthConfig()
+    if (!cfg) {
+      return Response.json(
+        {
+          error: `OAuth Google non configuré pour ${p.label}`,
+          missing: ['NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET'].filter(
+            (k) => !process.env[k]
+          ),
+          guide: '/docs/calendar-integrations.md',
+        },
+        { status: 503 }
+      )
+    }
+    return Response.redirect(googleAuthorizeUrl(origin, cfg.clientId, user.id))
   }
 
   if (p.id === 'microsoft') {
-    const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize')
-    url.searchParams.set('client_id', clientId)
-    url.searchParams.set('redirect_uri', redirectUri)
-    url.searchParams.set('scope', 'offline_access Calendars.Read')
-    url.searchParams.set('response_type', 'code')
-    return Response.redirect(url.toString())
+    const cfg = microsoftOAuthConfig()
+    if (!cfg) {
+      return Response.json(
+        {
+          error: `OAuth Microsoft non configuré pour ${p.label}`,
+          missing: ['NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID', 'MICROSOFT_OAUTH_CLIENT_SECRET'].filter(
+            (k) => !process.env[k]
+          ),
+          guide: '/docs/calendar-integrations.md',
+        },
+        { status: 503 }
+      )
+    }
+    return Response.redirect(microsoftAuthorizeUrl(origin, cfg.clientId, user.id))
   }
 
-  return Response.json({ error: 'Flux non implémenté' }, { status: 501 })
+  return Response.json({ error: "Flux non implémenté" }, { status: 501 })
 }

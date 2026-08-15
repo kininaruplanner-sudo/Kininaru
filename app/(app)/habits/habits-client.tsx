@@ -266,6 +266,32 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
       router.replace(window.location.pathname)
     }
   }, [searchParams, router])
+
+  // Deep link depuis la command palette (?highlight=id) : la carte cible est
+  // mise en évidence et amenée au centre de l'écran.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  useEffect(() => {
+    const h = searchParams.get('highlight')
+    const t = setTimeout(() => {
+      if (!h) return
+      setHighlightId(h)
+      setTimeout(() => {
+        setHighlightId(null)
+        router.replace('/habits', { scroll: false })
+      }, 5000)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [searchParams, router])
+
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => {
+      document
+        .getElementById(`habit-card-${highlightId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+    return () => clearTimeout(t)
+  }, [highlightId])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ title: '', color: HABIT_COLORS[0] })
   const [xp, setXp] = useState(profile?.xp ?? 0)
@@ -584,10 +610,15 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
                 return (
                   <motion.div
                     key={habit.id}
+                    id={`habit-card-${habit.id}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05, duration: 0.25 }}
-                    className={cn(cardVariants({ padding: 'sm', hover: true }), 'group')}
+                    className={cn(
+                      cardVariants({ padding: 'sm', hover: true }),
+                      'group',
+                      highlightId === habit.id && 'ring-2 ring-primary'
+                    )}
                   >
                     <div className="flex items-start gap-4">
                       {/* Check button */}

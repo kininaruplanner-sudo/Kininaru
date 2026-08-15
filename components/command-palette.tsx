@@ -131,18 +131,24 @@ export function CommandPalette() {
     const timeout = setTimeout(async () => {
       const [tasksRes, eventsRes, habitsRes] = await Promise.all([
         supabase.from('tasks').select('id, title').ilike('title', `%${q}%`).limit(4),
-        supabase.from('events').select('id, title').ilike('title', `%${q}%`).limit(4),
+        supabase
+          .from('events')
+          .select('id, title, start_at')
+          .ilike('title', `%${q}%`)
+          .limit(4),
         supabase.from('habits').select('id, title').ilike('title', `%${q}%`).limit(4),
       ])
 
       const items: PaletteItem[] = [
+        // Deep links réels : un résultat mène à l'élément lui-même (page
+        // ouverte sur la bonne ligne / le bon jour), pas à une page générique.
         ...(tasksRes.data ?? []).map((t) => ({
           id: `task-${t.id}`,
           label: t.title,
           hint: 'Tâche',
           icon: CheckSquare,
           group: 'Résultats' as const,
-          onSelect: () => router.push('/tasks'),
+          onSelect: () => router.push(`/tasks?highlight=${t.id}`),
         })),
         ...(eventsRes.data ?? []).map((e) => ({
           id: `event-${e.id}`,
@@ -150,7 +156,10 @@ export function CommandPalette() {
           hint: 'Événement',
           icon: Calendar,
           group: 'Résultats' as const,
-          onSelect: () => router.push('/calendar'),
+          onSelect: () =>
+            router.push(
+              e.start_at ? `/calendar?date=${e.start_at.slice(0, 10)}` : '/calendar'
+            ),
         })),
         ...(habitsRes.data ?? []).map((h) => ({
           id: `habit-${h.id}`,
@@ -158,7 +167,7 @@ export function CommandPalette() {
           hint: 'Habitude',
           icon: Repeat,
           group: 'Résultats' as const,
-          onSelect: () => router.push('/habits'),
+          onSelect: () => router.push(`/habits?highlight=${h.id}`),
         })),
       ]
       setResults(items)

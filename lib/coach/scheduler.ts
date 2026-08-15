@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { canCoachIntervene, recordCoachIntervention } from './frequency'
 import { loadCoachPrefs } from './preferences'
+import { deviceTimezone } from '@/lib/time'
 import { format } from 'date-fns'
 
 /**
@@ -16,6 +17,13 @@ import { format } from 'date-fns'
  *  - tâche du jour avec heure planifiée : « commence dans 10 minutes » /
  *    « était prévue à HH:MM » (une seule fois par tâche et par jour) ;
  *  - événement du jour : « commence dans 10 minutes ».
+ *
+ * FUSEAUX (cf. lib/time.ts) : scheduled_time est une heure mur locale
+ * (l'appareil qui saisit l'heure EST la référence locale) et due_date est
+ * un jour mur local — on compare donc avec l'heure/date locales de
+ * l'appareil, jamais avec des valeurs UTC. Le fuseau de l'appareil est
+ * aussi enregistré une fois dans profiles.timezone pour que le cron serveur
+ * convertisse correctement quand l'app est fermée.
  *
  * Les données viennent de la base RLS (jamais inventées). La notification
  * se fait dans la cloche in-app + Notification API navigateur si la
@@ -53,7 +61,7 @@ function parseTime(t: string): number {
 
 /** Déduplication locale : une seule notification par (type, id, jour). */
 function keyFor(kind: string, id: string): string {
-  return `kininaru-remind:${kind}:${id}:${new Date().toISOString().slice(0, 10)}`
+  return `kininaru-remind:${kind}:${id}:${format(new Date(), 'yyyy-MM-dd')}`
 }
 
 function wasNotified(kind: string, id: string): boolean {
@@ -106,7 +114,7 @@ function dueReminders(
   nowMin: number
 ): { kind: 'task' | 'event'; id: string; title: string; body: string; link: string }[] {
   const out: { kind: 'task' | 'event'; id: string; title: string; body: string; link: string }[] = []
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   for (const t of tasks) {
     if (t.status === 'done' || t.due_date !== today || !t.scheduled_time) continue
@@ -164,14 +172,42 @@ export function useReminderScheduler(enabled = true) {
     events: [],
   })
   const lastRefreshRef = useRef(0)
+  const tzWrittenRef = useRef(false)
 
   useEffect(() => {
     if (!enabled) return
     const supabase = createClient()
 
+    // Enregistre une fois le fuseau de l'appareil (IANA) pour que le cron
+    // serveur convertisse scheduled_time correctement quand l'app est fermée.
+    const ensureTimezone = async () => {
+      if (tzWrittenRef.current) return
+      tzWrittenRef.current = true
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('timezone')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (!prof?.timezone) {
+          await supabase
+            .from('profiles')
+            .update({ timezone: deviceTimezone() })
+            .eq('id', user.id)
+        }
+      } catch {
+        // non critique — le fuseau sera réessayé à la prochaine session
+      }
+    }
+
     const refreshSchedule = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10)
+        // Jour mur LOCAL de l'appareil (scheduled_time est une heure mur locale).
+        const today = format(new Date(), 'yyyy-MM-dd')
         const now = new Date().toISOString()
         const soon = new Date(Date.now() + 60 * 60_000).toISOString()
         const [{ data: tasks }, { data: events }] = await Promise.all([
@@ -203,6 +239,8 @@ export function useReminderScheduler(enabled = true) {
       const gate = canCoachIntervene(prefs)
       if (!gate.allowed) return
 
+      void ensureTimezone()
+
       if (Date.now() - lastRefreshRef.current > SCHEDULE_REFRESH_MS) {
         lastRefreshRef.current = Date.now()
         void refreshSchedule()
@@ -223,6 +261,7 @@ export function useReminderScheduler(enabled = true) {
 
     // Premier rafraîchissement immédiat, puis ticks réguliers.
     lastRefreshRef.current = Date.now()
+    void ensureTimezone()
     void refreshSchedule()
     const timer = window.setInterval(tick, CHECK_INTERVAL_MS)
     return () => window.clearInterval(timer)

@@ -1,10 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { CalendarDays, Link2, Unlink, Clock, ExternalLink, Settings2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  CalendarDays,
+  Link2,
+  Unlink,
+  Clock,
+  ExternalLink,
+  Settings2,
+  Loader2,
+  Plus,
+  Info,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
 import {
   CALENDAR_PROVIDERS,
@@ -14,33 +26,43 @@ import {
 import { SITE_URL } from '@/lib/site-url'
 
 /**
- * Calendriers connectés (§28.11) — Settings section.
+ * Calendriers connectés — Settings section.
  *
- * Each provider shows its real state: connected (with last sync + sync mode),
- * connectable, or "to configure" when the app has no OAuth credentials yet.
- * Nothing is faked: a provider without credentials shows exactly what to do.
+ * Security model (supabase/calendar-security.sql): the client NEVER reads
+ * the calendar_connections table directly. It only calls the server-side
+ * RPC `my_calendar_connections()` (safe fields, no tokens) and every
+ * mutation (connect / sync / disconnect / ICS subscribe) goes through the
+ * API routes with the session. Every failure is shown — no dead buttons.
  */
 export function CalendarConnections() {
   const supabase = createClient()
   const [connections, setConnections] = useState<CalendarConnectionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [syncingId, setSyncingId] = useState<string | null>(null)
-  // Ticking clock for the “il y a X min” labels (pure during render).
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [icsUrl, setIcsUrl] = useState('')
+  const [icsName, setIcsName] = useState('')
+  // Ticking clock for the « il y a X min » labels (pure during render).
   const [now, setNow] = useState(() => Date.now())
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('calendar_connections')
-        .select('id, provider, display_name, sync_mode, enabled, last_sync_at, sync_error, created_at')
-        .order('created_at', { ascending: true })
+      // my_calendar_connections (supabase/calendar-security.sql) is not part
+      // of the generated Database types — narrow local contract, no `any`.
+      const rpc = supabase.rpc as unknown as (
+        fn: string
+      ) => Promise<{ data: unknown[] | null; error: unknown }>
+      const { data } = await rpc('my_calendar_connections')
       setConnections((data ?? []) as CalendarConnectionRow[])
     } catch {
-      // Table may not exist yet (SQL not run) — show all providers as unconnected.
+      // RPC not deployed yet (SQL not run) — providers shown as unconnected.
+      setConnections([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     // Deferred so the initial fetch never calls setState synchronously
@@ -51,46 +73,133 @@ export function CalendarConnections() {
       clearTimeout(t)
       clearInterval(clock)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [load])
 
-  const connected = (providerId: string) =>
-    connections.filter((c) => c.provider === providerId)
+  // Feedback from the OAuth callback redirect (?calendar=connected|error).
+  useEffect(() => {
+    // Deferred: never call setState synchronously inside an effect body.
+    const t = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search)
+      const status = params.get('calendar')
+      if (status === 'connected') {
+        setInfo('Calendrier connecté. Lancez une synchronisation pour importer vos événements.')
+        setError(null)
+        window.history.replaceState({}, '', '/settings')
+      } else if (status === 'error') {
+        setError(decodeURIComponent(params.get('reason') ?? 'Connexion échouée'))
+        setInfo(null)
+        window.history.replaceState({}, '', '/settings')
+      }
+    }, 0)
+    return () => clearTimeout(t)
+  }, [])
 
-  const disconnect = async (id: string) => {
-    await supabase.from('calendar_connections').delete().eq('id', id)
-    await load()
+  const connected = (providerId: string) => connections.filter((c) => c.provider === providerId)
+
+  const connect = async (provider: CalendarProvider) => {
+    if (provider.kind === 'subscription') return // ICS is handled inline below
+    setError(null)
+    setInfo(null)
+    if (!provider.configured) {
+      setError(
+        `OAuth ${provider.label} non configuré — ajoutez ${provider.clientIdEnv} (et son secret côté serveur), voir le guide d'intégration.`
+      )
+      return
+    }
+    try {
+      // redirect:'manual' lets us read JSON errors (401/503) without leaving
+      // the page; a 302 (opaqueredirect) means the flow can start.
+      const res = await fetch(`/api/calendar/${provider.id}/connect`, { redirect: 'manual' })
+      if (res.type === 'opaqueredirect') {
+        window.location.assign(`/api/calendar/${provider.id}/connect`)
+        return
+      }
+      const j = (await res.json().catch(() => null)) as { error?: string } | null
+      setError(j?.error ?? 'Connexion impossible')
+    } catch {
+      setError('Réseau indisponible — réessayez')
+    }
   }
 
-  const syncNow = async (providerId: string, id: string) => {
-    setSyncingId(id)
+  const subscribeIcs = async () => {
+    const url = icsUrl.trim()
+    if (!url) {
+      setError('URL ICS requise')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setInfo(null)
     try {
-      // Server-side sync — refreshes last_sync_at / sync_error honestly.
-      const res = await fetch(`/api/calendar/${providerId}/sync`, { method: 'POST' })
+      const res = await fetch('/api/calendar/ics/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, name: icsName.trim() || undefined }),
+      })
+      const j = (await res.json().catch(() => null)) as { error?: string; events?: number } | null
       if (!res.ok) {
-        await supabase
-          .from('calendar_connections')
-          .update({ sync_error: 'Synchronisation indisponible (voir configuration).' })
-          .eq('id', id)
+        setError(j?.error ?? "Abonnement impossible")
+        return
+      }
+      setIcsUrl('')
+      setIcsName('')
+      setInfo(`Flux ICS enregistré (${j?.events ?? 0} événements détectés).`)
+      await load()
+    } catch {
+      setError('Réseau indisponible — réessayez')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const syncNow = async (conn: CalendarConnectionRow) => {
+    setSyncingId(conn.id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/calendar/${conn.provider}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId: conn.id }),
+      })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null
+        setError(j?.error ?? 'Synchronisation impossible')
       }
     } catch {
-      // offline — banner handles it
+      setError('Réseau indisponible — réessayez')
     } finally {
       setSyncingId(null)
       await load()
     }
   }
 
-  const connect = async (provider: CalendarProvider) => {
-    if (provider.kind === 'subscription') {
-      // ICS: manual subscription — document the official method.
-      window.open(provider.docsUrl, '_blank', 'noopener,noreferrer')
+  const disconnect = async (conn: CalendarConnectionRow) => {
+    if (
+      !window.confirm(
+        'Déconnecter ce calendrier ? Les événements importés seront supprimés de Kininaru.'
+      )
+    )
       return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/calendar/${conn.provider}/disconnect`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId: conn.id }),
+      })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null
+        setError(j?.error ?? 'Déconnexion impossible')
+        return
+      }
+      setInfo('Calendrier déconnecté.')
+      await load()
+    } catch {
+      setError('Réseau indisponible — réessayez')
+    } finally {
+      setBusy(false)
     }
-    if (!provider.configured) {
-      window.open(provider.docsUrl, '_blank', 'noopener,noreferrer')
-      return
-    }
-    window.location.assign(`/api/calendar/${provider.id}/connect`)
   }
 
   const lastSyncLabel = (c: CalendarConnectionRow) => {
@@ -119,6 +228,21 @@ export function CalendarConnections() {
         <h2 className="kin-h3 text-foreground">Calendriers connectés</h2>
       </div>
 
+      {(error || info) && (
+        <div
+          className={cn(
+            'flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm',
+            error
+              ? 'bg-destructive/10 text-destructive'
+              : 'bg-kin-sage/10 text-kin-forest'
+          )}
+          role={error ? 'alert' : 'status'}
+        >
+          <Info className="w-4 h-4 mt-0.5 shrink-0" />
+          <p className="leading-snug">{error ?? info}</p>
+        </div>
+      )}
+
       <div className="space-y-3">
         {CALENDAR_PROVIDERS.map((provider) => {
           const conns = connected(provider.id)
@@ -126,68 +250,120 @@ export function CalendarConnections() {
           return (
             <div
               key={provider.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-border bg-card"
+              className="flex flex-col gap-3 p-3.5 rounded-xl border border-border bg-card"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{provider.label}</p>
-                  {conn ? (
-                    <span className="flex items-center gap-1 text-xs text-kin-sage font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-kin-sage" /> Connecté
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Non connecté</span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-foreground">{provider.label}</p>
+                    {conn ? (
+                      <span className="flex items-center gap-1 text-xs text-kin-sage font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-kin-sage" /> Connecté
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Non connecté</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                    {provider.description}
+                  </p>
+                  {conn && (
+                    <p className="text-xs text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Dernière synchronisation : {lastSyncLabel(conn)}
+                      </span>
+                      <span>
+                        {conn.sync_mode === 'read_write' ? 'Lecture + écriture' : 'Lecture seule'}
+                      </span>
+                      {conn.sync_error && (
+                        <span className="text-destructive">{conn.sync_error}</span>
+                      )}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                  {provider.description}
-                </p>
-                {conn && (
-                  <p className="text-xs text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Dernière synchronisation : {lastSyncLabel(conn)}
-                    </span>
-                    <span>
-                      {conn.sync_mode === 'read_write' ? 'Lecture + écriture' : 'Lecture seule'}
-                    </span>
-                    {conn.sync_error && <span className="text-destructive">{conn.sync_error}</span>}
-                  </p>
-                )}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {conn ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={syncingId === conn.id || busy}
+                        onClick={() => void syncNow(conn)}
+                      >
+                        {syncingId === conn.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5" />
+                        )}
+                        {syncingId === conn.id ? '…' : 'Synchroniser'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void disconnect(conn)}
+                        aria-label={`Déconnecter ${provider.label}`}
+                      >
+                        <Unlink className="w-3.5 h-3.5" />
+                        Déconnecter
+                      </Button>
+                    </>
+                  ) : provider.kind === 'oauth' ? (
+                    <Button variant="outline" size="sm" onClick={() => void connect(provider)}>
+                      {provider.configured ? (
+                        <>
+                          <Link2 className="w-3.5 h-3.5" /> Connecter
+                        </>
+                      ) : (
+                        <>
+                          <Settings2 className="w-3.5 h-3.5" /> Configurer
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {conn ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={syncingId === conn.id}
-                      onClick={() => void syncNow(provider.id, conn.id)}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      {syncingId === conn.id ? '…' : 'Synchroniser'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void disconnect(conn.id)}
-                      aria-label={`Déconnecter ${provider.label}`}
-                    >
-                      <Unlink className="w-3.5 h-3.5" />
-                      Déconnecter
-                    </Button>
-                  </>
-                ) : provider.kind === 'oauth' && !provider.configured ? (
-                  <Button variant="outline" size="sm" onClick={() => void connect(provider)}>
-                    <Settings2 className="w-3.5 h-3.5" /> Configurer
+              {provider.kind === 'subscription' && !conn && (
+                <form
+                  className="flex flex-col sm:flex-row gap-2 border-t border-border pt-3"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    void subscribeIcs()
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor={`ics-url-${provider.id}`} className="sr-only">
+                      URL du flux ICS
+                    </Label>
+                    <Input
+                      id={`ics-url-${provider.id}`}
+                      type="url"
+                      placeholder="https://…/calendar.ics (calendrier iCloud public, etc.)"
+                      value={icsUrl}
+                      onChange={(e) => setIcsUrl(e.target.value)}
+                      autoComplete="url"
+                    />
+                  </div>
+                  <div className="sm:w-44">
+                    <Label htmlFor={`ics-name-${provider.id}`} className="sr-only">
+                      Nom de l’abonnement
+                    </Label>
+                    <Input
+                      id={`ics-name-${provider.id}`}
+                      placeholder="Nom (optionnel)"
+                      value={icsName}
+                      onChange={(e) => setIcsName(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" size="sm" disabled={busy}>
+                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    S’abonner
                   </Button>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => void connect(provider)}>
-                    <Link2 className="w-3.5 h-3.5" /> Connecter
-                  </Button>
-                )}
-              </div>
+                </form>
+              )}
             </div>
           )
         })}
@@ -197,7 +373,7 @@ export function CalendarConnections() {
         Les événements externes apparaissent dans votre calendrier Kininaru avec leur provenance
         (« Google Calendar »), et ne sont jamais dupliqués (identification par l’ID d’événement
         externe). Pour Apple/iCloud, l’abonnement ICS est la méthode officiellement compatible avec
-        une PWA.
+        une PWA — collez l’URL publique de votre calendrier ci-dessus.
         <a
           href={`${SITE_URL}${CALENDAR_PROVIDERS[0].docsUrl}`}
           target="_blank"

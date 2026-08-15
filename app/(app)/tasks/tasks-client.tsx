@@ -148,6 +148,32 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     }
   }, [searchParams, router])
 
+  // Deep link depuis la command palette (?highlight=id) : la ligne cible est
+  // mise en évidence et amenée au centre de l'écran.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  useEffect(() => {
+    const h = searchParams.get('highlight')
+    const t = setTimeout(() => {
+      if (!h) return
+      setHighlightId(h)
+      setTimeout(() => {
+        setHighlightId(null)
+        router.replace('/tasks', { scroll: false })
+      }, 5000)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [searchParams, router])
+
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => {
+      document
+        .getElementById(`task-row-${highlightId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+    return () => clearTimeout(t)
+  }, [highlightId])
+
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -728,6 +754,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                   return (
                     <motion.div
                       key={task.id}
+                      id={`task-row-${task.id}`}
                       layout
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -737,7 +764,8 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                         cardVariants({ padding: 'sm', hover: true }),
                         'group flex flex-col gap-0 border-l-4',
                         PRIORITY_CONFIG[task.priority]?.border,
-                        task.status === 'done' && 'opacity-60'
+                        task.status === 'done' && 'opacity-60',
+                        highlightId === task.id && 'ring-2 ring-primary border-primary'
                       )}
                     >
                       <div className="flex items-start gap-3">

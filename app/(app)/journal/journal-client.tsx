@@ -88,6 +88,9 @@ interface JournalProposal {
   steps: string[]
 }
 
+/** Brouillon de secours (sauvegarde synchrone, jamais de perte de texte). */
+const JOURNAL_DRAFT_KEY = 'kininaru-journal-draft'
+
 export function JournalClient({ entries: initialEntries, userId }: Props) {
   const [entries, setEntries] = useState(initialEntries)
   // Local calendar-day key so "Today" is the user's local day in any timezone.
@@ -158,6 +161,12 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
             if (exists) return prev.map((e) => (e.entry_date === date ? data : e))
             return [data, ...prev]
           })
+          // Sauvegarde confirmée : le brouillon de secours n'est plus utile.
+          try {
+            window.localStorage.removeItem(JOURNAL_DRAFT_KEY)
+          } catch {
+            // stockage indisponible — sans impact
+          }
           setSaveState('saved')
           return true
         }
@@ -186,20 +195,83 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.content, form.gratitude, form.goals, form.mood])
 
-  // Flush any pending auto-save when the tab is hidden/closed (best effort —
-  // never lose silent content).
+  // Anti-perte de données : sauvegarde asynchrone best-effort + brouillon
+  // SYNCHRONE dans localStorage. Un fetch ne peut jamais être garanti pendant
+  // la fermeture de la page (pagehide / onglet masqué) — le brouillon, lui,
+  // l'est. Il est restauré au prochain chargement si rien n'a été enregistré.
   useEffect(() => {
-    const flush = () => {
+    const backup = () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
-      if (hasText && saveState !== 'saving') void persist(selectedDate, form)
+      if (!hasText) {
+        // Contenu vidé : le brouillon devient périmé.
+        try {
+          window.localStorage.removeItem(JOURNAL_DRAFT_KEY)
+        } catch {
+          // sans impact
+        }
+        return
+      }
+      try {
+        window.localStorage.setItem(
+          JOURNAL_DRAFT_KEY,
+          JSON.stringify({ date: selectedDate, form })
+        )
+      } catch {
+        // stockage plein/indisponible — on tente quand même le fetch
+      }
+      if (saveState !== 'saving') void persist(selectedDate, form)
     }
-    window.addEventListener('pagehide', flush)
-    return () => window.removeEventListener('pagehide', flush)
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') backup()
+    }
+    window.addEventListener('pagehide', backup)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', backup)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasText, form, selectedDate, saveState])
+
+  // Restaure un brouillon non enregistré (onglet fermé, réseau perdu) —
+  // uniquement si l'entrée actuelle est vide, pour ne jamais écraser une
+  // entrée déjà sauvegardée. Différé : pas de setState synchrone dans l'effet.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(JOURNAL_DRAFT_KEY)
+        if (!raw) return
+        const draft = JSON.parse(raw) as {
+          date?: string
+          form?: { mood?: number; content?: string; gratitude?: string; goals?: string }
+        }
+        if (
+          draft.date &&
+          draft.form &&
+          (draft.form.content?.trim() ||
+            draft.form.gratitude?.trim() ||
+            draft.form.goals?.trim()) &&
+          !hasText
+        ) {
+          setSelectedDate(draft.date)
+          setForm({
+            mood: draft.form.mood ?? 3,
+            content: draft.form.content ?? '',
+            gratitude: draft.form.gratitude ?? '',
+            goals: draft.form.goals ?? '',
+          })
+        }
+        window.localStorage.removeItem(JOURNAL_DRAFT_KEY)
+      } catch {
+        // brouillon corrompu ou stockage indisponible — ignoré
+      }
+    }, 0)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadEntry = (date: string) => {
     // Flush any pending auto-save for the CURRENT day before switching.

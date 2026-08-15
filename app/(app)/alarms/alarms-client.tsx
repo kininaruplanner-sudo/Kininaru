@@ -30,6 +30,37 @@ export interface AlarmRow extends Alarm {
 const DAY_CHIPS = [0, 1, 2, 3, 4, 5, 6]
 
 /**
+ * Joué au déclenchement quand « Son » est activé (réglage réellement
+ * utilisé, plus décoratif). Court double bip doux via Web Audio ; la
+ * notification système fait le reste (vibration + son du système via
+ * `silent: false`).
+ */
+function playAlarmTone() {
+  try {
+    const Ctx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    void ctx.resume().catch(() => {})
+    const gain = ctx.createGain()
+    gain.connect(ctx.destination)
+    gain.gain.setValueAtTime(0.1, ctx.currentTime)
+    ;[659.25, 880].forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      osc.connect(gain)
+      const t = ctx.currentTime + i * 0.35
+      osc.start(t)
+      osc.stop(t + 0.3)
+    })
+  } catch {
+    // audio indisponible — la notification elle-même suffit
+  }
+}
+
+/**
  * Alarms (§15) — distinct from reminders:
  * a reminder says "n'oublie pas", an alarm says "ton créneau commence
  * maintenant". Scheduled LOCALLY (per device, local timezone). Honest
@@ -54,12 +85,16 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
     async (alarm: AlarmRow) => {
       // Note: `vibrate` is not part of this lib's NotificationOptions — the
       // untyped object stays structurally compatible with showNotification.
+      // « Son » est réellement appliqué : silent:false laisse le système
+      // émettre un son, et un bip local est joué quand la page est visible.
+      if (alarm.sound) playAlarmTone()
       const options = {
         body: 'Ton créneau commence maintenant.',
         icon: '/icon-192x192.png',
         badge: '/icon-192x192.png',
         tag: `${ALARM_NOTIFICATION_TAG}-${alarm.id}`,
         vibrate: alarm.vibrate ? [200, 100, 200, 100, 400] : [],
+        silent: !alarm.sound,
         requireInteraction: true,
         actions: [
           { action: 'snooze', title: `Reposer ${alarm.snooze_minutes} min` },

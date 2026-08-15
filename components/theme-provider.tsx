@@ -46,6 +46,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
+  // Meta theme-color cohérente avec le thème actif : les barres de statut
+  // mobile et les fenêtres PWA standalone suivent le thème clair/sombre au
+  // lieu de rester sur la valeur claire codée en dur dans le layout.
+  useEffect(() => {
+    const color = theme === 'dark' ? '#16161F' : '#F7F9FC'
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.name = 'theme-color'
+      document.head.appendChild(meta)
+    }
+    meta.content = color
+  }, [theme])
+
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>
 }
 
