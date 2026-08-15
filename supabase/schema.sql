@@ -504,9 +504,7 @@ create policy "family_tasks: delete members" on public.family_tasks
 --     Jamais de contenu automatique : aucune donnée n'est écrite sans
 --     action explicite de l'utilisateur.
 -- ---------------------------------------------------------------------
-drop table if exists public.ai_memories cascade;
-
-create table public.ai_memories (
+create table if not exists public.ai_memories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   content text not null check (char_length(content) between 1 and 500),

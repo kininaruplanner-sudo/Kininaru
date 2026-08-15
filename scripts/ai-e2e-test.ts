@@ -134,6 +134,28 @@ async function runOffline() {
     assert.ok(r.error)
   })
 
+  await check('create_goal valide (titre + date + étapes optionnelles)', () => {
+    const r = validateAiAction({
+      action: 'create_goal',
+      data: { title: 'Réussir le bac', target_date: '2026-06-10', steps: ['Réviser les maths', 'Écrire les dissertations'] },
+    })
+    if (!r.action || r.action.action !== 'create_goal') throw new Error('action inattendue')
+    if (r.action.data.steps?.length !== 2) throw new Error('étapes non conservées')
+  })
+
+  await check('create_goal accepte sans étapes (objectif seul)', () => {
+    const r = validateAiAction({ action: 'create_goal', data: { title: 'Courir 10 km' } })
+    if (!r.action || r.action.action !== 'create_goal') throw new Error('action inattendue')
+    if (r.action.data.steps !== undefined) throw new Error('steps devrait être undefined')
+  })
+
+  await check('create_goal rejette titre manquant / date invalide / > 10 étapes', () => {
+    assert.ok(validateAiAction({ action: 'create_goal', data: {} }).error)
+    assert.ok(validateAiAction({ action: 'create_goal', data: { title: 'x', target_date: '10-06-2026' } }).error)
+    const steps = Array.from({ length: 11 }, (_, i) => `Étape ${i}`)
+    assert.ok(validateAiAction({ action: 'create_goal', data: { title: 'x', steps } }).error)
+  })
+
   await check('create_habit valide / titre manquant', () => {
     assert.ok(validateAiAction({ action: 'create_habit', data: { title: 'Lire' } }).action)
     assert.ok(validateAiAction({ action: 'create_habit', data: {} }).error)

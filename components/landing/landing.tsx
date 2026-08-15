@@ -585,9 +585,9 @@ export function Landing() {
               transition={{ duration: 0.55, delay: 0.05 }}
               className="kin-display text-foreground mb-5"
             >
-              Ton coach pour savoir
+              Kininaru ne t’attend pas.
               <br />
-              <span className="kin-gradient-text">quoi faire maintenant</span>.
+              <span className="kin-gradient-text">Il vient vers toi</span>.
             </motion.h1>
 
             <motion.p
@@ -596,12 +596,11 @@ export function Landing() {
               transition={{ duration: 0.55, delay: 0.12 }}
               className="text-muted-foreground text-base sm:text-lg leading-[1.65] sm:leading-relaxed mb-6 sm:mb-8 max-w-lg"
             >
-              Kininaru ne sert pas seulement à stocker vos tâches : il vous aide à savoir
-              <strong className="text-foreground font-semibold"> quoi faire</strong>,{' '}
-              <strong className="text-foreground font-semibold">quand le faire</strong> et{' '}
-              <strong className="text-foreground font-semibold">comment avancer</strong> —
-              grâce à un coach IA qui lit votre journée, réunit tâches, habitudes, focus,
-              journal et famille dans un seul espace chaleureux.
+              Kininaru observe ta journée et intervient au bon moment : il{' '}
+              <strong className="text-foreground font-semibold">te rappelle</strong> ce qui compte,{' '}
+              <strong className="text-foreground font-semibold">t’aide à commencer</strong>, suit ta
+              concentration et <strong className="text-foreground font-semibold">prépare la suite</strong> —
+              un coach personnel relié à tes tâches, habitudes, focus, journal et objectifs.
             </motion.p>
 
             <motion.div

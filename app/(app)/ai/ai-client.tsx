@@ -95,6 +95,8 @@ async function streamAIResponse(
 const ACTION_WHITELIST = new Set([
   'create_task',
   'create_tasks_batch',
+  'create_objective',
+  'create_goal',
   'create_habit',
   'create_event',
   'create_family_task',

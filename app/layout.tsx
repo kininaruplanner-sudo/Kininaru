@@ -133,7 +133,9 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
+  // Pas de `colorScheme` statique : le CSS de globals.css déclare déjà
+  // `color-scheme: light/dark` selon le data-theme actif, et une meta
+  // codée en dur écraserait le thème sombre (contrôles natifs clairs).
   themeColor: '#F7F9FC',
   // Mobile: let the layout reach the physical edges (home-bar safe areas) and
   // let the browser resize the layout when the soft keyboard opens, so the AI

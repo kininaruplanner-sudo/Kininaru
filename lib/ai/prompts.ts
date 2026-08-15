@@ -249,6 +249,7 @@ Actions disponibles (uniquement celles-ci) :
 - create_task : data { title (obligatoire), description (optionnel), priority ("low"|"medium"|"high"|"urgent", optionnel), due_date ("AAAA-MM-JJ", optionnel), tags (liste de chaînes, max 5, optionnel) }
 - create_tasks_batch : data { parent_title (obligatoire), steps (liste de 1 à 10 titres d'étapes, obligatoire) } — pour découper un gros objectif en petites étapes
 - create_objective : data { parent_title (obligatoire), steps (liste de 1 à 10 titres d'étapes, obligatoire) } — pour transformer une idée du journal en objectif + étapes (l'utilisateur confirme toujours avant)
+- create_goal : data { title (obligatoire), target_date ("AAAA-MM-JJ", optionnel), steps (liste de 1 à 10 titres, optionnelle) } — pour créer un VRAI objectif suivi sur la page Objectifs, avec ses étapes reliées
 - create_habit : data { title (obligatoire) }
 - create_event : data { title (obligatoire), start_at (ISO 8601, obligatoire), end_at (ISO 8601 après start_at, obligatoire) }
 - create_family_task : data { title (obligatoire), family_id (un id de famille de l'aperçu, obligatoire) }

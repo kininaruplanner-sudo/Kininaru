@@ -4,13 +4,16 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 
 ## Fonctionnalités
 
-- **Tâches** : création, édition, priorités, échéances, étiquettes, sous-tâches, vue liste/kanban, lancement d'une session **Focus** directement depuis une tâche (▶ Commencer)
+- **Tâches** : création, édition, priorités, échéances, **heure planifiée** (le coach rappelle « ça commence dans 10 min »), étiquettes, sous-tâches, vue liste/kanban, lancement d'une session **Focus** directement depuis une tâche (▶ Commencer)
+- **Objectifs** : direction durable des actions — objectifs actifs/atteints, **progression calculée sur les vraies tâches rattachées** (`tasks.goal_id`), création manuelle ou via le coach (journal → objectif → étapes, toujours avec confirmation)
 - **Habitudes** : suivi quotidien, séries (streaks), XP
 - **Calendrier** : événements, vue mois/semaine
 - **Journal** : entrées par jour, humeur, **éditeur riche** (titres, sous-titres, gras, italique, souligné, listes, checklists interactives, citations, séparateurs, liens, émojis, images), **auto-save débouncé** (Sauvegarde… / ✓ Sauvegardé / ⚠ Réessayer), **aperçu** et **6 actions IA** (résumer, idées principales, réfléchir, créer un objectif, créer des tâches, créer un plan) — le flux *Journal → Pensée → Objectif → Tâches → Focus* se fait **avec confirmation** de chaque étape
 - **Focus** : sessions Pomodoro (25/5/15), sons d'ambiance synthétisés (pluie, café), mode zen plein écran, statistiques hebdo, à la fin d'une session la tâche liée peut être marquée terminée (ou continuée)
 - **Famille** : espace partagé (membres, rôles, tâches et événements communs, code d'invitation)
-- **Coach IA** (Groq) : **coach flottant** avec observations contextuelles déterministes, fréquence contrôlable, planification de journée, priorités, **revue hebdomadaire**, découpage d'objectifs, **Smart Next Action** sur le tableau de bord — avec **actions proposées et confirmées par l'utilisateur** (création de tâches, habitudes, événements, mémoires) et **historique des conversations**
+- **Coach IA** (Groq) : **coach flottant** avec observations contextuelles déterministes, fréquence contrôlable, planification de journée, priorités, **revue hebdomadaire**, découpage d'objectifs, **Smart Next Action** sur le tableau de bord, **boucle proactive PLAN → REMIND → START → REFLECT → LEARN/ADAPT** — avec **actions proposées et confirmées par l'utilisateur** (création de tâches, habitudes, événements, objectifs, mémoires) et **historique des conversations**
+- **Réflexion après tâche** : quand une tâche est terminée, une micro-réflexion optionnelle (facile / neutre / difficile) rejoint le journal du jour — jamais obligatoire, jamais bloquante
+- **Insights de progression** (LEARN/ADAPT) : tendances calculées sur les données réelles des 7 derniers jours (moment de concentration, complétion, habitudes) et carte « Demain pourrait être… » — **suggestions uniquement**, jamais de modification automatique du planning
 - **Mémoire IA** : souvenirs visibles, contrôlables et supprimables depuis les Réglages (interrupteur maître, opt-in)
 - **Notifications Web Push** : briefs du matin / soir / hebdomadaire, aides du coach, heures silencieuses, limite quotidienne, envoi de test
 - **Analyses & Récompenses** : graphiques 30 jours, badges
@@ -76,6 +79,8 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 4. `supabase/alarms.sql` — active les **alarmes** (table `alarms`, RLS par utilisateur). Sans lui, la page Alarmes s'affiche mais rien ne peut être enregistré.
 5. `supabase/calendar.sql` — active les **calendriers externes** (`calendar_connections` + `calendar_synced_events`, RLS par utilisateur). Sans lui, la section « Calendriers connectés » des Paramètres reste vide.
 6. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
+7. `supabase/goals.sql` — active les **Objectifs** (table `goals` + colonne `tasks.goal_id`, RLS par utilisateur). Sans lui, la page Objectifs s'affiche mais rien ne peut être enregistré et l'action IA `create_goal` échoue.
+8. `supabase/reminders.sql` — active les **rappels temporels** (colonne `tasks.scheduled_time` + déduplication `push_send_log.reminder_key`). Sans lui, l'heure planifiée n'est pas persistée et le cron de rappels ne peut pas dédupliquer.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -93,6 +98,14 @@ L'endpoint `POST /api/cron/briefs` envoie les briefs aux utilisateurs qui ont op
 - **Fuseaux horaires** : Vercel exécute les crons **en UTC** (7h, 20h, lundi 8h **UTC**). Le serveur calcule donc `getHours()` en UTC : les briefs partent à l'heure UTC, quelle que soit la timezone du destinataire. Aucune timezone utilisateur n'est gérée pour l'instant (documenté dans `app/api/cron/briefs/route.ts`).
 - **Vercel** : `vercel.json` déclare déjà les crons (7h, 20h, lundi 8h UTC). Ajoutez les variables d'environnement sur le projet Vercel (dont `CRON_SECRET` et `SUPABASE_SERVICE_ROLE_KEY`).
 - **Ailleurs** : planifiez un cron externe qui appelle `POST /api/cron/briefs` avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
+
+### Rappels temporels (boucle proactive)
+
+`POST /api/cron/reminders` envoie une notification contextuelle quand une **tâche planifiée** (heure renseignée) ou un **événement** est imminent : « 🎯 ça commence dans 10 minutes » avec actions ▶ Commencer / Plus tard (deep link `/focus?taskId=…`). Mêmes règles que le coach : heures silencieuses, plafond quotidien selon la fréquence choisie, déduplication par tâche/jour (`push_send_log.reminder_key`).
+
+- **App ouverte** : le scheduler local (`lib/coach/scheduler.ts`, monté dans `app-shell`) déclenche la cloche + notification navigateur en arrière-plan.
+- **App fermée** : le cron envoie le push Web Push aux appareils abonnés. `vercel.json` déclare déjà `*/15 * * * *` (15 min). Fuseaux comparés en UTC (fenêtre ±15 min, comme les briefs).
+- **Ailleurs** : même mécanisme que les briefs — `POST /api/cron/reminders` avec `x-cron-secret: <CRON_SECRET>`.
 
 ### Google OAuth (configuration externe)
 

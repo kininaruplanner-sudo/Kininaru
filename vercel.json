@@ -3,6 +3,7 @@
   "crons": [
     { "path": "/api/cron/briefs", "schedule": "0 7 * * *" },
     { "path": "/api/cron/briefs", "schedule": "0 20 * * *" },
-    { "path": "/api/cron/briefs", "schedule": "0 8 * * 1" }
+    { "path": "/api/cron/briefs", "schedule": "0 8 * * 1" },
+    { "path": "/api/cron/reminders", "schedule": "*/15 * * * *" }
   ]
 }

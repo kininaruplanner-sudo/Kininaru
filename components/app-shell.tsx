@@ -9,6 +9,7 @@ import { CommandPalette } from '@/components/command-palette'
 import { CoachBubble } from '@/components/coach/coach-bubble'
 import { MobileNav } from '@/components/mobile-nav'
 import { ConnectionStatus } from '@/components/connection-status'
+import { useReminderScheduler } from '@/lib/coach/scheduler'
 import { KinLogo } from '@/components/kin-logo'
 import { Button } from '@/components/ui/button'
 import { BetaBadge } from '@/components/beta-badge'
@@ -23,6 +24,12 @@ export function AppShell({ displayName, children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
+
+  // Rappels temporels (PLAN → REMIND) : actifs tant que l'app est ouverte.
+  // Même anti-spam que le coach (heures silencieuses, fréquence, pause) ;
+  // quand l'app est fermée, le cron serveur /api/cron/reminders prend le relais
+  // via Web Push pour les appareils abonnés.
+  useReminderScheduler(true)
 
   // Auto-close the mobile drawer whenever navigation happens
   useEffect(() => {

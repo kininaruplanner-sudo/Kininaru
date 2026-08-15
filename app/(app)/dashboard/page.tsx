@@ -16,6 +16,7 @@ export default async function DashboardPage() {
     { data: habitLogs },
     { data: focusSessions },
     { data: memberships },
+    { data: goals },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user!.id).single(),
     supabase.from('tasks').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }),
@@ -41,6 +42,13 @@ export default async function DashboardPage() {
       .from('family_members')
       .select('family_id, role, families(name)')
       .eq('user_id', user!.id),
+    supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', user!.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(10),
   ])
 
   // The `families` embed can come back shaped as an array depending on
@@ -59,6 +67,7 @@ export default async function DashboardPage() {
       habitLogs={habitLogs ?? []}
       focusSessions={focusSessions ?? []}
       families={families}
+      goals={goals ?? []}
       userId={user!.id}
     />
   )

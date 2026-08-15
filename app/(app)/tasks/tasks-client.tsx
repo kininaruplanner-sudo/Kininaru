@@ -23,6 +23,7 @@ import {
   ListChecks,
   Pencil,
   Play,
+  Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -48,6 +49,7 @@ interface Task {
   priority: Priority
   status: Status
   due_date?: string
+  scheduled_time?: string
   tags: string[]
   color: string
   created_at: string
@@ -162,11 +164,18 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
   const [dragTaskId, setDragTaskId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<Status | null>(null)
 
+  // REFLECT — boucle COMPLETE → REFLECT : après une tâche terminée, on propose
+  // une micro-réflexion écrite dans le Journal du jour. Jamais obligatoire,
+  // jamais bloquante (la tâche est déjà enregistrée comme terminée).
+  const [reflectTask, setReflectTask] = useState<{ id: string; title: string } | null>(null)
+  const [reflectSaving, setReflectSaving] = useState(false)
+
   const [form, setForm] = useState<{
     title: string
     description: string
     priority: Priority
     due_date: string
+    scheduled_time: string
     tags: string[]
     color: string
   }>({
@@ -174,6 +183,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     description: '',
     priority: 'medium',
     due_date: '',
+    scheduled_time: '',
     tags: [],
     color: palette('sage'),
   })
@@ -261,7 +271,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
 
   const openNewTask = () => {
     setEditingTask(null)
-    setForm({ title: '', description: '', priority: 'medium', due_date: '', tags: [], color: palette('sage') })
+    setForm({ title: '', description: '', priority: 'medium', due_date: '', scheduled_time: '', tags: [], color: palette('sage') })
     setShowModal(true)
   }
 
@@ -272,6 +282,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       description: task.description ?? '',
       priority: task.priority,
       due_date: task.due_date ?? '',
+      scheduled_time: task.scheduled_time ?? '',
       tags: task.tags ?? [],
       color: task.color ?? palette('sage'),
     })
@@ -293,6 +304,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       description: form.description,
       priority: form.priority,
       due_date: form.due_date || null,
+      scheduled_time: form.due_date && form.scheduled_time ? form.scheduled_time : null,
       tags: form.tags,
       color: form.color,
     }
@@ -301,7 +313,12 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       const applyOptimisticUpdate = (prev: Task[]) =>
         prev.map((t) =>
           t.id === editingTask.id
-            ? { ...t, ...payload, due_date: payload.due_date ?? undefined }
+            ? {
+                ...t,
+                ...payload,
+                due_date: payload.due_date ?? undefined,
+                scheduled_time: payload.scheduled_time ?? undefined,
+              }
             : t
         )
       if (!navigator.onLine) {
@@ -333,6 +350,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
         priority: payload.priority,
         status: 'todo',
         due_date: payload.due_date ?? undefined,
+        scheduled_time: payload.scheduled_time ?? undefined,
         tags: payload.tags,
         color: payload.color,
         created_at: new Date().toISOString(),
@@ -377,6 +395,10 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
 
   const updateStatus = async (id: string, status: Status) => {
     const completedAt = status === 'done' ? new Date().toISOString() : null
+    if (status === 'done') {
+      const t = tasks.find((x) => x.id === id)
+      if (t) setReflectTask({ id: t.id, title: t.title })
+    }
     const patch = { status, completed_at: completedAt }
     const apply = (prev: Task[]) =>
       prev.map((t) =>
@@ -392,6 +414,31 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       await enqueueOp({ table: 'tasks', op: 'update', recordId: id, payload: patch })
     }
     setTasks(apply)
+  }
+
+  /** REFLECT : écrit la réponse dans le journal du jour (fusion si entrée existante). */
+  const saveReflection = async (feeling: 'facile' | 'neutre' | 'difficile') => {
+    if (!reflectTask) return
+    setReflectSaving(true)
+    const today = new Date().toISOString().slice(0, 10)
+    const text = `Réflexion — « ${reflectTask.title} » : ${feeling}`
+    try {
+      const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('content')
+        .eq('user_id', userId)
+        .eq('entry_date', today)
+        .maybeSingle()
+      const content = [existing?.content, text].filter(Boolean).join('\n\n')
+      await supabase
+        .from('journal_entries')
+        .upsert({ user_id: userId, entry_date: today, content }, { onConflict: 'user_id,entry_date' })
+      setReflectTask(null)
+    } catch {
+      // silencieux — la tâche est déjà terminée, on ne bloque jamais l'utilisateur
+    } finally {
+      setReflectSaving(false)
+    }
   }
 
   const deleteTask = async (id: string) => {
@@ -611,6 +658,47 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
               transition={{ duration: 0.2 }}
               className="space-y-2 max-w-3xl"
             >
+              {reflectTask && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(cardVariants({ padding: 'md' }), 'border-l-4 border-l-kin-sage')}
+                >
+                  <p className="text-sm font-semibold text-foreground">Comment c’était ?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    « {reflectTask.title} » — ta réponse rejoint le journal du jour.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    {(
+                      [
+                        ['😊', 'facile', 'Facile'],
+                        ['😐', 'neutre', 'Neutre'],
+                        ['😅', 'difficile', 'Difficile'],
+                      ] as const
+                    ).map(([emoji, key, label]) => (
+                      <Button
+                        key={key}
+                        size="sm"
+                        variant="outline"
+                        disabled={reflectSaving}
+                        onClick={() => void saveReflection(key)}
+                        className="min-h-11"
+                      >
+                        {emoji} {label}
+                      </Button>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={reflectSaving}
+                      onClick={() => setReflectTask(null)}
+                      className="min-h-11"
+                    >
+                      Passer
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
               {filteredTasks.length === 0 ? (
                 <div className="text-center py-16">
                   <CheckSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
@@ -697,6 +785,12 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                                 <Calendar className="w-3 h-3" />
                                 {format(new Date(task.due_date), 'MMM d')}
                                 {overdue && ' · overdue'}
+                              </span>
+                            )}
+                            {task.scheduled_time && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                {task.scheduled_time.slice(0, 5)}
                               </span>
                             )}
                             <TagList tags={task.tags} />
@@ -1009,9 +1103,23 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                     <Input
                       type="date"
                       value={form.due_date}
-                      onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                      onChange={(e) => setForm({ ...form, due_date: e.target.value, scheduled_time: '' })}
                       className="mt-1 transition-smooth"
                     />
+                  </div>
+                  <div>
+                    <Label>Heure planifiée</Label>
+                    <Input
+                      type="time"
+                      value={form.scheduled_time}
+                      disabled={!form.due_date}
+                      onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })}
+                      className="mt-1 transition-smooth"
+                      title="Le coach te rappellera au bon moment (app ouverte ou Web Push)."
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {form.due_date ? 'Rappel proactif à cette heure' : 'Choisis d’abord une date'}
+                    </p>
                   </div>
                 </div>
 

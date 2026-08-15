@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Users,
   ArrowRight,
+  Target,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,7 @@ import { cardVariants } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { InstallAppButton } from '@/components/install-app-button'
 import { streamChatResponse } from '@/lib/ai-stream'
+import { computeInsights } from '@/lib/coach/insights'
 
 // Fallback pool for the Daily AI Insight card if the live request fails —
 // keeps the card useful (and avoids an alarming error state) either way.
@@ -70,7 +72,16 @@ interface DashboardTask {
   status: string
   priority?: string | null
   due_date?: string | null
+  scheduled_time?: string | null
   completed_at?: string | null
+  goal_id?: string | null
+}
+
+interface DashboardGoal {
+  id: string
+  title: string
+  target_date?: string | null
+  status: string
 }
 
 interface DashboardEvent {
@@ -104,6 +115,7 @@ interface Props {
   habitLogs: DashboardHabitLog[]
   focusSessions: DashboardFocusSession[]
   families: { family_id: string; role: string; families: { name: string } | null }[]
+  goals: DashboardGoal[]
   userId: string
 }
 
@@ -115,6 +127,7 @@ export function DashboardClient({
   habitLogs,
   focusSessions,
   families,
+  goals,
   userId,
 }: Props) {
   const [time, setTime] = useState(new Date())
@@ -413,6 +426,35 @@ export function DashboardClient({
       ? 'Attaquer tes priorités restantes'
       : null
 
+  // ---- LEARN / ADAPT — insights calculés sur les données RÉELLES des 7
+  // derniers jours (tâches terminées, sessions Focus, habitudes). Le plan de
+  // demain est une SUGGESTION : jamais de modification automatique.
+  const insights = useMemo(
+    () =>
+      computeInsights({
+        tasks: tasks.map((t) => ({
+          title: t.title,
+          priority: t.priority ?? null,
+          status: t.status,
+          due_date: t.due_date ?? null,
+          scheduled_time: t.scheduled_time ?? null,
+          completed_at: t.completed_at ?? null,
+        })),
+        focusSessions: focusSessions.map((s) => ({
+          duration_minutes: s.duration_minutes ?? null,
+          created_at: s.created_at ?? null,
+        })),
+        habitLogs: habitLogs.map((l) => ({ logged_date: l.logged_date })),
+        today: format(new Date(), 'yyyy-MM-dd'),
+        tomorrow: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+      }),
+    [tasks, focusSessions, habitLogs]
+  )
+  // Le plan de demain d'abord (identité produit), puis les tendances.
+  const orderedInsights = [...insights].sort((a, b) =>
+    (a.id === 'tomorrow_plan' ? 0 : 1) - (b.id === 'tomorrow_plan' ? 0 : 1)
+  )
+
   return (
     <div className="p-5 sm:p-6 lg:p-8 max-w-[1280px] mx-auto space-y-5 lg:space-y-7">
       {/* Header */}
@@ -614,6 +656,90 @@ export function DashboardClient({
           )}
         </div>
       </motion.div>
+
+      {/* LEARN / ADAPT — tendances réelles + « Demain pourrait être… ».
+          Deux cartes maximum, toujours issues des données du compte. */}
+      {orderedInsights.length > 0 && (
+        <motion.div
+          custom={1.06}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className="grid gap-3 sm:grid-cols-2"
+        >
+          {orderedInsights.slice(0, 2).map((ins) => (
+            <div
+              key={ins.id}
+              className={cn(
+                cardVariants({ padding: 'md' }),
+                'flex flex-col justify-between min-h-[104px]',
+                ins.id === 'tomorrow_plan' && 'border-l-4 border-l-kin-yellow'
+              )}
+            >
+              <p className="text-sm font-semibold text-foreground leading-snug">
+                {ins.emoji} {ins.title}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{ins.detail}</p>
+              {ins.action && (
+                <Link
+                  href={ins.action.href}
+                  className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline w-fit"
+                >
+                  {ins.action.label} <ArrowRight className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Objectifs — direction du jour, progression calculée sur les vraies
+          tâches rattachées (jamais de chiffre inventé). */}
+      {goals.length > 0 && (
+        <motion.div
+          custom={1.07}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className={cn(cardVariants({ padding: 'md' }))}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
+              <Target className="w-3.5 h-3.5 text-primary" /> Objectifs en cours
+            </span>
+            <Link href="/goals" className="text-xs font-medium text-primary hover:underline">
+              Tout voir →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {goals.slice(0, 3).map((goal) => {
+              const linked = tasks.filter((t) => t.goal_id === goal.id)
+              const doneCount = linked.filter((t) => t.status === 'done').length
+              const pct = linked.length > 0 ? Math.round((doneCount / linked.length) * 100) : null
+              return (
+                <div key={goal.id}>
+                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                    <span className="font-medium text-foreground truncate">{goal.title}</span>
+                    {pct !== null && (
+                      <span className="text-muted-foreground shrink-0">
+                        {doneCount}/{linked.length}
+                      </span>
+                    )}
+                  </div>
+                  {pct !== null && (
+                    <div className="h-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Install prompt — slim row on mobile/tablet only (desktop has it in
           the sidebar footer, so it never duplicates). Hidden once installed. */}

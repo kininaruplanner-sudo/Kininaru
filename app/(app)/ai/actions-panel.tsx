@@ -33,7 +33,8 @@ type CardStatus = 'pending' | 'working' | 'done' | 'error'
 const META: Record<AiAction['action'], { label: string; icon: React.ElementType }> = {
   create_task: { label: 'Créer une tâche', icon: CheckSquare },
   create_tasks_batch: { label: 'Découper en étapes', icon: ListChecks },
-  create_objective: { label: 'Créer un objectif', icon: Target },
+  create_objective: { label: 'Créer un objectif + étapes', icon: Target },
+  create_goal: { label: 'Créer un objectif', icon: Target },
   create_habit: { label: 'Créer une habitude', icon: Repeat2 },
   create_event: { label: 'Créer un événement', icon: CalendarDays },
   create_family_task: { label: 'Tâche familiale', icon: Users },
@@ -67,6 +68,11 @@ function actionSummary(a: AiAction): string[] {
     case 'create_tasks_batch':
     case 'create_objective':
       return [`« ${a.data.parent_title} »`, `${a.data.steps.length} étapes proposées`]
+    case 'create_goal':
+      return [
+        `« ${a.data.title} »`,
+        a.data.steps?.length ? `${a.data.steps.length} étapes reliées` : 'Objectif suivi',
+      ]
     case 'create_habit':
       return [`« ${a.data.title} »`]
     case 'create_event': {
@@ -95,6 +101,12 @@ function toDraft(a: AiAction): Record<string, string> {
     case 'create_tasks_batch':
     case 'create_objective':
       return { parent_title: a.data.parent_title, steps: a.data.steps.join('\n') }
+    case 'create_goal':
+      return {
+        title: a.data.title,
+        target_date: a.data.target_date ?? '',
+        steps: (a.data.steps ?? []).join('\n'),
+      }
     case 'create_habit':
       return { title: a.data.title }
     case 'create_event':
@@ -251,6 +263,29 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
           return null
         }
         return { action: 'create_habit', data: { title } }
+      }
+      case 'create_goal': {
+        const title = draft.title?.trim()
+        if (!title) {
+          setDraftError("Le titre de l'objectif est obligatoire.")
+          return null
+        }
+        const steps = (draft.steps ?? '')
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+        if (steps.length > 10) {
+          setDraftError('Prévoyez au maximum 10 étapes (une par ligne).')
+          return null
+        }
+        return {
+          action: 'create_goal',
+          data: {
+            title,
+            target_date: draft.target_date?.trim() || undefined,
+            steps: steps.length > 0 ? steps : undefined,
+          },
+        }
       }
       case 'create_event': {
         const title = draft.title?.trim()

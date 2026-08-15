@@ -35,9 +35,15 @@ export type AiAction =
   | {
       /** Journal → objectif → tâches (ÉTAPE 15.5 §4-5). Same shape as
        *  create_tasks_batch but only carries the steps the user CONFIRMED
-       *  in the journal (selection is applied client-side before sending). */
+       *  in the journal (selection is applied client-side before sending).
+       *  Crée un VRAI objectif (table goals) relié aux tâches. */
       action: 'create_objective'
       data: { parent_title: string; steps: string[] }
+    }
+  | {
+      /** Nouvel objectif (table goals) avec étapes optionnelles reliées. */
+      action: 'create_goal'
+      data: { title: string; target_date?: string; steps?: string[] }
     }
   | { action: 'create_habit'; data: { title: string; color?: string } }
   | {
@@ -177,6 +183,19 @@ export function validateAiAction(raw: unknown): { action?: AiAction; error?: str
       if (!steps) return { error: 'Étapes invalides (1 à 10 étapes attendues)' }
       return { action: { action: 'create_objective', data: { parent_title, steps } } }
     }
+    case 'create_goal': {
+      const title = cleanTitle(data.title)
+      if (!title) return { error: 'Titre d’objectif manquant' }
+      const target_date = cleanDate(data.target_date)
+      if (target_date === null) return { error: 'Date invalide (format AAAA-MM-JJ)' }
+      let steps: string[] | undefined
+      if (data.steps !== undefined && data.steps !== null) {
+        const s = cleanSteps(data.steps)
+        if (!s) return { error: 'Étapes invalides (1 à 10 étapes attendues)' }
+        steps = s
+      }
+      return { action: { action: 'create_goal', data: { title, target_date, steps } } }
+    }
     case 'create_habit': {
       const title = cleanTitle(data.title)
       if (!title) return { error: 'Titre d’habitude manquant' }
@@ -263,8 +282,7 @@ export async function executeAiAction(
           id: data?.id,
         }
       }
-      case 'create_tasks_batch':
-      case 'create_objective': {
+      case 'create_tasks_batch': {
         const { data: parent, error: parentErr } = await supabase
           .from('tasks')
           .insert({
@@ -292,6 +310,93 @@ export async function executeAiAction(
           message: `Objectif découpé en ${action.data.steps.length} étapes`,
           title: action.data.parent_title,
           id: parent?.id,
+        }
+      }
+      case 'create_objective': {
+        // Journal → VRAI objectif : la ligne goals est créée et chaque tâche
+        // (parent + étapes) lui est reliée via goal_id, pour alimenter la
+        // progression affichée sur la page Objectifs.
+        const { data: goal, error: goalErr } = await supabase
+          .from('goals')
+          .insert({ user_id: userId, title: action.data.parent_title, status: 'active' })
+          .select('id')
+          .single()
+        if (goalErr) throw goalErr
+        const { data: parent, error: parentErr } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: userId,
+            title: action.data.parent_title,
+            priority: 'medium',
+            status: 'todo',
+            goal_id: goal?.id,
+          })
+          .select('id')
+          .single()
+        if (parentErr) throw parentErr
+        const { error: stepsErr } = await supabase.from('tasks').insert(
+          action.data.steps.map((title) => ({
+            user_id: userId,
+            parent_id: parent?.id,
+            goal_id: goal?.id,
+            title,
+            priority: 'low',
+            status: 'todo',
+          }))
+        )
+        if (stepsErr) throw stepsErr
+        return {
+          action: action.action,
+          ok: true,
+          message: `Objectif « ${action.data.parent_title} » créé avec ${action.data.steps.length} étapes`,
+          title: action.data.parent_title,
+          id: goal?.id,
+        }
+      }
+      case 'create_goal': {
+        const { data: goal, error: goalErr } = await supabase
+          .from('goals')
+          .insert({
+            user_id: userId,
+            title: action.data.title,
+            target_date: action.data.target_date ?? null,
+            status: 'active',
+          })
+          .select('id')
+          .single()
+        if (goalErr) throw goalErr
+        const steps = action.data.steps ?? []
+        if (steps.length > 0) {
+          const { data: parent, error: parentErr } = await supabase
+            .from('tasks')
+            .insert({
+              user_id: userId,
+              title: action.data.title,
+              priority: 'medium',
+              status: 'todo',
+              goal_id: goal?.id,
+            })
+            .select('id')
+            .single()
+          if (parentErr) throw parentErr
+          const { error: stepsErr } = await supabase.from('tasks').insert(
+            steps.map((title) => ({
+              user_id: userId,
+              parent_id: parent?.id,
+              goal_id: goal?.id,
+              title,
+              priority: 'low',
+              status: 'todo',
+            }))
+          )
+          if (stepsErr) throw stepsErr
+        }
+        return {
+          action: action.action,
+          ok: true,
+          message: steps.length > 0 ? `Objectif créé avec ${steps.length} étapes` : 'Objectif créé',
+          title: action.data.title,
+          id: goal?.id,
         }
       }
       case 'create_habit': {
