@@ -16,8 +16,9 @@ export const dynamic = 'force-dynamic'
  *
  * Boucle proactive PLAN → REMIND — côté serveur.
  *
- * Trigger : Vercel Cron toutes les 15 min (vercel.json) ou tout cron externe
- * avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
+ * Trigger : Supabase pg_cron toutes les 15 min (supabase/scheduler.sql,
+ * gratuit, compatible Vercel Hobby — Vercel ne permet qu'un cron/jour sur
+ * Hobby) ou tout cron externe avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
  *
  * Pour chaque appareil abonné au push (opt-in), on regarde les données RÉELLES
  * du jour :

@@ -81,6 +81,7 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 6. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
 7. `supabase/goals.sql` — active les **Objectifs** (table `goals` + colonne `tasks.goal_id`, RLS par utilisateur). Sans lui, la page Objectifs s'affiche mais rien ne peut être enregistré et l'action IA `create_goal` échoue.
 8. `supabase/reminders.sql` — active les **rappels temporels** (colonne `tasks.scheduled_time` + déduplication `push_send_log.reminder_key`). Sans lui, l'heure planifiée n'est pas persistée et le cron de rappels ne peut pas dédupliquer.
+9. `supabase/scheduler.sql` — planifie les crons dans Supabase (pg_cron + pg_net : brief du soir 20:00 UTC, brief hebdo lundi 08:00 UTC, rappels toutes les 15 min) et autorise le type de notification `reminder`. **Remplacez d'abord** `CHANGE_ME_CRON_SECRET` par la vraie valeur de `CRON_SECRET` (jamais commitée). Sans lui : brief du matin et maintenance via le cron Vercel unique, briefs soir/hebdo et rappels uniquement quand l'app est ouverte.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -91,21 +92,29 @@ La table `feedback` est la source principale. Chaque retour est immuable (RLS sa
 
 **Notification email** : définissez `SENDGRID_API_KEY` et `ADMIN_FEEDBACK_EMAIL` (destinataire, ex. `kininaru.planner@gmail.com`), et un email est envoyé à chaque nouveau retour (contenu, catégorie, gravité, page, navigateur, appareil, version, date — aucune donnée privée, la clé SendGrid reste côté serveur). Expéditeur : vérifiez une adresse dans SendGrid (Single Sender) ; par défaut, l'expéditeur = le destinataire. **Webhook optionnel** : définissez `ADMIN_FEEDBACK_WEBHOOK_URL` (Discord, Slack, n8n…) pour recevoir aussi un `POST` JSON. Une erreur d'envoi ne bloque jamais l'enregistrement du retour.
 
-### Briefs planifiés (matin / soir / hebdomadaire)
+### Architecture des crons (compatible Vercel Hobby)
 
-L'endpoint `POST /api/cron/briefs` envoie les briefs aux utilisateurs qui ont opté-in (respect des heures silencieuses, dédoublonnage par jour et plafond quotidien). Il ne se déclenche jamais tout seul :
+**Contrainte** : le plan Vercel Hobby n'autorise qu'**une exécution de cron par jour** (±59 min). `vercel.json` ne déclare donc qu'**un seul cron** : `0 7 * * *` → `POST /api/cron/daily`, qui fait matin + maintenance.
 
-- **Fuseaux horaires** : Vercel exécute les crons **en UTC** (7h, 20h, lundi 8h **UTC**). Le serveur calcule donc `getHours()` en UTC : les briefs partent à l'heure UTC, quelle que soit la timezone du destinataire. Aucune timezone utilisateur n'est gérée pour l'instant (documenté dans `app/api/cron/briefs/route.ts`).
-- **Vercel** : `vercel.json` déclare déjà les crons (7h, 20h, lundi 8h UTC). Ajoutez les variables d'environnement sur le projet Vercel (dont `CRON_SECRET` et `SUPABASE_SERVICE_ROLE_KEY`).
-- **Ailleurs** : planifiez un cron externe qui appelle `POST /api/cron/briefs` avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
+Tout le reste est planifié **dans Supabase** (plan gratuit, déjà utilisé par le projet) via **pg_cron + pg_net** : les jobs PostgreSQL appellent les endpoints Vercel avec l'en-tête `x-cron-secret` — aucune limite Hobby, aucun coût supplémentaire.
 
-### Rappels temporels (boucle proactive)
+| Tâche | Fréquence | Source | Endpoint |
+|---|---|---|---|
+| **Daily Brief** (matin) | 1×/jour, 07:00 UTC | Vercel Cron (Hobby OK) | `/api/cron/daily` |
+| **Maintenance** (logs push, file sync, notifications lues > 30 j) | 1×/jour | Vercel Cron (même appel) | `/api/cron/daily` |
+| **Evening Brief** | 1×/jour, 20:00 UTC | Supabase pg_cron | `/api/cron/briefs` |
+| **Weekly Brief** | 1×/semaine, lundi 08:00 UTC | Supabase pg_cron | `/api/cron/briefs` |
+| **Rappels temporels** (tâches/événements imminents) | toutes les 15 min | Supabase pg_cron | `/api/cron/reminders` |
 
-`POST /api/cron/reminders` envoie une notification contextuelle quand une **tâche planifiée** (heure renseignée) ou un **événement** est imminent : « 🎯 ça commence dans 10 minutes » avec actions ▶ Commencer / Plus tard (deep link `/focus?taskId=…`). Mêmes règles que le coach : heures silencieuses, plafond quotidien selon la fréquence choisie, déduplication par tâche/jour (`push_send_log.reminder_key`).
+**Mise en place (Supabase)** : exécutez `supabase/scheduler.sql` dans le SQL Editor, en **remplaçant d'abord** `CHANGE_ME_CRON_SECRET` par la vraie valeur de `CRON_SECRET` (jamais commitée). Le fichier est relançable (`cron.unschedule` avant `cron.schedule`). Il corrige aussi la contrainte `notifications.type` pour autoriser les rappels (`'reminder'`).
 
-- **App ouverte** : le scheduler local (`lib/coach/scheduler.ts`, monté dans `app-shell`) déclenche la cloche + notification navigateur en arrière-plan.
-- **App fermée** : le cron envoie le push Web Push aux appareils abonnés. `vercel.json` déclare déjà `*/15 * * * *` (15 min). Fuseaux comparés en UTC (fenêtre ±15 min, comme les briefs).
-- **Ailleurs** : même mécanisme que les briefs — `POST /api/cron/reminders` avec `x-cron-secret: <CRON_SECRET>`.
+**Coût** : ~3 000 invocations Vercel/mois (96/jour pour les rappels + ~3/jour briefs + 1/jour daily) — très en dessous des limites du plan gratuit. Pas de changement nécessaire ailleurs (SendGrid : emails de feedback uniquement, limites intactes).
+
+**Redondance / dégradation douce** : si pg_cron n'est pas configuré, le produit continue de fonctionner — brief du matin via le cron Vercel unique, briefs soir/hebdo et rappels via le scheduler client quand l'app est ouverte (`lib/coach/scheduler.ts`). La déduplication par type/jour (`push_send_log`) empêche tout double envoi si deux sources se chevauchent.
+
+**Fuseaux horaires** : les schedulers tournent **en UTC** (07:00, 20:00, lundi 08:00 UTC) ; le type de brief est déduit de l'heure UTC courante. Une préférence de timezone par utilisateur est une amélioration future.
+
+**Sécurité** : tous les endpoints cron (`/api/cron/daily`, `/api/cron/briefs`, `/api/cron/reminders`) exigent `x-cron-secret: <CRON_SECRET>` (ou `Authorization: Bearer`) et refusent toute autre requête (401) ; sans `CRON_SECRET` configuré, ils répondent 503 et ne font rien.
 
 ### Google OAuth (configuration externe)
 
