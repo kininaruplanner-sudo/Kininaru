@@ -228,6 +228,10 @@ export async function POST(
   }
 
   const service = createServiceClient()
+  // Which connection we are actually syncing — used to scope the error write
+  // below, so a failure on one connection never marks the user's OTHER
+  // connections (same provider) with a bogus sync_error.
+  let syncingConnectionId: string | null = null
   try {
     let query = service
       .from('calendar_connections')
@@ -244,6 +248,7 @@ export async function POST(
     if (!conn) {
       return Response.json({ error: "Aucune connexion à synchroniser" }, { status: 404 })
     }
+    syncingConnectionId = conn.id
 
     let items: ExternalItem[] = []
     if (provider === 'ics') {
@@ -324,11 +329,15 @@ export async function POST(
     return Response.json({ ok: true, imported })
   } catch (e) {
     const message = e instanceof Error ? e.message : "Erreur inconnue"
-    await service
+    // Scope the error to the connection being synced (never to the user's
+    // other connections of the same provider).
+    const errQuery = service
       .from('calendar_connections')
       .update({ sync_error: message.slice(0, 300) })
-      .eq('provider', provider)
       .eq('user_id', user.id)
+    if (syncingConnectionId) errQuery.eq('id', syncingConnectionId)
+    else errQuery.eq('provider', provider)
+    await errQuery
     return Response.json({ error: message }, { status: 502 })
   }
 }
