@@ -4,9 +4,9 @@
  * Générée à la volée par Next.js (route `/opengraph-image`, image PNG) avec
  * `ImageResponse` — aucune dépendance supplémentaire, aucun binaire à
  * commiter. Le logo utilisé est LE logo existant du projet
- * (`/icon-512x512.png` : lotus + wordmark, bleu de marque #5B8296), chargé
- * depuis l'URL publique du site puis embarqué en data-URI : l'image est donc
- * autonome et reste identique quelle que soit l'origine.
+ * (`/icon-512x512.png` : lotus + wordmark, palette Memphis cyan → marine →
+ * orange), chargé depuis l'URL publique du site puis embarqué en data-URI :
+ * l'image est donc autonome et reste identique quelle que soit l'origine.
  *
  * Compatibilité :
  * - WhatsApp / Discord / Messenger / Facebook / Slack / Telegram : format
@@ -52,7 +52,7 @@ export default async function Image() {
           height: '100%',
           display: 'flex',
           position: 'relative',
-          background: 'linear-gradient(135deg, #8BB8CC 0%, #5B8296 55%, #3F6579 100%)',
+          background: 'linear-gradient(135deg, #0E2A4D 0%, #1A365D 55%, #0A7189 100%)',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
         }}
       >
@@ -65,7 +65,7 @@ export default async function Image() {
             width: 460,
             height: 460,
             borderRadius: 9999,
-            background: 'rgba(255,255,255,0.08)',
+            background: 'rgba(0,194,224,0.16)',
           }}
         />
         <div
@@ -76,7 +76,7 @@ export default async function Image() {
             width: 420,
             height: 420,
             borderRadius: 9999,
-            background: 'rgba(255,255,255,0.05)',
+            background: 'rgba(255,107,53,0.14)',
           }}
         />
 

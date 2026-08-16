@@ -175,6 +175,20 @@
     -webkit-background-clip: text;
     color: transparent;
   }
+  /* Dégradé vif brand → marine → warm : utilisé pour le mot signature du
+     hero et le logo, il suit la palette du thème actif (cyan → marine →
+     orange pour le thème Kininaru). */
+  .kin-gradient-vivid {
+    background-image: linear-gradient(
+      110deg,
+      var(--kt-brand) 0%,
+      var(--kt-cool) 55%,
+      var(--kt-warm) 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
   [data-theme='nuit'] .kin-gradient-text {
     background-image: linear-gradient(
       120deg,

@@ -93,7 +93,9 @@ function chartColor(hex) {
 
 // [value, label, c1 brand, c2 secondary accent, c3 warm accent, c4 complementary]
 const PALETTES = [
-  ['kininaru', 'Kininaru', '#5B8296', '#A8CDE0', '#F2A65A', '#C9B8E8'],
+  // Kininaru brand — Memphis moderne : cyan #00C2E0, marine #1A365D,
+  // orange vif #FF6B35, terracotta #6A2B05.
+  ['kininaru', 'Kininaru', '#00C2E0', '#1A365D', '#FF6B35', '#6A2B05'],
   ['savane', 'Savane', '#B5C99A', '#862B0D', '#FFF9C9', '#FFC95F'],
   ['lagoon', 'Lagoon', '#3AA6B9', '#FFD0D0', '#FF9EAA', '#C1ECE4'],
   ['indigo', 'Indigo', '#525FE1', '#F86F03', '#FFA41B', '#FFF6F4'],
@@ -137,18 +139,23 @@ const PALETTES = [
 const WHITE = '#FFFFFF'
 
 function buildLightTheme([c1, c2, c3, c4]) {
-  const background = mix(c1, WHITE, 0.9)
-  const foreground = ensureContrast(mix(c1, '#1C2230', 0.22), background, 9)
+  // Fond blanc épuré (#FFFFFF) sur toutes les pages — la charte est
+  // harmonisée ; seuls les accents (cartes, sidebar, muted) gardent une
+  // teinte légère de la palette pour conserver l'identité du thème.
+  const background = WHITE
+  // Texte (titres compris) dérivé de c2 (accent secondaire) : pour la
+  // palette Kininaru c2 = marine #1A365D → titres en bleu marine.
+  const foreground = ensureContrast(mix(c2, '#1C2230', 0.22), background, 9)
   const card = WHITE
   const primary = ensureContrast(c1, WHITE, 4.6)
   const primaryFg = WHITE
   const secondary = mix(c1, WHITE, 0.86)
-  const muted = mix(c1, WHITE, 0.88)
-  const mutedFg = ensureContrast(mix(c1, '#5B6472', 0.38), background, 4.5)
+  const muted = mix(c1, WHITE, 0.9)
+  const mutedFg = ensureContrast(mix(c2, '#5B6472', 0.38), background, 4.5)
   const accent = mix(c2, WHITE, 0.84)
   const accentFg = ensureContrast(mix(c2, '#1C2230', 0.3), accent, 4.5)
-  const border = mix(c1, WHITE, 0.82)
-  const input = mix(c1, WHITE, 0.74)
+  const border = mix(c2, WHITE, 0.85)
+  const input = mix(c2, WHITE, 0.78)
   const ring = primary
   const sidebar = mix(background, c1, 0.05)
   const sidebarAccent = secondary

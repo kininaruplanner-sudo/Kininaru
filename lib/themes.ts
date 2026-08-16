@@ -16,20 +16,10 @@ export interface ThemeMeta {
   bg: string
 }
 
-function mix(a: string, b: string, t: number): string {
-  const hex = (h: string) => {
-    const n = parseInt(h.replace('#', ''), 16)
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
-  }
-  const ca = hex(a)
-  const cb = hex(b)
-  const c = (v: number) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')
-  return `#${c(ca.r + (cb.r - ca.r) * t)}${c(ca.g + (cb.g - ca.g) * t)}${c(ca.b + (cb.b - ca.b) * t)}`
-}
-
 // [value, name, c1, c2, c3, c4]
 const RAW: [string, string, string, string, string, string][] = [
-  ['kininaru', 'Kininaru', '#5B8296', '#A8CDE0', '#F2A65A', '#C9B8E8'],
+  // Kininaru brand — Memphis moderne : cyan, marine, orange vif, terracotta.
+  ['kininaru', 'Kininaru', '#00C2E0', '#1A365D', '#FF6B35', '#6A2B05'],
   ['savane', 'Savane', '#B5C99A', '#862B0D', '#FFF9C9', '#FFC95F'],
   ['lagoon', 'Lagoon', '#3AA6B9', '#FFD0D0', '#FF9EAA', '#C1ECE4'],
   ['indigo', 'Indigo', '#525FE1', '#F86F03', '#FFA41B', '#FFF6F4'],
@@ -70,7 +60,8 @@ export const THEMES: ThemeMeta[] = RAW.map(([value, name, c1, c2, c3, c4]) => ({
   value,
   name,
   colors: [c1, c2, c3, c4],
-  bg: value === 'nuit' ? '#16161F' : mix(c1, '#FFFFFF', 0.9),
+  // Fond blanc épuré (#FFFFFF) pour toutes les déclinaisons claires.
+  bg: value === 'nuit' ? '#16161F' : '#FFFFFF',
 }))
 
 export const THEME_STORAGE_KEY = 'kininaru-theme'

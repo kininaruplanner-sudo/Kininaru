@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils'
  * spike; the silhouette is wider than it is tall, with petals that splay
  * outward and a gently rounded dome (growth → evolution → new day).
  *
- * The mark uses `currentColor` — surfaces can override the color by passing
- * a `color` prop or a text-color class on the wrapper.
+ * The mark is filled with the brand gradient (brand → cool → warm, i.e.
+ * cyan → marine → orange for the Kininaru palette) so it carries the full
+ * identity of the active theme. The wordmark keeps `currentColor` (navy by
+ * default) — surfaces can override it via the `color` prop.
  *
  * ⚠️ The petal paths live in THREE places that must stay in sync:
  *   1. here (React component)
@@ -21,9 +23,16 @@ export function KinLogoMark({ className }: { className?: string }) {
     <svg
       viewBox="0 0 64 64"
       aria-hidden="true"
-      fill="currentColor"
+      fill="url(#kin-logo-grad)"
       className={cn('shrink-0', className)}
     >
+      <defs>
+        <linearGradient id="kin-logo-grad" x1="0%" y1="20%" x2="100%" y2="90%">
+          <stop offset="0%" style={{ stopColor: 'var(--kt-brand)' }} />
+          <stop offset="52%" style={{ stopColor: 'var(--kt-cool)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--kt-warm)' }} />
+        </linearGradient>
+      </defs>
       {/* Center petal — short, wide, rounded (the lotus cup, never a spike) */}
       <path d="M32 25 C 36.8 32 36.8 44 32 50 C 27.2 44 27.2 32 32 25 Z" />
       {/* Inner petals — sweep outward and up */}
@@ -44,14 +53,14 @@ export function KinLogo({
   showWordmark = true,
   wordmarkClassName,
   markClassName,
-  color = '#5B8296',
+  color = '#1A365D',
   variant = 'stack',
 }: {
   className?: string
   showWordmark?: boolean
   wordmarkClassName?: string
   markClassName?: string
-  /** Brand dusty blue by default; surfaces can pass any color. */
+  /** Brand marine (navy) by default; surfaces can pass any color. */
   color?: string
   /** stack = wordmark below the lotus (brand lockup), row = beside it. */
   variant?: 'stack' | 'row'

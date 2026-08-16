@@ -559,7 +559,7 @@ export function Landing() {
             className="kin-display text-foreground mb-6"
           >
             Ma journée{' '}
-            <span className="kin-script kin-gradient-text">évolue</span>.
+            <span className="kin-script kin-gradient-vivid">évolue</span>.
           </motion.h1>
 
           <motion.p

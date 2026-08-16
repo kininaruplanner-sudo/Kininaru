@@ -24,8 +24,11 @@ import { dirname, join } from 'node:path'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = (name) => join(root, 'public', name)
 
-const BRAND_BLUE = '#5B8296'
-const BRAND_BG = '#F7F9FC'
+// Marque Memphis moderne : cyan #00C2E0 → marine #1A365D → orange #FF6B35,
+// fond blanc épuré (charte harmonisée #FFFFFF).
+const BRAND_GRADIENT_ID = 'kin-logo-grad'
+const BRAND_BG = '#FFFFFF'
+const BRAND_DARK_TINT = '#9FE4F0' // favicon sombre : lotus cyan clair
 
 const iconSvg = readFileSync(out('icon.svg'), 'utf8')
 
@@ -34,17 +37,20 @@ const iconSvg = readFileSync(out('icon.svg'), 'utf8')
 // Browsers render the SVG favicon (with the wordmark) using their own fonts.
 const tileSvg = iconSvg.replace(/<text[\s\S]*?<\/text>/g, '')
 
-// The lotus mark = every <path d="..."> in icon.svg, rendered alone.
+// The lotus mark = every <path d="..."> in icon.svg, rendered alone, with
+// the brand gradient defs (extracted from icon.svg) so the mark keeps its
+// cyan → marine → orange dégradé.
+const defs = [...iconSvg.matchAll(/<defs>[\s\S]*?<\/defs>/g)].map((m) => m[0]).join('')
 const paths = [...iconSvg.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1])
 if (paths.length === 0) throw new Error('Aucun <path> trouvé dans public/icon.svg')
 
-const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${paths
-  .map((d) => `<path d="${d}" fill="${BRAND_BLUE}"/>`)
+const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${defs}${paths
+  .map((d) => `<path d="${d}" fill="url(#${BRAND_GRADIENT_ID})"/>`)
   .join('')}</svg>`
 
-// Dark-theme favicon: lotus in a light dusty tint on transparency.
+// Dark-theme favicon: lotus in a light cyan tint on transparency.
 const MARK_DARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${paths
-  .map((d) => `<path d="${d}" fill="#A8C8D8"/>`)
+  .map((d) => `<path d="${d}" fill="${BRAND_DARK_TINT}"/>`)
   .join('')}</svg>`
 
 /** Builds a multi-entry ICO (PNG-compressed entries — supported everywhere modern). */

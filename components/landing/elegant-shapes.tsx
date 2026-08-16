@@ -5,76 +5,71 @@ import { motion, useMotionValue, useSpring, useReducedMotion } from 'framer-moti
 import { cn } from '@/lib/utils'
 
 /**
- * Formes géométriques flottantes du hero — adaptées du concept Shape Hero
- * (Kokonut UI) au langage visuel de Kininaru.
+ * Fond géométrique « Memphis moderne » du hero — triangles, cercles
+ * concentriques, demi-cercles, vagues, carrés, chevrons et motifs de points,
+ * animés lentement (flottaison, rotation, respiration d'opacité).
  *
  * Règles d'adaptation :
- * - Aucune couleur codée en dur : chaque forme prend une couleur de la
- *   palette du thème actif (--kt-brand/cool/warm/complement/chart-*), donc
- *   le hero change de personnalité quand l'utilisateur change de thème.
- * - Les formes restent derrière le contenu (pointer-events-none, z-0) et ne
- *   gênent jamais les boutons.
- * - Légère parallaxe souris (désactivée si prefers-reduced-motion ou sur
- *   écran tactile), flottement lent, apparition progressive.
- * - MotionConfig reducedMotion="user" (racine du Landing) désactive les
- *   animations transform pour les utilisateurs qui le demandent.
+ * - Aucune couleur codée en dur : chaque forme utilise les tokens de la
+ *   palette du thème actif (--kt-brand cyan / --kt-cool marine /
+ *   --kt-warm orange / --kt-complement terracotta), donc le hero change de
+ *   personnalité quand l'utilisateur change de thème.
+ * - Les formes restent derrière le contenu (pointer-events-none, z-0) avec
+ *   des opacités subtiles : la lisibilité du texte n'est jamais perturbée.
+ * - Apparition fluide au défilement (whileInView, une fois), parallaxe
+ *   souris légère (désactivée si prefers-reduced-motion ou écran tactile),
+ *   flottement très lent, MotionConfig reducedMotion="user" (racine du
+ *   Landing) coupe les animations de transform à la demande.
  */
 
-interface ElegantShapeProps {
-  className?: string
-  delay?: number
-  width?: number
-  height?: number
-  rotate?: number
-  /** Stop de dégradé Tailwind complet, ex. "from-brand/25" (littéral, détecté par Tailwind). */
-  from?: string
-  borderRadius?: number
-  /** Opacité cible du dégradé (0..1). */
-  opacity?: number
-}
+const EASE: [number, number, number, number] = [0.23, 0.86, 0.39, 0.96]
 
-function ElegantShape({
+/** Enveloppe d'apparition au défilement (scroll-triggered, une seule fois). */
+function Shape({
   className,
   delay = 0,
-  width = 400,
-  height = 100,
-  rotate = 0,
-  from = 'from-brand/25',
-  borderRadius = 16,
-  opacity = 1,
-}: ElegantShapeProps) {
+  children,
+}: {
+  className?: string
+  delay?: number
+  children: React.ReactNode
+}) {
   return (
     <motion.div
-      animate={{ opacity, y: 0, rotate }}
+      initial={{ opacity: 0, scale: 0.6, y: 40 }}
+      whileInView={{ opacity: 1, scale: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 1.1, delay, ease: EASE }}
       className={cn('absolute', className)}
-      initial={{ opacity: 0, y: -150, rotate: rotate - 15 }}
-      transition={{
-        duration: 2.4,
-        delay,
-        ease: [0.23, 0.86, 0.39, 0.96],
-        opacity: { duration: 1.2 },
-      }}
     >
-      <motion.div
-        animate={{ y: [0, 15, 0] }}
-        className="relative"
-        style={{ width, height }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <div
-          aria-hidden
-          className={cn(
-            'absolute inset-0',
-            'bg-gradient-to-br to-transparent',
-            from,
-            'ring-1 ring-white/10 [data-theme="nuit"]:ring-white/15',
-            'shadow-[0_2px_16px_-2px_rgba(16,24,40,0.06)]',
-            'after:absolute after:inset-0 after:rounded-[inherit]',
-            'after:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.14),transparent_70%)]'
-          )}
-          style={{ borderRadius }}
-        />
-      </motion.div>
+      {children}
+    </motion.div>
+  )
+}
+
+/** Flottaison + rotation lentes et continues d'une forme. */
+function Float({
+  delay = 0,
+  duration = 12,
+  y = 14,
+  rotate = 6,
+  className,
+  children,
+}: {
+  delay?: number
+  duration?: number
+  y?: number
+  rotate?: number
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <motion.div
+      animate={{ y: [0, -y, 0], rotate: [0, rotate, 0] }}
+      transition={{ duration, repeat: Infinity, ease: 'easeInOut', delay }}
+      className={className}
+    >
+      {children}
     </motion.div>
   )
 }
@@ -105,111 +100,154 @@ export function HeroShapes() {
     <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       {/* Halos ambiants — couleurs de la palette, flottement très lent. */}
       <motion.div
-        animate={{ y: [0, -18, 0], opacity: [0.45, 0.8, 0.45] }}
+        animate={{ y: [0, -18, 0], opacity: [0.4, 0.7, 0.4] }}
         transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
         className="absolute -top-24 -left-24 w-96 h-96 rounded-full kin-gradient-brand opacity-20 blur-3xl"
       />
       <motion.div
-        animate={{ y: [0, 16, 0], opacity: [0.35, 0.7, 0.35] }}
+        animate={{ y: [0, 16, 0], opacity: [0.35, 0.6, 0.35] }}
         transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-        className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full kin-gradient-accent opacity-[0.13] blur-3xl"
+        className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full kin-gradient-accent opacity-[0.12] blur-3xl"
       />
       <motion.div
-        animate={{ y: [0, -12, 0], opacity: [0.25, 0.5, 0.25] }}
+        animate={{ y: [0, -12, 0], opacity: [0.2, 0.45, 0.2] }}
         transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-        className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-complement/40 blur-3xl"
+        className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-cool/30 blur-3xl"
       />
 
-      {/* Couche de formes géométriques — les 4 couleurs de la palette du
-          thème actif + deux couleurs de graphique pour la diversité. */}
+      {/* Couche Memphis — formes géométriques animées de la palette du thème. */}
       <motion.div style={{ x: parallaxX, y: parallaxY }} className="absolute inset-0">
-        <ElegantShape
-          borderRadius={24}
-          className="top-[-8%] left-[-12%] hidden sm:block"
-          delay={0.3}
-          from="from-brand/25"
-          height={420}
-          opacity={0.9}
-          rotate={-8}
-          width={280}
-        />
+        {/* Triangle — haut gauche (cyan) */}
+        <Shape className="top-[12%] left-[4%] hidden md:block" delay={0.2}>
+          <Float delay={0.4} duration={11} rotate={8}>
+            <svg width="92" height="80" viewBox="0 0 92 80" fill="none">
+              <path d="M46 4 L90 76 H2 Z" fill="var(--kt-brand)" opacity="0.28" />
+            </svg>
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={20}
-          className="right-[-14%] bottom-[-6%] hidden sm:block"
-          delay={0.5}
-          from="from-warm/25"
-          height={180}
-          opacity={0.8}
-          rotate={15}
-          width={560}
-        />
+        {/* Cercles concentriques — milieu gauche (marine) */}
+        <Shape className="top-[38%] left-[-3%] hidden lg:block" delay={0.45}>
+          <Float delay={1.2} duration={14} rotate={-6}>
+            <svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+              <circle cx="75" cy="75" r="70" stroke="var(--kt-cool)" strokeWidth="2" opacity="0.35" />
+              <circle cx="75" cy="75" r="52" stroke="var(--kt-cool)" strokeWidth="2" opacity="0.25" />
+              <circle cx="75" cy="75" r="18" fill="var(--kt-cool)" opacity="0.3" />
+            </svg>
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={32}
-          className="top-[38%] left-[-6%] hidden md:block"
-          delay={0.4}
-          from="from-complement/30"
-          height={280}
-          opacity={0.85}
-          rotate={24}
-          width={280}
-        />
+        {/* Demi-cercle — haut droit (orange) */}
+        <Shape className="top-[8%] right-[4%] hidden sm:block" delay={0.3}>
+          <Float delay={0.8} duration={13} rotate={-10}>
+            <svg width="110" height="60" viewBox="0 0 110 60" fill="none">
+              <path d="M0 60 A55 55 0 0 1 110 60 Z" fill="var(--kt-warm)" opacity="0.3" />
+            </svg>
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={12}
-          className="top-[6%] right-[8%] hidden md:block"
-          delay={0.6}
-          from="from-cool/30"
-          height={90}
-          opacity={0.8}
-          rotate={-20}
-          width={220}
-        />
+        {/* Vague sinueuse — bas gauche (marine) */}
+        <Shape className="bottom-[16%] left-[6%] hidden lg:block" delay={0.55}>
+          <Float delay={0.6} duration={16} y={10} rotate={-4}>
+            <svg width="170" height="34" viewBox="0 0 170 34" fill="none">
+              <path
+                d="M2 28 C 22 4, 42 4, 62 20 C 82 36, 102 36, 122 20 C 142 4, 162 4, 168 10"
+                stroke="var(--kt-cool)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                opacity="0.4"
+              />
+            </svg>
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={16}
-          className="top-[46%] right-[-8%] hidden lg:block"
-          delay={0.7}
-          from="from-chart-5/25"
-          height={140}
-          opacity={0.75}
-          rotate={35}
-          width={360}
-        />
+        {/* Carré pivoté — milieu droit (terracotta) */}
+        <Shape className="top-[42%] right-[6%] hidden lg:block" delay={0.65}>
+          <Float delay={1.8} duration={15} rotate={14}>
+            <div
+              className="w-16 h-16 rounded-lg border-2 rotate-12"
+              style={{ borderColor: 'var(--kt-complement)', opacity: 0.4 }}
+            />
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={28}
-          className="bottom-[12%] left-[16%] hidden lg:block"
-          delay={0.2}
-          from="from-cool/25"
-          height={180}
-          opacity={0.7}
-          rotate={-25}
-          width={180}
-        />
+        {/* Chevrons — centre droit (orange) */}
+        <Shape className="top-[58%] right-[-2%] hidden xl:block" delay={0.75}>
+          <Float delay={0.2} duration={12} rotate={6}>
+            <svg width="120" height="70" viewBox="0 0 120 70" fill="none">
+              <path d="M8 12 L24 34 L8 56" stroke="var(--kt-warm)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" />
+              <path d="M40 12 L56 34 L40 56" stroke="var(--kt-warm)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" />
+              <path d="M72 12 L88 34 L72 56" stroke="var(--kt-warm)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.18" />
+            </svg>
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={10}
-          className="top-[18%] left-[38%] hidden lg:block"
-          delay={0.8}
-          from="from-brand/20"
-          height={70}
-          opacity={0.6}
-          rotate={45}
-          width={130}
-        />
+        {/* Motif de points — haut centre (cyan) */}
+        <Shape className="top-[18%] left-[36%] hidden xl:block" delay={0.85}>
+          <Float delay={2.4} duration={17} y={8} rotate={0}>
+            <div
+              className="w-28 h-16"
+              style={{
+                backgroundImage: 'radial-gradient(var(--kt-brand) 2px, transparent 2.5px)',
+                backgroundSize: '18px 18px',
+                opacity: 0.35,
+              }}
+            />
+          </Float>
+        </Shape>
 
-        <ElegantShape
-          borderRadius={18}
-          className="top-[64%] left-[24%] hidden lg:block"
-          delay={0.9}
-          from="from-warm/20"
-          height={110}
-          opacity={0.6}
-          rotate={-12}
-          width={400}
-        />
+        {/* Petit triangle — bas droit (terracotta) */}
+        <Shape className="bottom-[8%] right-[16%] hidden md:block" delay={0.5}>
+          <Float delay={1.5} duration={13} rotate={-8}>
+            <svg width="64" height="56" viewBox="0 0 64 56" fill="none">
+              <path d="M32 4 L62 52 H2 Z" fill="var(--kt-complement)" opacity="0.3" />
+            </svg>
+          </Float>
+        </Shape>
+
+        {/* Cercle contour — centre bas (cyan) */}
+        <Shape className="bottom-[26%] left-[24%] hidden lg:block" delay={0.95}>
+          <Float delay={0.1} duration={18} y={10} rotate={0}>
+            <div
+              className="w-14 h-14 rounded-full border-2"
+              style={{ borderColor: 'var(--kt-brand)', opacity: 0.35 }}
+            />
+          </Float>
+        </Shape>
+
+        {/* Deuxième vague fine — haut (orange) */}
+        <Shape className="top-[28%] right-[18%] hidden xl:block" delay={1.05}>
+          <Float delay={2.9} duration={15} y={8} rotate={5}>
+            <svg width="120" height="22" viewBox="0 0 120 22" fill="none">
+              <path
+                d="M2 14 C 18 2, 34 2, 50 12 C 66 22, 82 22, 98 12 C 108 6, 116 4, 118 4"
+                stroke="var(--kt-warm)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                opacity="0.4"
+              />
+            </svg>
+          </Float>
+        </Shape>
+
+        {/* Demi-cercle petit — bas gauche (cyan) */}
+        <Shape className="bottom-[38%] left-[8%] hidden xl:block" delay={0.6}>
+          <Float delay={3.4} duration={14} rotate={10}>
+            <svg width="70" height="40" viewBox="0 0 70 40" fill="none">
+              <path d="M0 40 A35 35 0 0 1 70 40 Z" fill="var(--kt-brand)" opacity="0.25" />
+            </svg>
+          </Float>
+        </Shape>
+
+        {/* Anneau — haut droit (orange) */}
+        <Shape className="top-[40%] right-[24%] hidden xl:block" delay={0.7}>
+          <Float delay={1.1} duration={16} rotate={-12}>
+            <div
+              className="w-10 h-10 rounded-full border-2"
+              style={{ borderColor: 'var(--kt-warm)', opacity: 0.4 }}
+            />
+          </Float>
+        </Shape>
       </motion.div>
 
       {/* Fondu bas du hero — réserve visuelle avant la section suivante. */}
