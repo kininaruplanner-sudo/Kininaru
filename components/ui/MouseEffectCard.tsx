@@ -117,11 +117,21 @@ export default function MouseEffectCard({
       }
     }
 
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect()
+    // Les écouteurs sont posés sur le CONTENEUR (et non sur le canvas) : le
+    // contenu (z-10) recouvre toute la carte, le canvas ne reçoit donc jamais
+    // les événements de pointeur. Touch : on active aussi au pointerdown et on
+    // relâche au pointerup pour que les points ne restent pas « collés ».
+    const setPointer = (e: PointerEvent, active: boolean) => {
+      const rect = container.getBoundingClientRect()
       mouse.x = e.clientX - rect.left
       mouse.y = e.clientY - rect.top
-      mouse.active = true
+      mouse.active = active
+    }
+    const onPointerMove = (e: PointerEvent) => setPointer(e, true)
+    const onPointerDown = (e: PointerEvent) => setPointer(e, true)
+    const onPointerUp = (e: PointerEvent) => {
+      // Souris : on garde l'effet tant que le curseur survole la carte.
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') mouse.active = false
     }
     const onPointerLeave = () => {
       mouse.active = false
@@ -160,15 +170,19 @@ export default function MouseEffectCard({
     buildDots()
     const observer = new ResizeObserver(buildDots)
     observer.observe(container)
-    canvas.addEventListener('pointermove', onPointerMove)
-    canvas.addEventListener('pointerleave', onPointerLeave)
+    container.addEventListener('pointermove', onPointerMove)
+    container.addEventListener('pointerdown', onPointerDown)
+    container.addEventListener('pointerup', onPointerUp)
+    container.addEventListener('pointerleave', onPointerLeave)
     draw()
 
     return () => {
       cancelAnimationFrame(raf)
       observer.disconnect()
-      canvas.removeEventListener('pointermove', onPointerMove)
-      canvas.removeEventListener('pointerleave', onPointerLeave)
+      container.removeEventListener('pointermove', onPointerMove)
+      container.removeEventListener('pointerdown', onPointerDown)
+      container.removeEventListener('pointerup', onPointerUp)
+      container.removeEventListener('pointerleave', onPointerLeave)
     }
   }, [reduced, dotSize, dotSpacing, repulsionRadius, repulsionStrength])
 
@@ -176,7 +190,7 @@ export default function MouseEffectCard({
     <div
       ref={containerRef}
       className={cn(
-        'relative overflow-hidden rounded-[40px] border border-border bg-card shadow-kin-hover w-full max-w-3xl mx-auto',
+        'relative overflow-hidden rounded-[40px] border border-border bg-card shadow-kin-hover w-full max-w-3xl mx-auto touch-pan-y',
         className
       )}
     >
@@ -192,11 +206,11 @@ export default function MouseEffectCard({
           }}
         />
       ) : (
-        <canvas ref={canvasRef} aria-hidden className="absolute inset-0 w-full h-full" />
+        <canvas ref={canvasRef} aria-hidden className="absolute inset-0 w-full h-full pointer-events-none" />
       )}
       <div className="absolute inset-0 kin-glow pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col items-center text-center px-6 py-12 sm:px-14 sm:py-16">
+      <div className="relative z-10 flex flex-col items-center text-center px-5 py-10 sm:px-14 sm:py-16">
         {(topText || topSubtext) && (
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-background/70 text-xs font-medium text-muted-foreground mb-6 shadow-kin">
             {topText && <span className="font-semibold text-foreground">{topText}</span>}
@@ -207,13 +221,12 @@ export default function MouseEffectCard({
 
         <h2 className="kin-h1 text-foreground mb-4 max-w-xl">{title}</h2>
 
-        {subtitle && <p className="text-muted-foreground text-base sm:text-lg mb-8 max-w-md">{subtitle}</p>}
+        {subtitle && <p className="text-muted-foreground text-sm sm:text-lg mb-6 sm:mb-8 max-w-md">{subtitle}</p>}
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {primaryCtaUrl && (
             <Button
-              size="lg"
-              className="h-12 px-8 text-base gap-2"
+              className="h-11 px-6 text-sm gap-1.5 w-full sm:w-auto"
               render={<Link href={primaryCtaUrl}>{primaryCtaText}</Link>}
             >
               {primaryCtaText} <ArrowRight className="w-4 h-4" />
@@ -221,9 +234,8 @@ export default function MouseEffectCard({
           )}
           {secondaryCtaUrl && secondaryCtaText && (
             <Button
-              size="lg"
               variant="outline"
-              className="h-12 px-8 text-base"
+              className="h-11 px-6 text-sm w-full sm:w-auto"
               render={<Link href={secondaryCtaUrl}>{secondaryCtaText}</Link>}
             >
               {secondaryCtaText}
