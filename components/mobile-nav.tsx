@@ -10,16 +10,17 @@ import { cn } from '@/lib/utils'
  *
  * The five primary destinations (Accueil / Tâches / Focus / Journal / Coach)
  * get a thumb-friendly bottom bar on phones, while the sidebar drawer keeps
- * the secondary sections (calendrier, habitudes, famille, objectifs…).
+ * the secondary sections (calendrier, habitudes, famille…). The Coach tab
+ * opens the floating conversational assistant instead of a page.
  * Hidden on desktop (≥ lg) where the sidebar is visible.
  */
 const TABS = [
-  { href: '/dashboard', label: 'Accueil', icon: Home },
-  { href: '/tasks', label: 'Tâches', icon: CheckSquare },
-  { href: '/focus', label: 'Focus', icon: Timer },
-  { href: '/journal', label: 'Journal', icon: BookOpen },
-  { href: '/ai', label: 'Coach', icon: Sparkles },
-]
+  { kind: 'link', href: '/dashboard', label: 'Accueil', icon: Home },
+  { kind: 'link', href: '/tasks', label: 'Tâches', icon: CheckSquare },
+  { kind: 'link', href: '/focus', label: 'Focus', icon: Timer },
+  { kind: 'link', href: '/journal', label: 'Journal', icon: BookOpen },
+  { kind: 'assistant', label: 'Coach', icon: Sparkles },
+] as const
 
 export function MobileNav() {
   const pathname = usePathname()
@@ -30,7 +31,21 @@ export function MobileNav() {
       className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex items-stretch">
-        {TABS.map(({ href, label, icon: Icon }) => {
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          if (tab.kind === 'assistant') {
+            return (
+              <button
+                key="assistant"
+                onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
+                className="flex flex-1 flex-col items-center justify-center gap-1 min-h-16 py-2 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-smooth"
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+              </button>
+            )
+          }
+          const href = tab.href
           const active = pathname === href
           return (
             <Link
@@ -45,7 +60,7 @@ export function MobileNav() {
               )}
             >
               <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
-              {label}
+              {tab.label}
             </Link>
           )
         })}

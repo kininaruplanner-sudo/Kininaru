@@ -1,20 +1,15 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  THEMES,
+  THEME_STORAGE_KEY,
+  THEME_DEFAULT,
+  isThemeValue,
+  themeMeta,
+} from '@/lib/themes'
 
-export const THEMES = [
-  { value: 'navy', label: 'Bleu Foncé', swatches: ['#F7F9FC', '#2F3F63', '#BFDFFF'] },
-  { value: 'rose', label: 'Rose Doux', swatches: ['#FFF9FC', '#F6B7D2', '#CDB8FF'] },
-  { value: 'lavender', label: 'Lavande', swatches: ['#FBF9FF', '#B9A7FF', '#BFDFFF'] },
-  { value: 'sage', label: 'Sauge', swatches: ['#F9FCFA', '#9BC7A4', '#FFF1B6'] },
-  { value: 'ocean', label: 'Ocean', swatches: ['#F8FBFF', '#8FC1EF', '#CDE9D2'] },
-  { value: 'dark', label: 'Sombre', swatches: ['#16161F', '#6C86C4', '#C9A8FF'] },
-] as const
-
-export type ThemeValue = (typeof THEMES)[number]['value']
-
-const STORAGE_KEY = 'kininaru-theme'
-const DEFAULT_THEME: ThemeValue = 'navy'
+export type ThemeValue = string
 
 interface ThemeContextValue {
   theme: ThemeValue
@@ -22,24 +17,25 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: DEFAULT_THEME,
+  theme: THEME_DEFAULT,
   setTheme: () => {},
 })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeValue>(DEFAULT_THEME)
+  const [theme, setThemeState] = useState<ThemeValue>(THEME_DEFAULT)
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as ThemeValue | null
-    if (stored && THEMES.some((t) => t.value === stored)) {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (isThemeValue(stored)) {
       setThemeState(stored)
     }
   }, [])
 
   const setTheme = (next: ThemeValue) => {
+    if (!isThemeValue(next)) return
     setThemeState(next)
     document.documentElement.setAttribute('data-theme', next)
-    window.localStorage.setItem(STORAGE_KEY, next)
+    window.localStorage.setItem(THEME_STORAGE_KEY, next)
   }
 
   useEffect(() => {
@@ -47,10 +43,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme])
 
   // Meta theme-color cohérente avec le thème actif : les barres de statut
-  // mobile et les fenêtres PWA standalone suivent le thème clair/sombre au
-  // lieu de rester sur la valeur claire codée en dur dans le layout.
+  // mobile et les fenêtres PWA standalone suivent le fond du thème.
   useEffect(() => {
-    const color = theme === 'dark' ? '#16161F' : '#F7F9FC'
+    const color = themeMeta(theme).bg
     let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
     if (!meta) {
       meta = document.createElement('meta')
@@ -66,3 +61,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   return useContext(ThemeContext)
 }
+
+export { THEMES }

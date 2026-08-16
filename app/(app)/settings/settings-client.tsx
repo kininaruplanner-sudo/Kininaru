@@ -1,22 +1,40 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { User, Palette, Bell, Shield, Save, CheckCircle2, Languages, Sparkles, Trash2, SlidersHorizontal, Settings, Bookmark, Loader2, PhoneCall, Keyboard, Bug, Lightbulb, Info, CalendarDays } from 'lucide-react'
+import {
+  User,
+  Palette,
+  Bell,
+  Shield,
+  Save,
+  CheckCircle2,
+  Languages,
+  Sparkles,
+  Trash2,
+  SlidersHorizontal,
+  Settings,
+  Bookmark,
+  Loader2,
+  Bug,
+  Lightbulb,
+  CalendarDays,
+  ChevronRight,
+  ChevronLeft,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { THEMES, useTheme } from '@/components/theme-provider'
-import { cardVariants } from '@/components/ui/card'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { PageHeader } from '@/components/page-header'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
 import { CalendarConnections } from '@/components/calendar-connections'
+import { ThemePicker } from '@/components/theme-picker'
 import { InstallAppButton } from '@/components/install-app-button'
 import { useAppInstall } from '@/lib/use-app-install'
 import { useVoicePrefs } from '@/lib/voice-preferences'
@@ -44,13 +62,19 @@ interface Props {
   embedded?: boolean
 }
 
+interface Category {
+  id: string
+  icon: React.ElementType
+  title: string
+  desc?: string
+  content: React.ReactNode
+}
+
 export function SettingsClient({ profile, user, userId, memories: initialMemories, embedded }: Props) {
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
   const [memoryEnabled, setMemoryEnabledState] = useState(isMemoryEnabled())
   const [clearingMemory, setClearingMemory] = useState(false)
-  // "Que doit savoir le Coach sur moi ?" — add a memory by hand (insert own,
-  // RLS), opt-in: it is only injected into chats when memory is enabled.
   const [newMemory, setNewMemory] = useState('')
   const [memoryCategory, setMemoryCategory] = useState('fact')
   const [savingMemory, setSavingMemory] = useState(false)
@@ -58,10 +82,27 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug')
   const [feedbackCount, setFeedbackCount] = useState(0)
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const { t, locale, setLocale } = useI18n()
+  const supabase = createClient()
+
+  // Drill-in navigation: Paramètres → catégorie → (← retour).
+  const [category, setCategory] = useState<string | null>(null)
+
+  const voicePrefs = useVoicePrefs()
+
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMessage, setPwMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const { canInstall, installed: appInstalled } = useAppInstall()
 
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind)
-    setFeedbackCount((c) => c + 1) // remonte le formulaire à neuf à chaque ouverture
+    setFeedbackCount((c) => c + 1)
     setFeedbackOpen(true)
   }
 
@@ -117,21 +158,6 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
       setClearingMemory(false)
     }
   }
-  const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const { theme, setTheme } = useTheme()
-  const { t, locale, setLocale } = useI18n()
-  const supabase = createClient()
-
-  // Voice-call preferences (voice / rate / volume) — device-local.
-  const voicePrefs = useVoicePrefs()
-
-  // Password change state
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwMessage, setPwMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const changePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
@@ -160,8 +186,6 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
     }
   }
 
-  const { canInstall, installed: appInstalled } = useAppInstall()
-
   const save = async () => {
     setSaving(true)
     await supabase
@@ -175,238 +199,126 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
 
   const switchLocale = (next: Locale) => setLocale(next)
 
-  const sections = [
+  // Échap dans la fenêtre Paramètres : retourne d'abord à la liste des
+  // catégories, ne ferme la fenêtre que si on est déjà sur la racine.
+  useEffect(() => {
+    const onEscape = (e: Event) => {
+      if (category) {
+        e.preventDefault()
+        setCategory(null)
+      }
+    }
+    window.addEventListener('kininaru:settings-escape', onEscape)
+    return () => window.removeEventListener('kininaru:settings-escape', onEscape)
+  }, [category])
+
+  const categories: Category[] = [
     {
+      id: 'compte',
       icon: User,
       title: t('settings.profile'),
       desc: t('settings.profileDesc'),
       content: (
-        <div className="space-y-4">
-          <div>
-            <Label>{t('settings.displayName')}</Label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="mt-1"
-              placeholder={t('settings.displayNamePlaceholder')}
-            />
-          </div>
-          <div>
-            <Label>{t('settings.email')}</Label>
-            <Input value={user.email} disabled className="mt-1 opacity-60" />
-          </div>
-          <Button
-            onClick={save}
-            disabled={saving}
-            className={cn('gap-2', saved && 'bg-kin-sage hover:bg-kin-sage')}
-          >
-            <Save className="w-4 h-4" />
-            {saving ? t('settings.saving') : saved ? t('settings.saved') : t('settings.save')}
-          </Button>
-        </div>
-      ),
-    },
-    {
-      icon: SlidersHorizontal,
-      title: t('settings.installation'),
-      content: (
-        <div className="space-y-4">
-          {appInstalled ? (
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-              {t('install.installedOn')}
+        <div className="space-y-5">
+          <div className="space-y-4">
+            <div>
+              <Label>{t('settings.displayName')}</Label>
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="mt-1"
+                placeholder={t('settings.displayNamePlaceholder')}
+              />
             </div>
-          ) : (
-            <>
-              <InstallAppButton variant="card" />
-              {!canInstall && (
-                <p className="text-xs text-muted-foreground/80">{t('settings.installIos')}</p>
-              )}
-            </>
-          )}
+            <div>
+              <Label>{t('settings.email')}</Label>
+              <Input value={user.email} disabled className="mt-1 opacity-60" />
+            </div>
+            <Button
+              onClick={save}
+              disabled={saving}
+              className={cn('gap-2', saved && 'bg-kin-sage hover:bg-kin-sage')}
+            >
+              <Save className="w-4 h-4" />
+              {saving ? t('settings.saving') : saved ? t('settings.saved') : t('settings.save')}
+            </Button>
+          </div>
+
+          <div className="border-t border-border pt-5">
+            <Label className="mb-3 block">{t('settings.newPassword')}</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t('settings.newPassword')}
+                />
+              </div>
+              <div>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t('settings.confirmPassword')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') changePassword()
+                  }}
+                />
+              </div>
+            </div>
+            {pwMessage && (
+              <p className={cn('text-sm mt-2', pwMessage.type === 'success' ? 'text-kin-sage' : 'text-destructive')}>
+                {pwMessage.text}
+              </p>
+            )}
+            <Button variant="outline" size="sm" onClick={changePassword} disabled={pwSaving} className="mt-3">
+              {pwSaving ? t('settings.saving') : t('settings.changePassword')}
+            </Button>
+          </div>
         </div>
       ),
     },
     {
+      id: 'apparence',
       icon: Palette,
       title: t('settings.appearance'),
-      content: (
-        <div className="space-y-4">
-          <div>
-            <Label className="mb-3 block">{t('settings.theme')}</Label>
-            <div className="flex gap-3 flex-wrap">
-              {THEMES.map((tItem) => (
-                <button
-                  key={tItem.value}
-                  onClick={() => setTheme(tItem.value)}
-                  className={cn(
-                    'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-smooth',
-                    theme === tItem.value ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
-                  )}
-                >
-                  <div className="flex gap-1">
-                    {tItem.swatches.map((c, i) => (
-                      <div key={i} className="w-5 h-5 rounded-full" style={{ backgroundColor: c }} />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">{tItem.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ),
+      desc: '35 thèmes, chacun construit sur une palette de 4 couleurs.',
+      content: <ThemePicker />,
     },
     {
-      icon: Languages,
-      title: t('settings.language'),
-      content: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t('settings.languageDesc')}</p>
-          <div className="flex gap-3">
-            {(['fr', 'en'] as Locale[]).map((l) => (
-              <button
-                key={l}
-                onClick={() => switchLocale(l)}
-                className={cn(
-                  'flex-1 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-smooth',
-                  locale === l
-                    ? 'border-primary bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                )}
-              >
-                {l === 'fr' ? 'Français' : 'English'}
-              </button>
-            ))}
-          </div>
-        </div>
-      ),
-    },
-    {
-      icon: Keyboard,
-      title: 'Raccourcis clavier',
-      desc: 'Ctrl/Cmd + K ouvre la palette à tout moment (même pendant la saisie). Les autres raccourcis (? , Esc, ↑/↓, Entrée) agissent lorsque la palette ou l’aide des raccourcis est ouverte — jamais pendant la saisie dans un champ.',
-      content: (
-        <ul className="space-y-2">
-          {KEYBOARD_SHORTCUTS.map((s) => (
-            <li
-              key={s.keys.join('-')}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-2.5"
-            >
-              <span className="text-sm text-foreground/90">{s.label}</span>
-              <span className="flex items-center gap-1 shrink-0">
-                {s.keys.map((k) => (
-                  <kbd
-                    key={k}
-                    className="inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-lg bg-muted text-xs font-medium text-foreground border border-border"
-                  >
-                    {k}
-                  </kbd>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ),
-    },
-    {
-      icon: Bug,
-      title: 'Aider à améliorer Kininaru',
-      desc: 'Vos retours nous aident à rendre la version bêta meilleure. Merci pour votre aide !',
-      content: (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            onClick={() => openFeedback('bug')}
-            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-destructive/40 hover:bg-destructive/5 transition-smooth group"
-          >
-            <span className="w-9 h-9 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Bug className="w-4 h-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-foreground">Signaler un bug</span>
-              <span className="block text-xs text-muted-foreground">Un problème à corriger</span>
-            </span>
-          </button>
-          <button
-            onClick={() => openFeedback('suggestion')}
-            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-smooth group"
-          >
-            <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Lightbulb className="w-4 h-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-foreground">Envoyer une suggestion</span>
-              <span className="block text-xs text-muted-foreground">Une idée pour améliorer Kininaru</span>
-            </span>
-          </button>
-        </div>
-      ),
-    },
-    {
-      icon: Info,
-      title: 'À propos',
-      content: (
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-            <KinLogoMark />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              Kininaru
-              <BetaBadge />
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Version {APP_VERSION_LABEL}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      icon: PhoneCall,
-      title: t('settings.voiceCall'),
-      desc: t('settings.voiceCallDesc'),
-      content: (
-        <VoiceSettingsPanel
-          prefs={voicePrefs.prefs}
-          onChange={voicePrefs.setPrefs}
-          voices={voicePrefs.voices}
-          voicesLoaded={voicePrefs.voicesLoaded}
-        />
-      ),
-    },
-    {
-      icon: Sparkles,
-      title: t('settings.coach'),
-      desc: t('settings.coachDesc'),
-      content: <CoachSettingsPanel />,
-    },
-    {
+      id: 'notifications',
       icon: Bell,
       title: t('settings.notifications'),
       desc: 'Vraies notifications Web Push — même quand l’application est fermée.',
       content: <PushSettingsPanel />,
     },
     {
-      icon: CalendarDays,
-      title: 'Calendriers',
-      desc: 'Vos calendriers externes (Google, Outlook, iCloud) dans Kininaru.',
-      content: <CalendarConnections />,
-    },
-    {
+      id: 'assistant',
       icon: Sparkles,
-      title: t('settings.ia'),
+      title: t('settings.coach'),
+      desc: t('settings.coachDesc'),
       content: (
-        <div className="rounded-xl bg-primary/5 border border-primary/15 p-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">{t('settings.iaDesc')}</p>
+        <div className="space-y-5">
+          <CoachSettingsPanel />
+          <div className="border-t border-border pt-5">
+            <VoiceSettingsPanel
+              prefs={voicePrefs.prefs}
+              onChange={voicePrefs.setPrefs}
+              voices={voicePrefs.voices}
+              voicesLoaded={voicePrefs.voicesLoaded}
+            />
+          </div>
         </div>
       ),
     },
     {
+      id: 'memoire',
       icon: Bookmark,
       title: t('settings.memory'),
       desc: t('settings.memoryDesc'),
       content: (
         <div className="space-y-3">
-          {/* Master switch — l'assistant n'utilise les souvenirs que si c'est activé */}
           <div className="flex items-center justify-between gap-3 py-1">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">Mémoire : {memoryEnabled ? 'ON' : 'OFF'}</p>
@@ -436,11 +348,8 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
             </button>
           </div>
 
-          {/* “Que doit savoir le Coach sur moi ?” — manual, user-controlled */}
           <div className="rounded-xl border border-border bg-background/60 p-3">
-            <p className="text-sm font-medium text-foreground mb-1">
-              Que doit savoir le Coach sur moi ?
-            </p>
+            <p className="text-sm font-medium text-foreground mb-1">Que doit savoir le Coach sur moi ?</p>
             <p className="text-xs text-muted-foreground leading-snug mb-2.5">
               Un fait durable qui t’aide à avancer (ex. « Je prépare le CAP cuisine en juin »,
               « Je travaille mieux le matin »). Rien n’est partagé — utilisé uniquement comme
@@ -554,64 +463,152 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
       ),
     },
     {
-      icon: Shield,
-      title: t('settings.security'),
+      id: 'calendrier',
+      icon: CalendarDays,
+      title: 'Calendriers',
+      desc: 'Vos calendriers externes (Google, Outlook, iCloud) dans Kininaru.',
+      content: <CalendarConnections />,
+    },
+    {
+      id: 'langue',
+      icon: Languages,
+      title: t('settings.language'),
+      desc: t('settings.languageDesc'),
       content: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-3">{t('settings.securityDesc')}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>{t('settings.newPassword')}</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>{t('settings.confirmPassword')}</Label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') changePassword()
-                }}
-              />
-            </div>
-          </div>
-          {pwMessage && (
-            <p className={cn('text-sm', pwMessage.type === 'success' ? 'text-kin-sage' : 'text-destructive')}>
-              {pwMessage.text}
-            </p>
-          )}
-          <Button variant="outline" size="sm" onClick={changePassword} disabled={pwSaving}>
-            {pwSaving ? t('settings.saving') : t('settings.changePassword')}
-          </Button>
+        <div className="flex flex-col gap-2">
+          {(['fr', 'en'] as Locale[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => switchLocale(l)}
+              className={cn(
+                'flex items-center justify-between px-4 py-3 rounded-xl border-2 text-sm font-medium transition-smooth',
+                locale === l
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              )}
+            >
+              <span>{l === 'fr' ? 'Français' : 'English'}</span>
+              {locale === l && <CheckCircle2 className="w-4 h-4 text-primary" />}
+            </button>
+          ))}
         </div>
       ),
     },
     {
-      icon: Trash2,
-      title: t('settings.deleteAccount'),
+      id: 'application',
+      icon: SlidersHorizontal,
+      title: 'Application',
+      desc: 'Installation, raccourcis, version et retours.',
       content: (
-        <div className="rounded-xl bg-destructive/5 border border-destructive/15 p-4">
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3">{t('settings.deleteAccountDesc')}</p>
-          <Link
-            href="/legal/suppression-compte"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive hover:underline transition-smooth"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {t('settings.deleteAccountLink')}
-          </Link>
+        <div className="space-y-6">
+          <div>
+            {appInstalled ? (
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <CheckCircle2 className="w-4 h-4 text-primary" />
+                {t('install.installedOn')}
+              </div>
+            ) : (
+              <>
+                <InstallAppButton variant="card" />
+                {!canInstall && (
+                  <p className="text-xs text-muted-foreground/80 mt-2">{t('settings.installIos')}</p>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-border pt-5">
+            <Label className="mb-3 block">Raccourcis clavier</Label>
+            <ul className="space-y-2">
+              {KEYBOARD_SHORTCUTS.map((s) => (
+                <li
+                  key={s.keys.join('-')}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-2.5"
+                >
+                  <span className="text-sm text-foreground/90">{s.label}</span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    {s.keys.map((k) => (
+                      <kbd
+                        key={k}
+                        className="inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-lg bg-muted text-xs font-medium text-foreground border border-border"
+                      >
+                        {k}
+                      </kbd>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="border-t border-border pt-5">
+            <Label className="mb-3 block">Aider à améliorer Kininaru</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => openFeedback('bug')}
+                className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-destructive/40 hover:bg-destructive/5 transition-smooth group"
+              >
+                <span className="w-9 h-9 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Bug className="w-4 h-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Signaler un bug</span>
+                  <span className="block text-xs text-muted-foreground">Un problème à corriger</span>
+                </span>
+              </button>
+              <button
+                onClick={() => openFeedback('suggestion')}
+                className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-smooth group"
+              >
+                <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Lightbulb className="w-4 h-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Envoyer une suggestion</span>
+                  <span className="block text-xs text-muted-foreground">Une idée pour améliorer Kininaru</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <KinLogoMark />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                Kininaru
+                <BetaBadge />
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Version {APP_VERSION_LABEL}</p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'confidentialite',
+      icon: Shield,
+      title: t('settings.deleteAccount'),
+      desc: t('settings.securityDesc'),
+      content: (
+        <div className="space-y-5">
+          <div className="rounded-xl bg-destructive/5 border border-destructive/15 p-4">
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{t('settings.deleteAccountDesc')}</p>
+            <Link
+              href="/legal/suppression-compte"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive hover:underline transition-smooth"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {t('settings.deleteAccountLink')}
+            </Link>
+          </div>
         </div>
       ),
     },
   ]
+
+  const active = categories.find((c) => c.id === category) ?? null
 
   return (
     <>
@@ -621,31 +618,66 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
         )}
 
         <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-2xl mx-auto space-y-4">
-            {sections.map((section, i) => (
-              <motion.div
-                key={section.title}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.25 }}
-                className={cardVariants({ padding: 'md' })}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <section.icon className="w-4 h-4 text-primary" />
-                  <h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
-                </div>
-                {'desc' in section && section.desc && (
-                  <p className="text-xs text-muted-foreground mb-3">{section.desc}</p>
-                )}
-                {section.content}
-              </motion.div>
-            ))}
+          <div className="max-w-2xl mx-auto">
+            <AnimatePresence mode="wait" initial={false}>
+              {!active ? (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  className="divide-y divide-border rounded-2xl border border-border bg-card overflow-hidden"
+                >
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setCategory(c.id)}
+                      className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-smooth hover:bg-muted/60 active:bg-muted"
+                    >
+                      <span className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <c.icon className="w-[18px] h-[18px]" />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-medium text-foreground">{c.title}</span>
+                        {c.desc && (
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5">{c.desc}</span>
+                        )}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={active.id}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                >
+                  <button
+                    onClick={() => setCategory(null)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-smooth mb-4"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    {t('settings.title')}
+                  </button>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <active.icon className="w-4 h-4" />
+                    </span>
+                    <h2 className="kin-h3 text-foreground">{active.title}</h2>
+                  </div>
+                  {active.desc && <p className="text-xs text-muted-foreground mb-4">{active.desc}</p>}
+                  {active.content}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Retours utilisateurs (bêta) — key change à chaque ouverture pour
-          remonter le formulaire et repartir sur l'état initial. */}
       <FeedbackDialog
         key={`${feedbackKind}-${feedbackCount}`}
         open={feedbackOpen}

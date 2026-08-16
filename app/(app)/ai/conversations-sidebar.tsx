@@ -220,9 +220,15 @@ export function ConversationsChips({
   loading,
   onNew,
   onSelect,
-}: Omit<Props, 'onRename' | 'onDelete'>) {
+  embedded,
+}: Omit<Props, 'onRename' | 'onDelete'> & { embedded?: boolean }) {
   return (
-    <div className="md:hidden flex items-center gap-2 px-4 pt-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shrink-0">
+    <div
+      className={cn(
+        'flex items-center gap-2 px-4 pt-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shrink-0',
+        !embedded && 'md:hidden'
+      )}
+    >
       <Button
         variant="outline"
         size="xs"

@@ -101,8 +101,14 @@ export function SettingsModal() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.preventDefault()
-        close()
+        // La navigation interne (Paramètres → catégorie) peut intercepter
+        // Échap pour revenir d'abord à la liste des catégories.
+        const ev = new CustomEvent('kininaru:settings-escape', { cancelable: true })
+        const handled = !window.dispatchEvent(ev)
+        if (!handled) {
+          e.preventDefault()
+          close()
+        }
         return
       }
       if (e.key !== 'Tab') return

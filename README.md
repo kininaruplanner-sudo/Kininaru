@@ -5,7 +5,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 ## Fonctionnalités
 
 - **Tâches** : création, édition, priorités, échéances, **heure planifiée** (le coach rappelle « ça commence dans 10 min »), étiquettes, sous-tâches, vue liste/kanban, lancement d'une session **Focus** directement depuis une tâche (▶ Commencer)
-- **Objectifs** : direction durable des actions — objectifs actifs/atteints, **progression calculée sur les vraies tâches rattachées** (`tasks.goal_id`), création manuelle ou via le coach (journal → objectif → étapes, toujours avec confirmation)
+- **Objectifs** : direction durable des actions — objectifs actifs/atteints, **progression calculée sur les vraies tâches rattachées** (`tasks.goal_id`), création via le coach (journal → objectif → étapes, toujours avec confirmation) et rattachement des tâches depuis la page Tâches ; suivi sur le tableau de bord
 - **Habitudes** : suivi quotidien, séries (streaks), XP
 - **Calendrier** : événements, vue mois/semaine
 - **Journal** : entrées par jour, humeur, **éditeur riche** (titres, sous-titres, gras, italique, souligné, listes, checklists interactives, citations, séparateurs, liens, émojis, images), **auto-save débouncé** (Sauvegarde… / ✓ Sauvegardé / ⚠ Réessayer), **aperçu** et **6 actions IA** (résumer, idées principales, réfléchir, créer un objectif, créer des tâches, créer un plan) — le flux *Journal → Pensée → Objectif → Tâches → Focus* se fait **avec confirmation** de chaque étape
@@ -16,7 +16,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Insights de progression** (LEARN/ADAPT) : tendances calculées sur les données réelles des 7 derniers jours (moment de concentration, complétion, habitudes) et carte « Demain pourrait être… » — **suggestions uniquement**, jamais de modification automatique du planning
 - **Mémoire IA** : souvenirs visibles, contrôlables et supprimables depuis les Réglages (interrupteur maître, opt-in)
 - **Notifications Web Push** : briefs du matin / soir / hebdomadaire, aides du coach, heures silencieuses, limite quotidienne, envoi de test
-- **Analyses & Récompenses** : graphiques 30 jours, badges
+- **Analyses** : graphiques 30 jours et heatmap d'activité, accessibles à la demande via le Coach IA
 - **Version bêta** : badge « BÊTA » discret près du logo, message bêta fermable (mémorisé), version affichée dans Paramètres → À propos
 - **Retours utilisateurs** : depuis Paramètres → Aider à améliorer Kininaru, l'utilisateur connecté peut **signaler un bug** (type, description, étapes pour reproduire, gravité) ou **envoyer une suggestion** (réservé aux utilisateurs connectés, pas de retour anonyme en bêta) — enregistrés dans la table `feedback` (RLS), avec informations techniques automatiques (page, navigateur, appareil, version) mais jamais de contenu privé
 - **PWA** : installable, service worker, icônes complètes (lotus), expérience standalone
@@ -24,7 +24,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Alarmes** : créneaux quotidiens (heure locale, jours, son, vibration, snooze) distincts des rappels — planifiés localement, limites PWA documentées dans l'UI
 - **Calendriers externes** : flux OAuth réels (Google Calendar, Microsoft Graph) avec callback, refresh de token et synchronisation serveur, abonnement **ICS** réel (URL validée, flux parsé, déduplication `(connection_id, external_event_id)`), section « Calendriers connectés » dans les Paramètres, guide public [`/docs/calendar-integrations.md`](/docs/calendar-integrations.md)
 - **i18n** : français / anglais
-- **Thèmes** : 6 palettes de couleurs (clair et sombre)
+- **Thèmes** : 35 palettes de 4 couleurs — chaque thème dérive un système de design complet (fond, cartes, bordures, accents, graphiques, sidebar, dégradés), dont un thème sombre « Nuit »
 
 ## Stack
 
@@ -164,8 +164,7 @@ app/
     journal/          Journal avec éditeur riche + auto-save
     focus/            Sessions Focus / Pomodoro
     ai/               Assistant IA (conversation, mémoire, actions)
-    analytics/        Statistiques (30 j)
-    achievements/     Récompenses / badges
+    analytics/        Statistiques (30 j) — accessible à la demande via le Coach
     family/           Espace famille partagé
     settings/         Préférences, notifications, PWA, voix, compte
   api/                Routes serveur (chat IA, actions IA, coach, push, cron, feedback)

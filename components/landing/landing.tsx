@@ -567,7 +567,27 @@ export function Landing() {
 
       {/* ---------------- Hero ---------------- */}
       <section className="relative kin-glow">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-32 sm:pt-40 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
+        {/* Glows ambiants — les couleurs de la palette vivent dans le fond du
+            hero (flottement très lent, aucune animation agressive). */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <motion.div
+            animate={{ y: [0, -18, 0], opacity: [0.45, 0.8, 0.45] }}
+            transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-24 -left-24 w-96 h-96 rounded-full kin-gradient-brand opacity-20 blur-3xl"
+          />
+          <motion.div
+            animate={{ y: [0, 16, 0], opacity: [0.35, 0.7, 0.35] }}
+            transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+            className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full kin-gradient-accent opacity-[0.13] blur-3xl"
+          />
+          <motion.div
+            animate={{ y: [0, -12, 0], opacity: [0.25, 0.5, 0.25] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+            className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-complement/40 blur-3xl"
+          />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-5 sm:px-6 pt-32 sm:pt-40 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
           <div>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -669,7 +689,59 @@ export function Landing() {
             </motion.div>
           </div>
 
-          <PlannerMock />
+          <div className="relative">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <PlannerMock />
+            </motion.div>
+
+            {/* Petites cartes flottantes — la journée qui respire autour de
+                l'aperçu (léger balancement vertical, masquées sur mobile). */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.9 }}
+              className="hidden lg:block absolute -left-10 top-8"
+              aria-hidden
+            >
+              <motion.div
+                animate={{ y: [0, -7, 0] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border border-border bg-card/90 shadow-kin-hover backdrop-blur"
+              >
+                <span className="text-base">🎯</span>
+                <div>
+                  <p className="text-xs font-semibold text-foreground leading-tight">3 objectifs en cours</p>
+                  <p className="text-[10px] text-muted-foreground">2 tâches terminées aujourd&apos;hui</p>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 1.05 }}
+              className="hidden lg:block absolute -right-6 -bottom-6"
+              aria-hidden
+            >
+              <motion.div
+                animate={{ y: [0, 7, 0] }}
+                transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' }}
+                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border border-border bg-card/90 shadow-kin-hover backdrop-blur"
+              >
+                <span className="w-9 h-9 rounded-xl kin-gradient-brand flex items-center justify-center text-white text-xs font-bold">
+                  72
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-foreground leading-tight">min de Focus</p>
+                  <p className="text-[10px] text-muted-foreground">session terminée 🎉</p>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 

@@ -42,7 +42,6 @@ const NAV_ITEMS: { label: string; href: string; icon: React.ElementType }[] = [
   { label: 'Habitudes', href: '/habits', icon: Repeat },
   { label: 'Journal', href: '/journal', icon: BookOpen },
   { label: 'Famille', href: '/family', icon: Users },
-  { label: 'Assistant IA', href: '/ai', icon: Sparkles },
   { label: 'Réglages', href: '/settings', icon: Settings },
 ]
 
@@ -50,6 +49,8 @@ const QUICK_ACTIONS: { label: string; href: string; icon: React.ElementType }[] 
   { label: 'Nouvelle tâche', href: '/tasks?new=1', icon: Plus },
   { label: 'Nouvel événement', href: '/calendar?new=1', icon: Plus },
   { label: 'Nouvelle habitude', href: '/habits?new=1', icon: Plus },
+  // L'assistant vit dans le panneau flottant — pas de page de navigation.
+  { label: 'Parler à l’assistant', href: '__assistant__', icon: Sparkles },
 ]
 
 export function CommandPalette() {
@@ -182,7 +183,13 @@ export function CommandPalette() {
     label: a.label,
     icon: a.icon,
     group: 'Actions rapides',
-    onSelect: () => router.push(a.href),
+    onSelect: () => {
+      if (a.href === '__assistant__') {
+        window.dispatchEvent(new Event('kininaru:open-assistant'))
+        return
+      }
+      router.push(a.href)
+    },
   }))
 
   const navItems: PaletteItem[] = NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(q)).map(

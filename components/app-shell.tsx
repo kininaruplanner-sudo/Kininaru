@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar'
 import { PageTransition } from '@/components/page-transition'
 import { CommandPalette } from '@/components/command-palette'
 import { SettingsModal } from '@/components/settings-modal'
+import { AssistantPanel } from '@/components/assistant-panel'
 import { CoachBubble } from '@/components/coach/coach-bubble'
 import { MobileNav } from '@/components/mobile-nav'
 import { ConnectionStatus } from '@/components/connection-status'
@@ -80,6 +81,8 @@ export function AppShell({ displayName, children }: AppShellProps) {
       {/* Floating Settings window — opened from the sidebar gear, the
           command palette or the coach (event kininaru:open-settings). */}
       <SettingsModal />
+      {/* Floating conversational assistant — opened by the CoachBubble. */}
+      <AssistantPanel displayName={displayName} />
       {/* Bottom tab bar on phones — hidden while the drawer is open so the
           two navigations never stack. */}
       {!mobileOpen && <MobileNav />}

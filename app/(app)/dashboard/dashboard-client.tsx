@@ -474,13 +474,21 @@ export function DashboardClient({
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link
-            href="/ai"
+            href="/focus"
+            className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-warm/15 text-warm text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
+          >
+            <Timer className="w-4 h-4" />
+            Mode Focus
+            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <button
+            onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
             className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
           >
             <Sparkles className="w-4 h-4" />
             Parler au coach
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+          </button>
           <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-xl">
             <Zap className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-medium text-primary">Niv. {profile?.level ?? 1}</span>
@@ -706,7 +714,7 @@ export function DashboardClient({
             <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
               <Target className="w-3.5 h-3.5 text-primary" /> Objectifs en cours
             </span>
-            <Link href="/goals" className="text-xs font-medium text-primary hover:underline">
+            <Link href="/tasks" className="text-xs font-medium text-primary hover:underline">
               Tout voir →
             </Link>
           </div>

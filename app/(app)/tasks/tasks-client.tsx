@@ -24,6 +24,7 @@ import {
   Pencil,
   Play,
   Clock,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -45,6 +46,7 @@ type StatusFilter = 'all' | Status
 interface Task {
   id: string
   parent_id?: string | null
+  goal_id?: string | null
   title: string
   description?: string
   priority: Priority
@@ -57,8 +59,17 @@ interface Task {
   completed_at?: string
 }
 
+interface Goal {
+  id: string
+  title: string
+  target_date?: string | null
+  status?: string
+  created_at?: string
+}
+
 interface Props {
   tasks: Task[]
+  goals: Goal[]
   userId: string
 }
 
@@ -133,9 +144,15 @@ function SubtaskProgress({ done, total }: { done: number; total: number }) {
   )
 }
 
-export function TasksClient({ tasks: initialTasks, userId }: Props) {
+export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }: Props) {
   const { t } = useI18n()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [goals, setGoals] = useState<Goal[]>(initialGoals)
+  // Objectif — création inline depuis Tâches (les objectifs vivent ici).
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [goalForm, setGoalForm] = useState({ title: '', target_date: '' })
+  const [goalBusy, setGoalBusy] = useState(false)
+  const [goalError, setGoalError] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>('list')
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -206,6 +223,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     scheduled_time: string
     tags: string[]
     color: string
+    goal_id: string
   }>({
     title: '',
     description: '',
@@ -214,6 +232,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     scheduled_time: '',
     tags: [],
     color: palette('sage'),
+    goal_id: '',
   })
 
   // ---- Subtask grouping ----
@@ -297,9 +316,9 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     setTagInput('')
   }
 
-  const openNewTask = () => {
+  const openNewTask = (goalId?: string) => {
     setEditingTask(null)
-    setForm({ title: '', description: '', priority: 'medium', due_date: '', scheduled_time: '', tags: [], color: palette('sage') })
+    setForm({ title: '', description: '', priority: 'medium', due_date: '', scheduled_time: '', tags: [], color: palette('sage'), goal_id: goalId ?? '' })
     setShowModal(true)
   }
 
@@ -313,8 +332,41 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       scheduled_time: task.scheduled_time ?? '',
       tags: task.tags ?? [],
       color: task.color ?? palette('sage'),
+      goal_id: task.goal_id ?? '',
     })
     setShowModal(true)
+  }
+
+  const openNewGoal = () => {
+    setGoalForm({ title: '', target_date: '' })
+    setGoalError(null)
+    setShowGoalModal(true)
+  }
+
+  const createGoal = async () => {
+    const clean = goalForm.title.trim()
+    if (!clean) return
+    setGoalBusy(true)
+    setGoalError(null)
+    try {
+      const { data, error: err } = await supabase
+        .from('goals')
+        .insert({
+          user_id: userId,
+          title: clean,
+          target_date: goalForm.target_date || null,
+          status: 'active',
+        })
+        .select('*')
+        .single()
+      if (err) throw err
+      if (data) setGoals((prev) => [data as Goal, ...prev])
+      setShowGoalModal(false)
+    } catch {
+      setGoalError("L'objectif n'a pas pu être créé. Réessaie dans un instant.")
+    } finally {
+      setGoalBusy(false)
+    }
   }
 
   // Offline-first: while offline (or on a network failure) every task
@@ -335,6 +387,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       scheduled_time: form.due_date && form.scheduled_time ? form.scheduled_time : null,
       tags: form.tags,
       color: form.color,
+      goal_id: form.goal_id || null,
     }
 
     if (editingTask) {
@@ -549,6 +602,28 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
     setSearch('')
   }
 
+  // ---- Objectifs + tâches, une seule page ----
+  // En vue liste, les tâches sont regroupées par objectif (sections), puis
+  // les tâches libres. Les objectifs encore vides restent visibles pour
+  // créer leur première tâche directement depuis l'objectif.
+  const goalIdSet = useMemo(() => new Set(goals.map((g) => g.id)), [goals])
+  const listSections = useMemo(() => {
+    if (view !== 'list') return []
+    const sections: { key: string; label: string; goal: Goal | null; items: Task[] }[] = []
+    for (const goal of goals) {
+      const items = filteredTasks.filter((t) => t.goal_id === goal.id)
+      const goalHasTasks = tasks.some((t) => t.goal_id === goal.id)
+      if (items.length > 0 || (!hasActiveFilters && !goalHasTasks)) {
+        sections.push({ key: `goal-${goal.id}`, label: goal.title, goal, items })
+      }
+    }
+    const free = filteredTasks.filter((t) => !t.goal_id || !goalIdSet.has(t.goal_id))
+    if (free.length > 0) {
+      sections.push({ key: 'tasks', label: 'Tâches', goal: null, items: free })
+    }
+    return sections
+  }, [view, goals, filteredTasks, tasks, goalIdSet, hasActiveFilters])
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -590,8 +665,17 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
               </button>
             </div>
             <Button
+              variant="outline"
               size="sm"
-              onClick={openNewTask}
+              onClick={openNewGoal}
+              className="gap-1.5 transition-smooth hover:scale-[1.02]"
+            >
+              <Target className="w-4 h-4 text-warm" />
+              Ajouter un objectif
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => openNewTask()}
               className="gap-1.5 transition-smooth hover:scale-[1.02]"
             >
               <Plus className="w-4 h-4" />
@@ -739,7 +823,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                     </button>
                   ) : (
                     <button
-                      onClick={openNewTask}
+                      onClick={() => openNewTask()}
                       className="mt-2 text-sm text-primary hover:underline"
                     >
                       Create your first task
@@ -747,7 +831,46 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                   )}
                 </div>
               ) : (
-                filteredTasks.map((task, i) => {
+                listSections.map((section) => (
+                  <section key={section.key} className="space-y-1.5">
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                      {section.goal ? (
+                        <span className="w-6 h-6 rounded-lg bg-warm/15 text-warm flex items-center justify-center">
+                          <Target className="w-3.5 h-3.5" />
+                        </span>
+                      ) : (
+                        <span className="w-6 h-6 rounded-lg bg-cool/15 text-cool flex items-center justify-center">
+                          <CheckSquare className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {section.label}
+                      </h3>
+                      {section.goal && (
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {section.items.filter((x) => x.status === 'done').length}/{section.items.length}
+                        </span>
+                      )}
+                      {section.goal && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => {
+                            if (section.goal) openNewTask(section.goal.id)
+                          }}
+                          title={`Ajouter une tâche à « ${section.label} »`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                    {section.items.length === 0 ? (
+                      <p className="text-xs text-muted-foreground/80 px-1 py-2">
+                        Aucune tâche — ajoutez-en une pour démarrer cet objectif.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {section.items.map((task, i) => {
                   const subtasks = subtasksByParent.get(task.id) || []
                   const doneSubtasks = subtasks.filter((s) => s.status === 'done').length
                   const isExpanded = expanded.has(task.id)
@@ -927,7 +1050,11 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                       </div>
                     </motion.div>
                   )
-                })
+                        })}
+                      </div>
+                    )}
+                  </section>
+                ))
               )}
             </motion.div>
           )}
@@ -1045,7 +1172,7 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                         )
                       })}
                       <button
-                        onClick={openNewTask}
+                        onClick={() => openNewTask()}
                         className="w-full p-3 border-2 border-dashed border-border rounded-xl text-xs text-muted-foreground hover:border-primary hover:text-primary transition-smooth flex items-center justify-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1061,6 +1188,80 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
       </div>
 
       {/* Task creation modal */}
+      {/* Nouvel objectif — les objectifs se créent depuis la page Tâches */}
+      <AnimatePresence>
+        {showGoalModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowGoalModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              className="glass border border-border rounded-3xl p-6 w-full max-w-md shadow-kin-hover"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-serif font-bold text-foreground">Nouvel objectif</h2>
+                <Button variant="ghost" size="icon-sm" onClick={() => setShowGoalModal(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label>Titre de l’objectif</Label>
+                  <Input
+                    placeholder="Ex. : Réussir mon examen"
+                    value={goalForm.title}
+                    onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+                    className="mt-1 transition-smooth"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                        void createGoal()
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label>Date cible (optionnelle)</Label>
+                  <Input
+                    type="date"
+                    value={goalForm.target_date}
+                    onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })}
+                    className="mt-1 transition-smooth"
+                  />
+                </div>
+                {goalError && <p className="text-xs text-destructive">{goalError}</p>}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 transition-smooth"
+                    onClick={() => setShowGoalModal(false)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    className="flex-1 gap-1.5 transition-smooth hover:scale-[1.02]"
+                    onClick={() => void createGoal()}
+                    disabled={goalBusy || !goalForm.title.trim()}
+                  >
+                    <Target className="w-4 h-4" />
+                    {goalBusy ? 'Création…' : "Créer l'objectif"}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -1102,6 +1303,22 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                       }
                     }}
                   />
+                </div>
+
+                <div>
+                  <Label>Objectif</Label>
+                  <select
+                    value={form.goal_id}
+                    onChange={(e) => setForm({ ...form, goal_id: e.target.value })}
+                    className="mt-1 w-full h-9 px-3 text-sm bg-background border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-ring transition-smooth"
+                  >
+                    <option value="">Aucun objectif</option>
+                    {goals.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

@@ -161,9 +161,12 @@ function extractActions(rawText: string): { text: string; actions: PendingAction
 
 interface Props {
   displayName: string
+  /** Rendered inside the floating assistant panel: no page header, no
+      conversation sidebar (chips only) so it fits a narrow right drawer. */
+  embedded?: boolean
 }
 
-export function AIAssistantClient({ displayName }: Props) {
+export function AIAssistantClient({ displayName, embedded }: Props) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>(freshGreeting)
   const [input, setInput] = useState('')
@@ -472,17 +475,20 @@ export function AIAssistantClient({ displayName }: Props) {
 
   return (
     <div className="flex h-full">
-      <ConversationsPanel
-        conversations={conversations}
-        activeId={activeConvId}
-        loading={convsLoading}
-        onNew={newConversation}
-        onSelect={selectConversation}
-        onRename={renameConversation}
-        onDelete={removeConversation}
-      />
+      {!embedded && (
+        <ConversationsPanel
+          conversations={conversations}
+          activeId={activeConvId}
+          loading={convsLoading}
+          onNew={newConversation}
+          onSelect={selectConversation}
+          onRename={renameConversation}
+          onDelete={removeConversation}
+        />
+      )}
 
       <div className="flex flex-col flex-1 min-w-0">
+        {!embedded && (
         <PageHeader
         icon={Sparkles}
         title="Assistant IA"
@@ -515,7 +521,8 @@ export function AIAssistantClient({ displayName }: Props) {
             </Button>
           </div>
         }
-      />
+        />
+        )}
 
       <ConversationsChips
         conversations={conversations}
@@ -523,6 +530,7 @@ export function AIAssistantClient({ displayName }: Props) {
         loading={convsLoading}
         onNew={newConversation}
         onSelect={selectConversation}
+        embedded={embedded}
       />
 
       {/* Messages */}

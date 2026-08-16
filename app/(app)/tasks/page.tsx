@@ -7,11 +7,19 @@ export default async function TasksPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user!.id)
-    .order('created_at', { ascending: false })
+  const [{ data: tasks }, { data: goals }] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user!.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', user!.id)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ])
 
-  return <TasksClient tasks={tasks ?? []} userId={user!.id} />
+  return <TasksClient tasks={tasks ?? []} goals={goals ?? []} userId={user!.id} />
 }
