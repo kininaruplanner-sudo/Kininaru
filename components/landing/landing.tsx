@@ -14,11 +14,9 @@ import {
   Menu,
   X,
   CalendarDays,
-  Play,
   Check,
   BarChart3,
   TrendingUp,
-  Send,
   ShieldCheck,
   Sunrise,
   BellRing,
@@ -33,69 +31,14 @@ import { InstallBanner } from '@/components/install-banner'
 import { HeroShapes } from '@/components/landing/elegant-shapes'
 import { SpotlightCards } from '@/components/landing/spotlight-cards'
 import { FlipCard } from '@/components/landing/flip-card'
+import TypewriterTitle from '@/components/ui/TypewriterTitle'
+import AILoadingState from '@/components/ui/AILoadingState'
+import TeamSelector from '@/components/ui/TeamSelector'
+import MouseEffectCard from '@/components/ui/MouseEffectCard'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
 /* Copy (French — original language of the product)                    */
-/* ------------------------------------------------------------------ */
-
-const CHAT_SCRIPT: Record<string, { reply: string[] }> = {
-  'Planifie ma journée': {
-    reply: [
-      'Voici une proposition pour aujourd’hui 🎯',
-      '• 9h00 — Tâche prioritaire (2h en focus)',
-      '• 11h30 — Mini-pause + habitude du matin',
-      '• 14h00 — Sous-tâches de votre projet',
-      '• 17h00 — Journal : 3 gratitudes',
-      '',
-      'Souhaitez-vous que je l’ajoute à votre dashboard ?',
-    ],
-  },
-  'Aide-moi à organiser mes tâches': {
-    reply: [
-      'On va trier ça ensemble, c’est plus simple qu’il n’y paraît :',
-      '1. Gardez 3 tâches prioritaires maximum par jour.',
-      '2. Regroupez le reste par thème ou par projet.',
-      '3. Planifiez-les sur des jours précis — une tâche sans date est une tâche reportée.',
-      '',
-      'Voulez-vous créer une tâche prioritaire pour demain ?',
-    ],
-  },
-  'Crée une routine d’étude': {
-    reply: [
-      'Une routine efficace tient en 4 ingrédients :',
-      '• Même créneau chaque jour (votre cerveau adore les repères)',
-      '• 25 min de focus + 5 min de pause (méthode Pomodoro)',
-      '• Une habitude de révision quotidienne',
-      '• Un objectif hebdomadaire mesurable',
-      '',
-      'Je peux transformer ça en habitudes Kininaru en 2 clics.',
-    ],
-  },
-  'Analyse ma progression': {
-    reply: [
-      'Voici ce que je vois :',
-      '• Tâches terminées : 12 cette semaine (+40 %)',
-      '• Habitudes : 5 jours de série sur « lecture »',
-      '• Focus : 4 h 30 de concentration cumulée',
-      '',
-      'Vous êtes sur une belle dynamique — on fixe l’objectif de la semaine ?',
-    ],
-  },
-  'Aide-moi à atteindre mon objectif': {
-    reply: [
-      'Découpons cet objectif en étapes qui ne font pas peur :',
-      '1. Définissez le résultat visible (ex. : 10 pages écrites).',
-      '2. Créez 3 mini-tâches de 20 minutes max.',
-      '3. Ajoutez une habitude de progression quotidienne.',
-      '',
-      'Quel est l’objectif que vous visez ?',
-    ],
-  },
-}
-
-const DEFAULT_SUGGESTIONS = Object.keys(CHAT_SCRIPT)
-
 /* ------------------------------------------------------------------ */
 /* Hero planner mockup                                                 */
 /* ------------------------------------------------------------------ */
@@ -209,208 +152,6 @@ function PlannerMock() {
         <Sparkles className="w-4 h-4 text-primary" />
         <p className="text-xs font-medium text-foreground">3 suggestions prêtes</p>
       </motion.div>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Interactive AI demo                                                  */
-/* ------------------------------------------------------------------ */
-
-function AiDemo() {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([])
-  const [typing, setTyping] = useState(false)
-  const [doneSuggestions, setDoneSuggestions] = useState<string[]>([])
-
-  const ask = (suggestion: string) => {
-    if (typing) return
-    setDoneSuggestions((prev) => [...prev, suggestion])
-    setMessages((prev) => [...prev, { role: 'user', text: suggestion }])
-    setTyping(true)
-
-    const reply = CHAT_SCRIPT[suggestion]?.reply ?? []
-    const delay = 500
-    reply.forEach((line, i) => {
-      setTimeout(() => {
-        setMessages((prev) => [...prev, { role: 'ai', text: line }])
-        if (i === reply.length - 1) setTyping(false)
-      }, delay + i * 480)
-    })
-  }
-
-  const available = DEFAULT_SUGGESTIONS.filter((s) => !doneSuggestions.includes(s))
-
-  return (
-    <div className="relative mx-auto max-w-md w-full">
-      <div className="absolute -inset-8 rounded-[40px] bg-gradient-to-br from-kin-violet/15 via-kin-blue/10 to-transparent blur-2xl" />
-
-      <div className="relative rounded-3xl border border-border bg-card shadow-kin-hover overflow-hidden flex flex-col h-[460px]">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-          <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground leading-tight">Kininaru AI Coach</p>
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-kin-sage" /> en ligne · propulsé par Groq
-            </p>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-          {messages.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center mt-8 leading-relaxed">
-              Cliquez sur une suggestion pour voir
-              <br />
-              le coach en action.
-            </p>
-          )}
-          {messages.map((m, i) =>
-            m.role === 'user' ? (
-              <div key={i} className="flex justify-end">
-                <p className="max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground shadow-kin">
-                  {m.text}
-                </p>
-              </div>
-            ) : (
-              <div key={i} className="flex justify-start gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                </div>
-                <p className="max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-muted text-foreground border border-border/60 whitespace-pre-line">
-                  {m.text}
-                </p>
-              </div>
-            )
-          )}
-          {typing && (
-            <div className="flex justify-start gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
-                <Sparkles className="w-3 h-3 text-primary" />
-              </div>
-              <div className="px-3.5 py-3 rounded-2xl rounded-bl-md bg-muted border border-border/60 flex gap-1">
-                {[0, 1, 2].map((d) => (
-                  <motion.span
-                    key={d}
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1, delay: d * 0.18 }}
-                    className="w-1.5 h-1.5 rounded-full bg-muted-foreground"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Suggestions */}
-        <div className="px-4 pb-3 flex flex-wrap gap-2 sm:gap-1.5">
-          {available.slice(0, 3).map((s) => (
-            <button
-              key={s}
-              onClick={() => ask(s)}
-              disabled={typing}
-              className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5 transition-smooth disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {/* Input */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-border bg-muted/40 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/15 transition-smooth">
-            <input
-              placeholder="Écrivez votre message…"
-              className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
-              readOnly
-            />
-            <span className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-              <Send className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Coach in action — “du conseil à l’action”                           */
-/* ------------------------------------------------------------------ */
-
-function CoachActionDemo() {
-  const steps = [
-    { icon: Timer, label: 'Focus pré-rempli' },
-    { icon: Play, label: 'Session lancée' },
-    { icon: Check, label: 'Tâche terminée' },
-    { icon: TrendingUp, label: 'Progression +' },
-  ]
-
-  return (
-    <div className="relative mx-auto max-w-3xl">
-      <div className="absolute -inset-8 rounded-[40px] bg-gradient-to-br from-kin-sage/20 via-kin-blue/10 to-transparent blur-2xl" />
-      <div className="relative rounded-3xl border border-border bg-card shadow-kin-hover p-6 sm:p-8">
-        <div className="text-center mb-7">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-3">
-            <Sparkles className="w-3 h-3" /> Le coach, du conseil à l’action
-          </span>
-          <h3 className="kin-h1 text-foreground">Un coach qui vous mène à l’action</h3>
-          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto leading-relaxed">
-            Observation → suggestion → action. Le coach propose toujours un prochain pas
-            précis, basé sur vos vraies données — jamais de commentaires génériques.
-          </p>
-        </div>
-
-        {/* Conversation */}
-        <div className="space-y-3 max-w-lg mx-auto">
-          <div className="flex justify-end">
-            <p className="max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground shadow-kin">
-              J’ai 5 choses à faire.
-            </p>
-          </div>
-          <div className="flex justify-start gap-2">
-            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <div className="max-w-[85%]">
-              <p className="text-sm px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-muted text-foreground border border-border/60 leading-relaxed">
-                Commence par « Préparer la présentation ». Ça te prendra environ 25 minutes —
-                je pré-remplis une session Focus pour toi.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-2.5">
-                <Button
-                  size="sm"
-                  className="gap-1.5 h-11 sm:h-9"
-                  render={<Link href="/auth/sign-up">▶ Commencer</Link>}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 sm:h-9"
-                  render={<Link href="/auth/sign-up">Voir le plan</Link>}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Ce qui se passe ensuite */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-y-2.5">
-          {steps.map((step, i) => (
-            <div key={step.label} className="flex items-center">
-              {i > 0 && (
-                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
-              )}
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background/60 text-xs sm:text-sm font-medium text-foreground/90">
-                <step.icon className="w-3.5 h-3.5 text-kin-sage" />
-                {step.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
@@ -552,15 +293,25 @@ export function Landing() {
             Kininaru · votre coach personnel de progression
           </motion.div>
 
-          <motion.h1
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.05 }}
-            className="kin-display text-foreground mb-6"
+            className="mb-6"
           >
-            Ma journée{' '}
-            <span className="kin-script kin-gradient-vivid">évolue</span>.
-          </motion.h1>
+            <p className="kin-script kin-gradient-vivid text-xl sm:text-2xl mb-3">
+              Ma journée évolue.
+            </p>
+            <TypewriterTitle
+              className="kin-display"
+              sequences={[
+                { text: 'Un coach qui planifie avec vous,', pauseAfter: 600 },
+                { text: 'pas à votre place.' },
+              ]}
+              typingSpeed={38}
+              startDelay={350}
+            />
+          </motion.div>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -738,51 +489,9 @@ export function Landing() {
       {/* ---------------- AI Coach ---------------- */}
       <section id="ai" className="py-20 sm:py-28">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
           <Reveal>
-            <div className="max-w-lg">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
-                <Sparkles className="w-3 h-3" /> Coach IA
-              </span>
-              <h2 className="kin-h1 text-foreground mb-5">
-                Un coach qui planifie
-                <br /> avec vous, pas à votre place.
-              </h2>
-              <p className="text-muted-foreground leading-relaxed mb-8">
-                Posez une question, recevez un plan actionnable. Kininaru transforme vos
-                objectifs en étapes, vos journées en plans concrets — et reste toujours
-                dans votre camp.
-              </p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Planifier une journée chargée en 30 secondes',
-                  'Découper un gros objectif en petites étapes',
-                  'Créer une routine d’étude ou de sport durable',
-                  'Analyser votre progression chaque semaine',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-foreground/90">
-                    <span className="w-5 h-5 rounded-full bg-kin-sage/25 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="w-3 h-3 text-kin-rose-dark" strokeWidth={3} />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button render={<Link href="/auth/sign-up">Essayer le coach IA</Link>} className="gap-2 h-11 sm:h-8">
-                Essayer le coach IA <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.1}>
-            <AiDemo />
-          </Reveal>
-          </div>
-
-          {/* Le coach, du conseil à l’action — démonstration visuelle simple. */}
-          <Reveal delay={0.05}>
-            <div className="mt-16 sm:mt-24">
-              <CoachActionDemo />
+            <div className="rounded-[40px] border border-border bg-card/40 shadow-kin p-4 sm:p-8">
+              <AILoadingState />
             </div>
           </Reveal>
         </div>
@@ -967,6 +676,15 @@ export function Landing() {
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-8 flex justify-center">
+                <TeamSelector
+                  label="Taille de la famille"
+                  defaultValue={4}
+                  min={1}
+                  max={10}
+                />
+              </div>
             </div>
           </Reveal>
         </div>
@@ -1040,33 +758,25 @@ export function Landing() {
       </section>
 
       {/* ---------------- Final CTA ---------------- */}
-      <section className="py-20 sm:py-28 border-t border-border/60">
-        <Reveal>
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-            <div className="rounded-[40px] border border-border bg-card p-10 sm:p-14 shadow-kin-hover relative overflow-hidden">
-              <div className="absolute inset-0 kin-glow pointer-events-none" />
-              <div className="relative">
-                <Play className="w-10 h-10 text-primary mx-auto mb-6" />
-                <h2 className="kin-h1 text-foreground mb-4">
-                  Prêt à reprendre le contrôle de vos journées ?
-                </h2>
-                <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                  Créez votre compte gratuit en 30 secondes. Aucune carte requise.
-                </p>
-                <div className="flex flex-col items-center gap-4">
-                  <Button
-                    size="lg"
-                    className="h-12 px-8 text-base gap-2"
-                    render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
-                  >
-                    Commencer gratuitement <ArrowRight className="w-4 h-4" />
-                  </Button>
-                  <InstallAppButton variant="card" className="w-full sm:w-auto sm:min-w-[380px] text-left" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
+      <section className="py-16 sm:py-20 border-t border-border/60 flex justify-center">
+        <div className="w-full px-4 sm:px-6">
+          <Reveal>
+            <MouseEffectCard
+              title="Prêt à reprendre le contrôle de vos journées ?"
+              subtitle="Organisez votre temps efficacement grâce à un accompagnement personnalisé."
+              topText="Kininaru Planner"
+              topSubtext="Passez à l'action"
+              primaryCtaText="Commencer gratuitement"
+              primaryCtaUrl="/auth/sign-up"
+              secondaryCtaText="En savoir plus"
+              secondaryCtaUrl="#features"
+              dotSize={2}
+              dotSpacing={16}
+              repulsionRadius={90}
+              repulsionStrength={25}
+            />
+          </Reveal>
+        </div>
       </section>
 
       {/* ---------------- Footer ---------------- */}

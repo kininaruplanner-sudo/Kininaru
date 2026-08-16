@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
+import TeamSelector from '@/components/ui/TeamSelector'
 import { palette } from '@/lib/palette'
 import { PageHeader } from '@/components/page-header'
 
@@ -91,6 +92,7 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [createName, setCreateName] = useState('')
+  const [createSize, setCreateSize] = useState(2)
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -590,6 +592,23 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
                       if (e.key === 'Enter' && !e.nativeEvent.isComposing) createFamily()
                     }}
                   />
+                </div>
+                <div>
+                  <Label>Combien de membres serez-vous ?</Label>
+                  <div className="mt-2 flex justify-center">
+                    <TeamSelector
+                      label="Taille de la famille"
+                      defaultValue={createSize}
+                      min={1}
+                      max={10}
+                      onChange={setCreateSize}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {createSize > 1
+                      ? `Parfait — vous pourrez inviter ${createSize - 1} autre${createSize - 1 > 1 ? 's' : ''} membre${createSize - 1 > 1 ? 's' : ''} avec votre code d’invitation.`
+                      : 'Vous resterez seul·e pour l’instant — vous pourrez inviter des membres plus tard.'}
+                  </p>
                 </div>
                 {error && (
                   <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">
