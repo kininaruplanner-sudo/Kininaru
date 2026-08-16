@@ -12,23 +12,18 @@ import {
   Timer,
   Repeat2,
   BookOpen,
-  BarChart3,
   Sparkles,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Users,
-  Trophy,
   Search,
   X,
   AlarmClock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationBell } from '@/components/notification-bell'
-import { Download } from 'lucide-react'
-import { useAppInstall } from '@/lib/use-app-install'
 import { KinLogo, KinLogoMark } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
 import { APP_VERSION_LABEL } from '@/lib/version'
@@ -64,8 +59,6 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.together',
     items: [
       { href: '/family', key: 'nav.family', icon: Users },
-      { href: '/analytics', key: 'nav.analytics', icon: BarChart3 },
-      { href: '/achievements', key: 'nav.achievements', icon: Trophy },
       { href: '/ai', key: 'nav.ai', icon: Sparkles, highlight: true },
     ],
   },
@@ -232,23 +225,20 @@ export function Sidebar({
 
         {/* Footer */}
         <div className="border-t border-border p-2 space-y-0.5 shrink-0">
-          <SidebarInstallItem collapsed={collapsed} />
-
           <NotificationBell />
 
-          <ThemeToggle collapsed={collapsed} />
-
-          <Link
-            href="/settings"
+          {/* Paramètres — ouvre la fenêtre flottante (plus de page pleine). */}
+          <button
+            onClick={() => window.dispatchEvent(new Event('kininaru:open-settings'))}
             title={collapsed ? t('common.settings') : undefined}
             className={cn(
-              'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
+              'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
               collapsed && 'lg:justify-center lg:px-2'
             )}
           >
             <Settings className={cn('shrink-0', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4')} />
             <span className={cn(collapsed && 'lg:hidden')}>{t('common.settings')}</span>
-          </Link>
+          </button>
 
           <button
             onClick={handleLogout}
@@ -273,30 +263,5 @@ export function Sidebar({
         </div>
       </aside>
     </>
-  )
-}
-
-/**
- * Discrete “Install Kininaru” entry in the sidebar footer.
- * Only rendered when a real install prompt is available — nothing otherwise.
- */
-function SidebarInstallItem({ collapsed }: { collapsed: boolean }) {
-  const { canInstall, installed, install } = useAppInstall()
-  const { t } = useI18n()
-
-  if (!canInstall || installed) return null
-
-  return (
-    <button
-      onClick={() => void install()}
-      title={collapsed ? t('settings.installButton') : undefined}
-      className={cn(
-        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5 transition-smooth',
-        collapsed && 'lg:justify-center lg:px-2'
-      )}
-    >
-      <Download className={cn('shrink-0', collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4')} />
-      <span className={cn(collapsed && 'lg:hidden')}>{t('settings.installButton')}</span>
-    </button>
   )
 }

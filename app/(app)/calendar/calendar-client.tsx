@@ -32,6 +32,8 @@ import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
 import { palette } from '@/lib/palette'
 import { useI18n } from '@/lib/i18n'
+import { isTypingTarget } from '@/lib/shortcuts'
+import { CalendarQuickConnect } from '@/components/calendar-quick-connect'
 
 const EVENT_COLORS = [
   palette('rose-dark'), palette('lavender'), palette('blue'), palette('sage'),
@@ -593,21 +595,26 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
     }
   }, [searchParams, router])
 
-  // Keyboard shortcuts: arrows navigate, T = today, M/W/D/A switch views, N = new event
+  // Keyboard shortcuts: arrows navigate, T = today, M/W/D/A switch views, N = new event.
+  // Guards (fixed in the UX audit): never while typing in input/textarea/
+  // select/contentEditable, never during IME composition, never when a
+  // Ctrl/Cmd/Alt combo is pressed (browser shortcuts must keep working),
+  // and the handled keys preventDefault so 'n'/'t' never type into the page.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (showModal) return
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.isComposing) return
+      if (isTypingTarget(e.target)) return
       switch (e.key) {
-        case 'ArrowLeft': goToPrevious(); break
-        case 'ArrowRight': goToNext(); break
-        case 't': case 'T': setCurrentDate(new Date()); break
-        case 'm': case 'M': setView('month'); break
-        case 'w': case 'W': setView('week'); break
-        case 'd': case 'D': setView('day'); break
-        case 'a': case 'A': setView('agenda'); break
-        case 'n': case 'N': openNewEvent(); break
+        case 'ArrowLeft': e.preventDefault(); goToPrevious(); break
+        case 'ArrowRight': e.preventDefault(); goToNext(); break
+        case 't': case 'T': e.preventDefault(); setCurrentDate(new Date()); break
+        case 'm': case 'M': e.preventDefault(); setView('month'); break
+        case 'w': case 'W': e.preventDefault(); setView('week'); break
+        case 'd': case 'D': e.preventDefault(); setView('day'); break
+        case 'a': case 'A': e.preventDefault(); setView('agenda'); break
+        case 'n': case 'N': e.preventDefault(); openNewEvent(); break
       }
     }
     window.addEventListener('keydown', handler)
@@ -692,7 +699,12 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
           }}
           eventDates={eventDates}
         />
-        <div className="mt-auto p-4 border-t border-border text-xs text-muted-foreground space-y-1.5">
+        {/* Calendar connections come FIRST — more important than shortcuts.
+            Same shared state as Settings (useCalendarConnections). */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-2">
+          <CalendarQuickConnect />
+        </div>
+        <div className="p-4 border-t border-border text-xs text-muted-foreground space-y-1.5">
           <p className="font-medium text-foreground mb-2">Shortcuts</p>
           {[
             ['←  →', 'Previous / next'],

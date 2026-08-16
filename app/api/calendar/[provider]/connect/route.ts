@@ -48,6 +48,9 @@ export async function GET(
   }
 
   const origin = new URL(req.url).origin
+  // Optional internal path (e.g. /calendar) to return to after the
+  // callback — sanitized server-side in createOAuthState.
+  const returnTo = new URL(req.url).searchParams.get('returnTo') ?? undefined
 
   let clientId: string
   if (p.id === 'google') {
@@ -87,7 +90,7 @@ export async function GET(
   // One-time random state bound to this user (server-side). If the SQL
   // migration is not deployed, the flow cannot start safely — say so.
   const service = createServiceClient()
-  const state = await createOAuthState(service, user.id)
+  const state = await createOAuthState(service, user.id, returnTo)
   if (!state) {
     return Response.json(
       {

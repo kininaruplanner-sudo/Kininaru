@@ -20,7 +20,6 @@ export type CoachPage =
   | 'focus'
   | 'family'
   | 'analytics'
-  | 'achievements'
   | 'settings'
   | 'ai'
   | 'other'
@@ -34,7 +33,6 @@ export const COACH_PAGES: ReadonlySet<string> = new Set([
   'focus',
   'family',
   'analytics',
-  'achievements',
   'settings',
   'ai',
 ])

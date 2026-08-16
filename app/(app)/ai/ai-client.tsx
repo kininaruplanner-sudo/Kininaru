@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   Send,
@@ -52,6 +53,27 @@ const SUGGESTIONS = [
 
 const GREETING =
   'Bonjour ! Je suis le coach Kininaru. Je connais vos tâches, habitudes et événements — je peux planifier votre journée, fixer vos priorités, analyser votre semaine et préparer vos prochaines étapes. Par quoi commençons-nous ?'
+
+/**
+ * Détection locale des demandes d'analyse (FR/EN, conservative) : au lieu
+ * de laisser le modèle inventer des statistiques, on ouvre l'écran Analyse
+ * qui calcule TOUT sur les données réelles (tâches, habitudes, focus,
+ * journal — 90 jours). La réponse du coach ne contient jamais de chiffre
+ * inventé.
+ */
+function isAnalysisRequest(text: string): boolean {
+  const t = text.toLowerCase()
+  return (
+    /\banaly/.test(t) || // analyser / analyse / analysis…
+    /\b(statistiques|stats|statistics)\b/.test(t) ||
+    /\bproductiv/.test(t) || // productivité / productivity
+    /\bbilan de (ma|la|cette)/.test(t) ||
+    /\bcomment ai-je\b/.test(t) || // « Comment ai-je été cette semaine ? »
+    /\bcomment (je|j')ai (été|passe|passé|fait|vécu|vecu)/.test(t) ||
+    /\bweekly review\b/.test(t) ||
+    /\bhow (was|did) my week\b/.test(t)
+  )
+}
 
 interface Message {
   role: 'user' | 'assistant'
@@ -142,6 +164,7 @@ interface Props {
 }
 
 export function AIAssistantClient({ displayName }: Props) {
+  const router = useRouter()
   const [messages, setMessages] = useState<Message[]>(freshGreeting)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -233,6 +256,24 @@ export function AIAssistantClient({ displayName }: Props) {
       }
     }
     if (convRef.current) void appendMessage(convRef.current, 'user', content)
+
+    // Analyse à la demande : l'IA détecte la demande, répond sans inventer
+    // de chiffre, et ouvre l'écran Analyse (statistiques calculées sur les
+    // données réelles des 90 derniers jours).
+    if (isAnalysisRequest(content)) {
+      const reply =
+        "📊 C'est parti — je t'ouvre ton analyse. Elle est calculée sur tes données réelles " +
+        '(tâches, habitudes, sessions de focus, journal) des 90 derniers jours — aucune ' +
+        'statistique inventée.'
+      setMessages([...history, { role: 'assistant', content: reply, timestamp: Date.now() }])
+      if (convRef.current) {
+        void appendMessage(convRef.current, 'assistant', reply)
+        void touchConversation(convRef.current)
+      }
+      setLoading(false)
+      router.push('/analytics')
+      return
+    }
 
     const controller = new AbortController()
     abortRef.current = controller

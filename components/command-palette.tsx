@@ -12,8 +12,6 @@ import {
   Repeat,
   BookOpen,
   Users,
-  BarChart3,
-  Trophy,
   Sparkles,
   Settings,
   Plus,
@@ -44,8 +42,6 @@ const NAV_ITEMS: { label: string; href: string; icon: React.ElementType }[] = [
   { label: 'Habitudes', href: '/habits', icon: Repeat },
   { label: 'Journal', href: '/journal', icon: BookOpen },
   { label: 'Famille', href: '/family', icon: Users },
-  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { label: 'Succès', href: '/achievements', icon: Trophy },
   { label: 'Assistant IA', href: '/ai', icon: Sparkles },
   { label: 'Réglages', href: '/settings', icon: Settings },
 ]
@@ -196,7 +192,14 @@ export function CommandPalette() {
       hint: 'Aller à',
       icon: n.icon,
       group: 'Navigation',
-      onSelect: () => router.push(n.href),
+      onSelect: () => {
+        // Réglages ouvre la fenêtre flottante — pas la page pleine.
+        if (n.href === '/settings') {
+          window.dispatchEvent(new Event('kininaru:open-settings'))
+          return
+        }
+        router.push(n.href)
+      },
     })
   )
 

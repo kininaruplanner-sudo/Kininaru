@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  *
  * The five primary destinations (Accueil / Tâches / Focus / Journal / Coach)
  * get a thumb-friendly bottom bar on phones, while the sidebar drawer keeps
- * the secondary sections (calendrier, habitudes, famille, analytics…).
+ * the secondary sections (calendrier, habitudes, famille, objectifs…).
  * Hidden on desktop (≥ lg) where the sidebar is visible.
  */
 const TABS = [

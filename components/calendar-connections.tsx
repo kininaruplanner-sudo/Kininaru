@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CalendarDays,
   Link2,
@@ -13,7 +13,6 @@ import {
   Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +23,7 @@ import {
   type CalendarProvider,
 } from '@/lib/calendar/providers'
 import { SITE_URL } from '@/lib/site-url'
+import { useCalendarConnections } from '@/lib/use-calendar-connections'
 
 /**
  * Calendriers connectés — Settings section.
@@ -33,76 +33,29 @@ import { SITE_URL } from '@/lib/site-url'
  * RPC `my_calendar_connections()` (safe fields, no tokens) and every
  * mutation (connect / sync / disconnect / ICS subscribe) goes through the
  * API routes with the session. Every failure is shown — no dead buttons.
+ * State is shared with the Calendar page quick-connect via
+ * useCalendarConnections.
  */
+
 export function CalendarConnections() {
-  const supabase = createClient()
-  const [connections, setConnections] = useState<CalendarConnectionRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const { connections, loading, serverConfig, connect } = useCalendarConnections()
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [icsUrl, setIcsUrl] = useState('')
   const [icsName, setIcsName] = useState('')
-  // Server truth about which providers can run OAuth (client id + secret).
-  const [serverConfig, setServerConfig] = useState<
-    Record<string, { configured: boolean; missing: string[] }>
-  >({})
   // Ticking clock for the « il y a X min » labels (pure during render).
   const [now, setNow] = useState(() => Date.now())
 
-  const load = useCallback(async () => {
-    try {
-      // my_calendar_connections (supabase/calendar-security.sql) is not part
-      // of the generated Database types — narrow local contract, no `any`.
-      const rpc = supabase.rpc as unknown as (
-        fn: string
-      ) => Promise<{ data: unknown[] | null; error: unknown }>
-      const { data } = await rpc('my_calendar_connections')
-      setConnections((data ?? []) as CalendarConnectionRow[])
-    } catch {
-      // RPC not deployed yet (SQL not run) — providers shown as unconnected.
-      setConnections([])
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
-
-  // Fetch the server-side OAuth configuration once (never shows a
-  // "Connecter" button when the backend cannot start the flow).
   useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetch('/api/calendar/config')
-        if (res.ok) {
-          const j = (await res.json()) as {
-            providers?: Record<string, { configured: boolean; missing: string[] }>
-          }
-          if (!cancelled && j.providers) setServerConfig(j.providers)
-        }
-      } catch {
-        // API unreachable — provider states stay unknown; the Connect
-        // button will surface the server error honestly on click.
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    const clock = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(clock)
   }, [])
 
-  useEffect(() => {
-    // Deferred so the initial fetch never calls setState synchronously
-    // inside the effect body (react-hooks/set-state-in-effect).
-    const t = setTimeout(() => void load(), 0)
-    const clock = setInterval(() => setNow(Date.now()), 60_000)
-    return () => {
-      clearTimeout(t)
-      clearInterval(clock)
-    }
-  }, [load])
-
   // Feedback from the OAuth callback redirect (?calendar=connected|error).
+  // The callback returns to the page where the flow started (return_to),
+  // so the query params are cleaned from the CURRENT page — not hardcoded.
   useEffect(() => {
     // Deferred: never call setState synchronously inside an effect body.
     const t = setTimeout(() => {
@@ -111,11 +64,11 @@ export function CalendarConnections() {
       if (status === 'connected') {
         setInfo('Calendrier connecté. Lancez une synchronisation pour importer vos événements.')
         setError(null)
-        window.history.replaceState({}, '', '/settings')
+        window.history.replaceState({}, '', window.location.pathname)
       } else if (status === 'error') {
         setError(decodeURIComponent(params.get('reason') ?? 'Connexion échouée'))
         setInfo(null)
-        window.history.replaceState({}, '', '/settings')
+        window.history.replaceState({}, '', window.location.pathname)
       }
     }, 0)
     return () => clearTimeout(t)
@@ -123,30 +76,12 @@ export function CalendarConnections() {
 
   const connected = (providerId: string) => connections.filter((c) => c.provider === providerId)
 
-  const connect = async (provider: CalendarProvider) => {
+  const handleConnect = async (provider: CalendarProvider) => {
     if (provider.kind === 'subscription') return // ICS is handled inline below
     setError(null)
     setInfo(null)
-    const cfg = serverConfig[provider.id]
-    if (cfg && !cfg.configured) {
-      setError(
-        `OAuth ${provider.label} non configuré — ajoutez ${cfg.missing.join(', ')} côté serveur (voir le guide d'intégration).`
-      )
-      return
-    }
-    try {
-      // redirect:'manual' lets us read JSON errors (401/503) without leaving
-      // the page; a 302 (opaqueredirect) means the flow can start.
-      const res = await fetch(`/api/calendar/${provider.id}/connect`, { redirect: 'manual' })
-      if (res.type === 'opaqueredirect') {
-        window.location.assign(`/api/calendar/${provider.id}/connect`)
-        return
-      }
-      const j = (await res.json().catch(() => null)) as { error?: string } | null
-      setError(j?.error ?? 'Connexion impossible')
-    } catch {
-      setError('Réseau indisponible — réessayez')
-    }
+    const res = await connect(provider)
+    if ('error' in res) setError(res.error)
   }
 
   const subscribeIcs = async () => {
@@ -172,7 +107,6 @@ export function CalendarConnections() {
       setIcsUrl('')
       setIcsName('')
       setInfo(`Flux ICS enregistré (${j?.events ?? 0} événements détectés).`)
-      await load()
     } catch {
       setError('Réseau indisponible — réessayez')
     } finally {
@@ -197,7 +131,6 @@ export function CalendarConnections() {
       setError('Réseau indisponible — réessayez')
     } finally {
       setSyncingId(null)
-      await load()
     }
   }
 
@@ -222,7 +155,6 @@ export function CalendarConnections() {
         return
       }
       setInfo('Calendrier déconnecté.')
-      await load()
     } catch {
       setError('Réseau indisponible — réessayez')
     } finally {
@@ -343,7 +275,7 @@ export function CalendarConnections() {
                       </Button>
                     </>
                   ) : provider.kind === 'oauth' ? (
-                    <Button variant="outline" size="sm" onClick={() => void connect(provider)}>
+                    <Button variant="outline" size="sm" onClick={() => void handleConnect(provider)}>
                       {serverConfig[provider.id]?.configured ? (
                         <>
                           <Link2 className="w-3.5 h-3.5" /> Connecter

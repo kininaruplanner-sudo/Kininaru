@@ -17,17 +17,24 @@ export const dynamic = 'force-dynamic'
  * exchanges the authorization code for tokens, resolves the Google
  * account via its PRIMARY calendar id (stable per account), stores the
  * connection via the service role (tokens never readable by the client —
- * supabase/calendar-security.sql) and returns to /settings?calendar=connected.
+ * supabase/calendar-security.sql) and returns to the page the user came
+ * from (return_to stored with the OAuth state) with ?calendar=connected.
  */
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
-  const fail = (msg: string) =>
-    Response.redirect(
-      `${origin}/settings?calendar=error&reason=${encodeURIComponent(msg)}`
-    )
+  const backTo = (path?: string | null) => {
+    const target = new URL(`${origin}${path && path.startsWith('/') && !path.startsWith('//') ? path : '/settings'}`)
+    return target
+  }
+  const fail = (msg: string, path?: string | null) => {
+    const target = backTo(path)
+    target.searchParams.set('calendar', 'error')
+    target.searchParams.set('reason', msg)
+    return Response.redirect(target.toString())
+  }
 
   if (url.searchParams.get('error') || !code) {
     return fail("Autorisation refusée par Google")
@@ -51,10 +58,11 @@ export async function GET(req: Request) {
 
   // Consume the one-time state (single use, bound to this user, 10 min TTL).
   const service = createServiceClient()
-  const ok = await consumeOAuthState(service, state, user.id)
-  if (!ok) {
+  const consumed = await consumeOAuthState(service, state, user.id)
+  if (!consumed) {
     return fail("Connexion refusée : état OAuth invalide, expiré ou déjà utilisé — réessayez")
   }
+  const back = consumed.return_to ?? '/settings'
 
   try {
     const tokens = await exchangeGoogleCode(
@@ -80,9 +88,11 @@ export async function GET(req: Request) {
       },
       { onConflict: 'user_id,provider,external_account_id' }
     )
-    return Response.redirect(`${origin}/settings?calendar=connected`)
+    const target = backTo(back)
+    target.searchParams.set('calendar', 'connected')
+    return Response.redirect(target.toString())
   } catch (e) {
     const message = e instanceof Error ? e.message : "Erreur inconnue"
-    return fail(`Connexion Google impossible : ${message}`)
+    return fail(`Connexion Google impossible : ${message}`, back)
   }
 }

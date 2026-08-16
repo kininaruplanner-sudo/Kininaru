@@ -37,7 +37,6 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { cardVariants } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { InstallAppButton } from '@/components/install-app-button'
 import { streamChatResponse } from '@/lib/ai-stream'
 import { computeInsights } from '@/lib/coach/insights'
 
@@ -740,12 +739,6 @@ export function DashboardClient({
           </div>
         </motion.div>
       )}
-
-      {/* Install prompt — slim row on mobile/tablet only (desktop has it in
-          the sidebar footer, so it never duplicates). Hidden once installed. */}
-      <div className="lg:hidden">
-        <InstallAppButton variant="button" className="border-primary/30 text-primary" />
-      </div>
 
       {/* Hero row: score + today's stats */}
       <motion.div

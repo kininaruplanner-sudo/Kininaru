@@ -19,6 +19,10 @@
 --
 -- Nettoyage : les états consommés/expirés sont purgés par le cron
 -- quotidien (app/api/cron/daily/route.ts) — aucune accumulation.
+--
+-- `return_to` : chemin interne (jamais d'URL absolue) vers lequel le
+-- callback redirige après connexion/déconnexion — validé et borné côté
+-- serveur (voir lib/oauth-state.ts).
 -- =====================================================================
 
 create table if not exists public.oauth_states (
@@ -26,8 +30,13 @@ create table if not exists public.oauth_states (
   user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
-  consumed_at timestamptz
+  consumed_at timestamptz,
+  return_to text
 );
+
+-- Additif : permet de revenir vers la page d'où l'utilisateur a lancé le
+-- flux (ex. /calendar au lieu de /settings) après le callback OAuth.
+alter table public.oauth_states add column if not exists return_to text;
 
 alter table public.oauth_states enable row level security;
 

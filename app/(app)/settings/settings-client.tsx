@@ -40,9 +40,11 @@ interface Props {
   user: { email: string }
   userId: string
   memories: Memory[]
+  /** Rendered inside the floating Settings window: no page header. */
+  embedded?: boolean
 }
 
-export function SettingsClient({ profile, user, userId, memories: initialMemories }: Props) {
+export function SettingsClient({ profile, user, userId, memories: initialMemories, embedded }: Props) {
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
   const [memoryEnabled, setMemoryEnabledState] = useState(isMemoryEnabled())
@@ -614,7 +616,9 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
   return (
     <>
       <div className="flex flex-col h-full">
-        <PageHeader icon={Settings} title={t('settings.title')} subtitle={t('settings.subtitle')} />
+        {!embedded && (
+          <PageHeader icon={Settings} title={t('settings.title')} subtitle={t('settings.subtitle')} />
+        )}
 
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-2xl mx-auto space-y-4">

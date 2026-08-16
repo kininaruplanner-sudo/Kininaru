@@ -25,7 +25,6 @@ export default function robots(): MetadataRoute.Robots {
         '/journal',
         '/settings',
         '/focus',
-        '/achievements',
         '/analytics',
         '/ai',
         '/api/', // API routes (AI coach included)

@@ -216,15 +216,6 @@ const RULES: Rule[] = [
     },
   },
   {
-    // Achievements page.
-    id: 'achievements',
-    weight: 20,
-    notify: false,
-    pages: ['achievements'],
-    run: () =>
-      'Chaque habitude renforc\u00e9e est une victoire. Continue \u00e0 construire la s\u00e9rie.',
-  },
-  {
     // Gentle restart (Phase 1 — mobile/Android): after a missed or slow
     // start, never blame. Morning only, backed by real data (open overdue
     // tasks, nothing completed yet today).
@@ -271,7 +262,6 @@ const ACTIONS: Record<string, CoachAction | null> = {
   focus_session: { label: 'Nouvelle session', href: '/focus' },
   journal_week: { label: '\u00c9crire maintenant', href: '/journal' },
   family: { label: 'Ma famille', href: '/family' },
-  achievements: null,
   fresh_day: { label: 'Parler au coach', href: '/ai' },
 }
 

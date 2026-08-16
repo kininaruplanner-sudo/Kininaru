@@ -71,7 +71,6 @@ const PAGE_FROM_PATH: Record<string, string> = {
   focus: 'focus',
   family: 'family',
   analytics: 'analytics',
-  achievements: 'achievements',
   settings: 'settings',
   ai: 'ai',
 }
@@ -480,11 +479,13 @@ export function CoachBubble() {
                 Le coach voit un résumé de ta journée — jamais tes secrets.
               </p>
               <div className="flex items-center gap-1 shrink-0">
-                <Link href="/settings">
-                  <Button variant="ghost" size="xs">
-                    {t('common.settings')}
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => window.dispatchEvent(new Event('kininaru:open-settings'))}
+                >
+                  {t('common.settings')}
+                </Button>
                 <Button variant="ghost" size="xs" onClick={pause}>
                   {pausedMsg ? 'En pause ✓' : 'Pause 24 h'}
                 </Button>
