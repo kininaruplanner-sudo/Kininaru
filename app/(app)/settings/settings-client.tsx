@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
   User,
-  Palette,
   Bell,
   Shield,
   Save,
@@ -34,7 +33,6 @@ import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
 import { CalendarConnections } from '@/components/calendar-connections'
-import { ThemePicker } from '@/components/theme-picker'
 import { InstallAppButton } from '@/components/install-app-button'
 import { useAppInstall } from '@/lib/use-app-install'
 import { useVoicePrefs } from '@/lib/voice-preferences'
@@ -278,13 +276,6 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
           </div>
         </div>
       ),
-    },
-    {
-      id: 'apparence',
-      icon: Palette,
-      title: t('settings.appearance'),
-      desc: '35 thèmes, chacun construit sur une palette de 4 couleurs.',
-      content: <ThemePicker />,
     },
     {
       id: 'notifications',

@@ -39,7 +39,7 @@ export function AppShell({ displayName, children }: AppShellProps) {
   }, [pathname])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="kin-surface-tint flex h-screen overflow-hidden">
       {/* Connection pill (hors ligne / synchronisation) — app-wide, calm. */}
       <ConnectionStatus />
       <Sidebar

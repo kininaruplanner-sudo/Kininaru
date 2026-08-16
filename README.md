@@ -24,7 +24,7 @@ Un planner de productivité premium — organisation, habitudes, objectifs, focu
 - **Alarmes** : créneaux quotidiens (heure locale, jours, son, vibration, snooze) distincts des rappels — planifiés localement, limites PWA documentées dans l'UI
 - **Calendriers externes** : flux OAuth réels (Google Calendar, Microsoft Graph) avec callback, refresh de token et synchronisation serveur, abonnement **ICS** réel (URL validée, flux parsé, déduplication `(connection_id, external_event_id)`), section « Calendriers connectés » dans les Paramètres, guide public [`/docs/calendar-integrations.md`](/docs/calendar-integrations.md)
 - **i18n** : français / anglais
-- **Thèmes** : 35 palettes de 4 couleurs — chaque thème dérive un système de design complet (fond, cartes, bordures, accents, graphiques, sidebar, dégradés), dont un thème sombre « Nuit »
+- **Charte unique** : un seul thème clair, fond blanc épuré (#FFFFFF), avec la palette Memphis du logo (cyan #00C2E0 · marine #1A365D · orange vif #FF6B35 · terracotta #6A2B05) déclinée en système de design complet (fond, cartes, bordures, accents, graphiques, sidebar, dégradés) et en motifs géométriques discrets en arrière-plan
 
 ## Stack
 

@@ -1070,8 +1070,86 @@ export function Landing() {
       </section>
 
       {/* ---------------- Footer ---------------- */}
-      <footer className="border-t border-border bg-card/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <footer className="relative overflow-hidden border-t border-border bg-card/60">
+        {/* Transition douce depuis la section précédente + motifs géométriques
+            Memphis intégrés au pied de page (discrétion : opacités faibles,
+            pointer-events-none, couleurs de la palette unique). */}
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-transparent to-card/80" />
+          {/* Cercles concentriques — coin haut droit (marine) */}
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-10 right-[4%] hidden sm:block"
+          >
+            <svg width="104" height="104" viewBox="0 0 104 104" fill="none">
+              <circle cx="52" cy="52" r="48" stroke="var(--kt-cool)" strokeWidth="2" opacity="0.16" />
+              <circle cx="52" cy="52" r="34" stroke="var(--kt-cool)" strokeWidth="2" opacity="0.12" />
+              <circle cx="52" cy="52" r="10" fill="var(--kt-cool)" opacity="0.14" />
+            </svg>
+          </motion.div>
+          {/* Vague sinueuse — milieu gauche (cyan) */}
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute top-1/3 left-[3%] hidden md:block"
+          >
+            <svg width="140" height="26" viewBox="0 0 140 26" fill="none">
+              <path
+                d="M2 21 C 18 4, 34 4, 50 15 C 66 26, 82 26, 98 15 C 114 4, 128 5, 138 8"
+                stroke="var(--kt-brand)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                opacity="0.28"
+              />
+            </svg>
+          </motion.div>
+          {/* Triangle — coin bas gauche (orange) */}
+          <motion.div
+            animate={{ y: [0, -6, 0], rotate: [0, 6, 0] }}
+            transition={{ duration: 17, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute bottom-10 left-[7%] hidden sm:block"
+          >
+            <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
+              <path d="M28 3 L54 45 H2 Z" fill="var(--kt-warm)" opacity="0.18" />
+            </svg>
+          </motion.div>
+          {/* Demi-cercle — coin bas droit (terracotta) */}
+          <motion.div
+            animate={{ y: [0, 5, 0] }}
+            transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute bottom-12 right-[10%] hidden lg:block"
+          >
+            <svg width="64" height="34" viewBox="0 0 64 34" fill="none">
+              <path d="M0 34 A32 32 0 0 1 64 34 Z" fill="var(--kt-complement)" opacity="0.16" />
+            </svg>
+          </motion.div>
+          {/* Motif de points — bas centre gauche (cyan) */}
+          <motion.div
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute bottom-16 left-[32%] hidden md:block"
+          >
+            <div
+              className="w-20 h-14"
+              style={{
+                backgroundImage: 'radial-gradient(var(--kt-brand) 1.4px, transparent 2px)',
+                backgroundSize: '14px 14px',
+                opacity: 0.22,
+              }}
+            />
+          </motion.div>
+          {/* Carré pivoté — centre droit (marine) */}
+          <motion.div
+            animate={{ y: [0, 4, 0], rotate: [12, 18, 12] }}
+            transition={{ duration: 21, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute top-1/2 right-[22%] hidden xl:block"
+          >
+            <div className="w-8 h-8 rounded-md border-2 rotate-12" style={{ borderColor: 'var(--kt-cool)', opacity: 0.2 }} />
+          </motion.div>
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12">
           <div className="flex flex-col md:flex-row gap-10 md:items-start md:justify-between">
             <div className="max-w-xs">
               <KinLogo />

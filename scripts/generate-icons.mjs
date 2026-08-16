@@ -7,8 +7,7 @@
  *   icon-192x192.png          manifest icon (192)
  *   icon-512x512.png          manifest icon (512)
  *   apple-icon.png            Apple touch icon (180)
- *   icon-light-32x32.png      light-theme favicon (32)
- *   icon-dark-32x32.png       dark-theme favicon (32) — lotus only, light tint
+ *   icon-light-32x32.png      favicon (32)
  *   icon-maskable-512x512.png maskable icon (512) — lotus mark inside the safe zone
  *   favicon.ico               multi-size ICO (16/32/48)
  *
@@ -28,7 +27,6 @@ const out = (name) => join(root, 'public', name)
 // fond blanc épuré (charte harmonisée #FFFFFF).
 const BRAND_GRADIENT_ID = 'kin-logo-grad'
 const BRAND_BG = '#FFFFFF'
-const BRAND_DARK_TINT = '#9FE4F0' // favicon sombre : lotus cyan clair
 
 const iconSvg = readFileSync(out('icon.svg'), 'utf8')
 
@@ -46,11 +44,6 @@ if (paths.length === 0) throw new Error('Aucun <path> trouvé dans public/icon.s
 
 const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${defs}${paths
   .map((d) => `<path d="${d}" fill="url(#${BRAND_GRADIENT_ID})"/>`)
-  .join('')}</svg>`
-
-// Dark-theme favicon: lotus in a light cyan tint on transparency.
-const MARK_DARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${paths
-  .map((d) => `<path d="${d}" fill="${BRAND_DARK_TINT}"/>`)
   .join('')}</svg>`
 
 /** Builds a multi-entry ICO (PNG-compressed entries — supported everywhere modern). */
@@ -90,11 +83,7 @@ async function main() {
     console.log(`✔ ${name} (${size}px)`)
   }
 
-  // 2. Dark favicon — lotus only, light tint.
-  await sharp(Buffer.from(MARK_DARK_SVG)).resize(32, 32).png().toFile(out('icon-dark-32x32.png'))
-  console.log('✔ icon-dark-32x32.png (32px)')
-
-  // 3. Maskable 512 — solid background + lotus scaled into the ~80% safe zone
+  // 2. Maskable 512 — solid background + lotus scaled into the ~80% safe zone
   //    (a 512 tile's safe circle is ~410px; 360px keeps a comfortable margin).
   await sharp({
     create: { width: 512, height: 512, channels: 4, background: BRAND_BG },
@@ -104,7 +93,7 @@ async function main() {
     .toFile(out('icon-maskable-512x512.png'))
   console.log('✔ icon-maskable-512x512.png (512px)')
 
-  // 4. favicon.ico — 16/32/48 PNG entries packed into an ICO container.
+  // 3. favicon.ico — 16/32/48 PNG entries packed into an ICO container.
   const sizes = [16, 32, 48]
   const pngs = await Promise.all(
     sizes.map((s) => sharp(Buffer.from(tileSvg)).resize(s, s).png().toBuffer())

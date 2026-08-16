@@ -18,8 +18,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#F7F9FC',
-    theme_color: '#F7F9FC',
+    background_color: '#FFFFFF',
+    theme_color: '#FFFFFF',
     // Quick actions on long-press (Android) / right-click (desktop).
     shortcuts: [
       {

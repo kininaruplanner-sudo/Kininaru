@@ -3,19 +3,10 @@ import Script from 'next/script'
 import { Plus_Jakarta_Sans, Inter, Pacifico } from 'next/font/google'
 import { SITE_URL } from '@/lib/site-url'
 import './globals.css'
-import { ThemeProvider } from '@/components/theme-provider'
 import { LocaleProvider } from '@/lib/i18n'
 import { SwRegister } from '@/components/sw-register'
 import { AnalyticsPageViews } from '@/components/analytics-page-views'
-
-const THEME_INIT_SCRIPT = `
-(function () {
-  try {
-    var t = window.localStorage.getItem('kininaru-theme');
-    if (t) document.documentElement.setAttribute('data-theme', t);
-  } catch (e) {}
-})();
-`
+import { MemphisBackdrop } from '@/components/memphis-background'
 
 // Google Tag Manager — identifiant PUBLIC du conteneur (il apparaît dans le
 // code source de chaque page par conception, ce n'est pas un secret). Surcharge
@@ -123,6 +114,8 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Kininaru',
   },
+  // Identité unique : thème clair blanc — une seule icône, pas de variante
+  // sombre (l'application ne gère plus plusieurs thèmes).
   icons: {
     icon: [
       {
@@ -131,11 +124,8 @@ export const metadata: Metadata = {
       },
       {
         url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
+        sizes: '32x32',
+        type: 'image/png',
       },
       {
         url: '/icon.svg',
@@ -147,10 +137,9 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  // Pas de `colorScheme` statique : le CSS de globals.css déclare déjà
-  // `color-scheme: light/dark` selon le data-theme actif, et une meta
-  // codée en dur écraserait le thème sombre (contrôles natifs clairs).
-  themeColor: '#F7F9FC',
+  // Charte unique : fond blanc épuré, barres de statut mobiles et fenêtres
+  // PWA standalone alignées sur #FFFFFF.
+  themeColor: '#FFFFFF',
   // Mobile: let the layout reach the physical edges (home-bar safe areas) and
   // let the browser resize the layout when the soft keyboard opens, so the AI
   // composer stays visible above the keyboard instead of being covered.
@@ -197,15 +186,10 @@ export default function RootLayout({
         <Script id="kininaru-ga4-init" strategy="afterInteractive">
           {GA4_SCRIPT}
         </Script>
-        {/* next/script (beforeInteractive) injects the theme init in the
-            initial HTML <head>, so the theme applies before first paint —
-            without React's raw <script> hoisting warning. */}
-        <Script id="kininaru-theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
-        <ThemeProvider>
-          <LocaleProvider>{children}</LocaleProvider>
-        </ThemeProvider>
+        {/* Fond géométrique « Memphis » — formes discrètes derrière toutes
+            les pages (z-index négatif, pointer-events-none). */}
+        <MemphisBackdrop />
+        <LocaleProvider>{children}</LocaleProvider>
         <AnalyticsPageViews />
         <SwRegister />
       </body>

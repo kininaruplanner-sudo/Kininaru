@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
  * outward and a gently rounded dome (growth → evolution → new day).
  *
  * The mark is filled with the brand gradient (brand → cool → warm, i.e.
- * cyan → marine → orange for the Kininaru palette) so it carries the full
- * identity of the active theme. The wordmark keeps `currentColor` (navy by
+ * cyan → marine → orange for the single Memphis palette) so it carries the
+ * full identity of Kininaru. The wordmark keeps `currentColor` (navy by
  * default) — surfaces can override it via the `color` prop.
  *
  * ⚠️ The petal paths live in THREE places that must stay in sync:
