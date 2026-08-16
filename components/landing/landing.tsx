@@ -30,44 +30,14 @@ import { BetaBadge } from '@/components/beta-badge'
 import { Button } from '@/components/ui/button'
 import { InstallAppButton } from '@/components/install-app-button'
 import { InstallBanner } from '@/components/install-banner'
+import { HeroShapes } from '@/components/landing/elegant-shapes'
+import { SpotlightCards } from '@/components/landing/spotlight-cards'
+import { FlipCard } from '@/components/landing/flip-card'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
 /* Copy (French — original language of the product)                    */
 /* ------------------------------------------------------------------ */
-
-const FEATURES = [
-  {
-    icon: CheckSquare,
-    title: 'Tâches qui ont du sens',
-    text: 'Priorités, échéances, sous-tâches et kanban — sans jamais ressembler à un tableur.',
-  },
-  {
-    icon: Repeat2,
-    title: 'Habitudes en douceur',
-    text: 'Streaks, rappels et célébrations. Kininaru encourage, il ne culpabilise jamais.',
-  },
-  {
-    icon: Timer,
-    title: 'Focus sans friction',
-    text: 'Sessions Pomodoro minimalistes pour entrer dans le flux, sans interface qui distrait.',
-  },
-  {
-    icon: BookOpen,
-    title: 'Journal apaisant',
-    text: 'Un espace calme pour vos humeurs, vos gratitudes et vos objectifs du jour.',
-  },
-  {
-    icon: Users,
-    title: 'Pensé pour la famille',
-    text: 'Calendrier partagé, tâches communes et rôles clairs — même pour les parents.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Un coach IA à l’écoute',
-    text: 'Planifiez, débloquez vos blocages et découpez vos objectifs avec Groq.',
-  },
-]
 
 const CHAT_SCRIPT: Record<string, { reply: string[] }> = {
   'Planifie ma journée': {
@@ -565,231 +535,177 @@ export function Landing() {
         )}
       </header>
 
-      {/* ---------------- Hero ---------------- */}
-      <section className="relative kin-glow">
-        {/* Glows ambiants — les couleurs de la palette vivent dans le fond du
-            hero (flottement très lent, aucune animation agressive). */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {/* ---------------- Hero — « Ma journée évolue. » ---------------- */}
+      <section className="relative overflow-hidden">
+        {/* Formes géométriques flottantes + halos — couleurs de la palette du
+            thème actif, derrière le contenu (z-0), parallaxe souris légère. */}
+        <HeroShapes />
+
+        <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-6 pt-36 sm:pt-44 pb-16 sm:pb-20 text-center">
           <motion.div
-            animate={{ y: [0, -18, 0], opacity: [0.45, 0.8, 0.45] }}
-            transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute -top-24 -left-24 w-96 h-96 rounded-full kin-gradient-brand opacity-20 blur-3xl"
-          />
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/70 text-xs font-medium text-muted-foreground mb-8 shadow-kin"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            Kininaru · votre coach personnel de progression
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.05 }}
+            className="kin-display text-foreground mb-6"
+          >
+            Ma journée{' '}
+            <span className="kin-script kin-gradient-text">évolue</span>.
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.12 }}
+            className="text-muted-foreground text-base sm:text-lg leading-[1.65] sm:leading-relaxed mb-8 sm:mb-10 max-w-2xl mx-auto"
+          >
+            Kininaru réunit tes <strong className="text-foreground font-semibold">tâches</strong>, tes{' '}
+            <strong className="text-foreground font-semibold">objectifs</strong>, tes{' '}
+            <strong className="text-foreground font-semibold">habitudes</strong>, ton{' '}
+            <strong className="text-foreground font-semibold">focus</strong>, ton{' '}
+            <strong className="text-foreground font-semibold">journal</strong> et un{' '}
+            <strong className="text-foreground font-semibold">coach IA</strong> — il observe ta journée
+            et intervient au bon moment pour t’aider à avancer.
+          </motion.p>
+
           <motion.div
-            animate={{ y: [0, 16, 0], opacity: [0.35, 0.7, 0.35] }}
-            transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-            className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full kin-gradient-accent opacity-[0.13] blur-3xl"
-          />
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.19 }}
+            className="flex flex-col sm:flex-row gap-3 mb-10 items-center justify-center"
+          >
+            <Button
+              size="lg"
+              className="h-12 sm:h-11 px-7 gap-2 text-base"
+              render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
+            />
+            {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
+                peut réellement installer la PWA (beforeinstallprompt) ;
+                disparaît une fois installée ou en mode standalone. */}
+            <InstallAppButton
+              variant="button"
+              className="h-12 sm:h-11 sm:w-auto sm:px-6 text-base border-primary/30 text-primary hover:border-primary/50"
+            />
+          </motion.div>
+
           <motion.div
-            animate={{ y: [0, -12, 0], opacity: [0.25, 0.5, 0.25] }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-            className="absolute bottom-0 left-1/4 w-72 h-72 rounded-full bg-complement/40 blur-3xl"
-          />
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground mb-12"
+          >
+            <span className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-kin-sage" /> +38 % de tâches terminées en moyenne
+            </span>
+            <span className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-kin-sage" /> Gratuit pour commencer
+            </span>
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-kin-sage" /> Vos données restent privées
+            </span>
+          </motion.div>
+
+          {/* La boucle quotidienne — chaque module de Kininaru, en une ligne. */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+          >
+            <div className="flex flex-wrap items-center justify-center gap-y-2.5">
+              {[
+                { icon: CheckSquare, label: 'Tâches', color: 'text-brand' },
+                { icon: Target, label: 'Objectifs', color: 'text-warm' },
+                { icon: Repeat2, label: 'Habitudes', color: 'text-kin-sage' },
+                { icon: Timer, label: 'Focus', color: 'text-cool' },
+                { icon: BookOpen, label: 'Journal', color: 'text-complement' },
+                { icon: Sparkles, label: 'Coach IA', color: 'text-primary' },
+                { icon: TrendingUp, label: 'Progression', color: 'text-kin-coral' },
+              ].map((step, i) => (
+                <div key={step.label} className="flex items-center">
+                  {i > 0 && (
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
+                  )}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 shadow-kin text-xs sm:text-sm font-medium text-foreground/90">
+                    <step.icon className={cn('w-3.5 h-3.5', step.color)} />
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Un seul système, du matin au soir — des tâches à la prochaine action, guidé par votre coach.
+            </p>
+          </motion.div>
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-5 sm:px-6 pt-32 sm:pt-40 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/70 text-xs font-medium text-muted-foreground mb-6 shadow-kin"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-kin-sage" />
-              Vos données restent privées et chiffrées
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.05 }}
-              className="kin-display text-foreground mb-5"
-            >
-              Kininaru ne t’attend pas.
-              <br />
-              <span className="kin-gradient-text">Il vient vers toi</span>.
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.12 }}
-              className="text-muted-foreground text-base sm:text-lg leading-[1.65] sm:leading-relaxed mb-6 sm:mb-8 max-w-lg"
-            >
-              Kininaru observe ta journée et intervient au bon moment : il{' '}
-              <strong className="text-foreground font-semibold">te rappelle</strong> ce qui compte,{' '}
-              <strong className="text-foreground font-semibold">t’aide à commencer</strong>, suit ta
-              concentration et <strong className="text-foreground font-semibold">prépare la suite</strong> —
-              un coach personnel relié à tes tâches, habitudes, focus, journal et objectifs.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.19 }}
-              className="flex flex-col sm:flex-row gap-3 mb-8"
-            >
-              <Button
-                size="lg"
-                className="h-12 sm:h-11 px-6 gap-2 text-base"
-                render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
-              />
-              {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
-                  peut réellement installer la PWA (beforeinstallprompt) ;
-                  disparaît une fois installée ou en mode standalone. */}
-              <InstallAppButton
-                variant="button"
-                className="h-12 sm:h-11 sm:w-auto sm:px-6 text-base border-primary/30 text-primary hover:border-primary/50"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-muted-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-kin-sage" /> +38 % de tâches terminées en moyenne
-              </span>
-              <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-kin-sage" /> Gratuit pour commencer
-              </span>
-            </motion.div>
-
-            {/* Le principe en 5 secondes — la boucle quotidienne. */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="mt-8"
-            >
-              <div className="flex flex-wrap items-center gap-y-2.5">
-                {[
-                  { icon: CheckSquare, label: 'Tâches' },
-                  { icon: Sparkles, label: 'Coach' },
-                  { icon: Target, label: 'Prochaine action' },
-                  { icon: Timer, label: 'Focus' },
-                  { icon: TrendingUp, label: 'Progression' },
-                ].map((step, i) => (
-                  <div key={step.label} className="flex items-center">
-                    {i > 0 && (
-                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
-                    )}
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 shadow-kin text-xs sm:text-sm font-medium text-foreground/90">
-                      <step.icon className="w-3.5 h-3.5 text-primary" />
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Des tâches à la prochaine action, en une boucle guidée par votre coach.
-              </p>
-            </motion.div>
-          </div>
-
-          <div className="relative">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <PlannerMock />
-            </motion.div>
-
-            {/* Petites cartes flottantes — la journée qui respire autour de
-                l'aperçu (léger balancement vertical, masquées sur mobile). */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.9 }}
-              className="hidden lg:block absolute -left-10 top-8"
-              aria-hidden
-            >
-              <motion.div
-                animate={{ y: [0, -7, 0] }}
-                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border border-border bg-card/90 shadow-kin-hover backdrop-blur"
-              >
-                <span className="text-base">🎯</span>
-                <div>
-                  <p className="text-xs font-semibold text-foreground leading-tight">3 objectifs en cours</p>
-                  <p className="text-[10px] text-muted-foreground">2 tâches terminées aujourd&apos;hui</p>
-                </div>
-              </motion.div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 1.05 }}
-              className="hidden lg:block absolute -right-6 -bottom-6"
-              aria-hidden
-            >
-              <motion.div
-                animate={{ y: [0, 7, 0] }}
-                transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' }}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border border-border bg-card/90 shadow-kin-hover backdrop-blur"
-              >
-                <span className="w-9 h-9 rounded-xl kin-gradient-brand flex items-center justify-center text-white text-xs font-bold">
-                  72
-                </span>
-                <div>
-                  <p className="text-xs font-semibold text-foreground leading-tight">min de Focus</p>
-                  <p className="text-[10px] text-muted-foreground">session terminée 🎉</p>
-                </div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
+        {/* Aperçu produit — centré, entouré des formes du hero. */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 max-w-md mx-auto px-5 sm:px-6 pb-24 sm:pb-32"
+        >
+          <PlannerMock />
+        </motion.div>
       </section>
 
-      {/* ---------------- Pourquoi Kininaru ? ---------------- */}
-      <section className="py-16 sm:py-20 border-t border-border/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      {/* ---------------- Le problème → la transformation (Card Flip) ---------------- */}
+      <section id="why" className="py-20 sm:py-28 border-t border-border/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-14 lg:gap-16 items-center">
           <Reveal>
-            <div className="text-center mb-10 sm:mb-12">
-              <p className="kin-h1 text-foreground mb-2">
-                Vous avez déjà une liste de choses à faire.
+            <div className="max-w-lg">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warm/15 text-warm text-xs font-semibold mb-4">
+                <Repeat2 className="w-3 h-3" /> Le problème
+              </span>
+              <h2 className="kin-h1 text-foreground mb-5">
+                47 choses à faire.
+                <br /> Aucune idée par où commencer.
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-8">
+                Les applications de tâches vous donnent encore plus de listes. Kininaru
+                transforme la liste en <strong className="text-foreground font-semibold">système</strong> :
+                priorisation, objectifs, habitudes, focus — et un coach qui adapte la journée à
+                ce qui s’est réellement passé.
               </p>
-              <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed">
-                Kininaru vous aide à choisir{' '}
-                <strong className="text-foreground font-semibold">laquelle faire maintenant</strong> —
-                et vous accompagne jusqu’au bout.
-              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  { icon: Target, text: 'Une seule prochaine action claire, pas 47 choses à trier' },
+                  { icon: Sparkles, text: 'Un coach qui observe vos vraies données et propose la suite concrète' },
+                  { icon: Timer, text: 'Le Focus se pré-remplit d’un clic : vous commencez, sans friction' },
+                ].map((item) => (
+                  <li key={item.text} className="flex items-start gap-3 text-sm text-foreground/90">
+                    <span className="w-5 h-5 rounded-full bg-warm/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <item.icon className="w-3 h-3 text-warm" />
+                    </span>
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="outline"
+                className="h-11 sm:h-9"
+                render={
+                  <Link href="#features" className="inline-flex items-center gap-1.5">
+                    Découvrir les fonctionnalités
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                }
+              />
             </div>
           </Reveal>
 
-          <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
-            {[
-              {
-                icon: Target,
-                title: 'Prioriser',
-                text: 'Une seule prochaine action claire, pas une liste de 47 choses à trier.',
-              },
-              {
-                icon: Sparkles,
-                title: 'Être guidé',
-                text: 'Un coach qui observe vos vraies données et propose la suite concrète.',
-              },
-              {
-                icon: Timer,
-                title: 'Passer à l’action',
-                text: 'Le Focus se pré-remplit d’un clic : vous commencez, sans friction.',
-              },
-            ].map((item, i) => (
-              <Reveal key={item.title} delay={i * 0.08}>
-                <div className="h-full rounded-3xl border border-border bg-card p-6 hover-lift hover:border-primary/25 transition-smooth text-center">
-                  <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <item.icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <h3 className="kin-h3 text-foreground mb-1.5">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{item.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <Reveal delay={0.1}>
+            <FlipCard />
+          </Reveal>
         </div>
       </section>
 
@@ -809,19 +725,13 @@ export function Landing() {
             />
           </Reveal>
 
-          <div className="px-4 sm:px-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f, i) => (
-              <Reveal key={f.title} delay={(i % 3) * 0.08}>
-                <div className="group h-full rounded-3xl border border-border bg-card p-6 hover-lift hover:border-primary/25 transition-smooth">
-                  <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
-                    <f.icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <h3 className="kin-h3 text-foreground mb-1.5">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <Reveal>
+            <div className="px-4 sm:px-6">
+              {/* Spotlight Cards — tilt 3D, glow, shimmer : les couleurs sont
+                  celles de la palette du thème actif (tokens --kt-*). */}
+              <SpotlightCards />
+            </div>
+          </Reveal>
         </div>
       </section>
 

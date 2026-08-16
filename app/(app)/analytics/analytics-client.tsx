@@ -11,11 +11,12 @@ import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { cardVariants } from '@/components/ui/card'
 
-interface RawTask { status?: string; completed_at?: string | null }
+interface RawTask { status?: string; completed_at?: string | null; goal_id?: string | null }
 interface RawFocusSession { created_at?: string; duration_minutes?: number }
 interface RawHabit { id: string; title: string; color: string }
 interface RawHabitLog { habit_id: string; logged_date: string }
 interface RawJournalEntry { mood?: number | null; entry_date: string }
+interface RawGoal { id: string; title: string }
 
 interface Props {
   tasks: RawTask[]
@@ -23,6 +24,7 @@ interface Props {
   habits: RawHabit[]
   habitLogs: RawHabitLog[]
   journalEntries: RawJournalEntry[]
+  goals: RawGoal[]
 }
 
 type RangeOption = 7 | 30 | 90
@@ -204,7 +206,244 @@ function ActivityHeatmap({ days, getScore }: { days: Date[]; getScore: (d: Date)
   )
 }
 
-export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journalEntries }: Props) {
+// ---------------------------------------------------------------------
+// Weekly rings — « Ma semaine » (concept Apple Activity Card adapté)
+// Anneaux SVG animés + liste chiffrée. Couleurs = chart-* du thème actif,
+// donc les anneaux changent avec le thème. Jamais de données inventées :
+// chaque valeur provient des props (7 derniers jours), les seuls « objectifs »
+// sont des objectifs hebdo par défaut clairement étiquetés (concentration,
+// tâches) — habitudes, journal et régularité sont sur leur capacité réelle.
+// ---------------------------------------------------------------------
+interface RingDatum {
+  label: string
+  current: number
+  target: number
+  unit: string
+  color: string
+}
+
+function clampPct(value: number, target: number) {
+  if (target <= 0) return 0
+  return Math.min(100, Math.round((value / target) * 100))
+}
+
+function Ring({
+  datum,
+  index,
+  size = 96,
+}: {
+  datum: RingDatum
+  index: number
+  size?: number
+}) {
+  const strokeWidth = 9
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const pct = clampPct(datum.current, datum.target)
+  const offset = circumference - (pct / 100) * circumference
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5, delay: index * 0.1, ease: 'easeOut' }}
+      className="flex flex-col items-center gap-1.5"
+    >
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          className="block -rotate-90"
+          role="img"
+          aria-label={`${datum.label} : ${datum.current} ${datum.unit} sur ${datum.target} ${datum.unit}`}
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="var(--kt-muted)"
+            strokeWidth={strokeWidth}
+          />
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={datum.color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 1.4, delay: 0.15 + index * 0.12, ease: 'easeInOut' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-sm font-bold text-foreground tabular-nums">{pct}%</span>
+        </div>
+      </div>
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {datum.label}
+      </span>
+    </motion.div>
+  )
+}
+
+function WeeklyRings({
+  tasks,
+  focusSessions,
+  habits,
+  habitLogs,
+  journalEntries,
+  goals,
+}: Props) {
+  const weekStart = subDays(new Date(), 6)
+  const days = eachDayOfInterval({ start: weekStart, end: new Date() })
+  const dayKeys = new Set(days.map((d) => format(d, 'yyyy-MM-dd')))
+
+  const focusMin = focusSessions
+    .filter((f) => f.created_at && dayKeys.has(f.created_at.slice(0, 10)))
+    .reduce((a, f) => a + (f.duration_minutes ?? 0), 0)
+  const tasksDone = tasks.filter(
+    (t) => t.status === 'done' && t.completed_at && dayKeys.has(t.completed_at.slice(0, 10))
+  ).length
+  const habitCount = habitLogs.filter((l) => dayKeys.has(l.logged_date)).length
+  const habitCapacity = habits.length * 7
+  const journalCount = journalEntries.filter((e) => dayKeys.has(e.entry_date)).length
+
+  // Jours « actifs » : au moins une tâche terminée, une session focus,
+  // une habitude cochée ou une entrée de journal dans la journée.
+  const activeDays = days.filter((d) => {
+    const k = format(d, 'yyyy-MM-dd')
+    return (
+      tasks.some((t) => t.status === 'done' && t.completed_at?.startsWith(k)) ||
+      focusSessions.some((f) => f.created_at?.startsWith(k)) ||
+      habitLogs.some((l) => l.logged_date === k) ||
+      journalEntries.some((e) => e.entry_date === k)
+    )
+  }).length
+
+  // Progression moyenne des objectifs : tâches liées terminées / tâches liées
+  // (jamais de chiffre inventé — uniquement les vraies liaisons goal_id).
+  const goalProgress = goals.map((g) => {
+    const linked = tasks.filter((t) => t.goal_id === g.id)
+    const done = linked.filter((t) => t.status === 'done').length
+    return linked.length > 0 ? Math.round((done / linked.length) * 100) : null
+  })
+  const avgGoal = (() => {
+    const values = goalProgress.filter((v): v is number => v !== null)
+    if (values.length === 0) return null
+    return Math.round(values.reduce((a, v) => a + v, 0) / values.length)
+  })()
+
+  const rings: RingDatum[] = [
+    {
+      label: 'Concentration',
+      current: focusMin,
+      target: 150, // 2 h 30 / semaine — objectif par défaut, affiché comme tel
+      unit: 'min',
+      color: 'var(--kt-chart-1)',
+    },
+    {
+      label: 'Tâches',
+      current: tasksDone,
+      target: 21, // 3 / jour — objectif par défaut, affiché comme tel
+      unit: '',
+      color: 'var(--kt-chart-2)',
+    },
+    {
+      label: 'Habitudes',
+      current: habitCount,
+      target: habitCapacity,
+      unit: '',
+      color: 'var(--kt-chart-3)',
+    },
+    {
+      label: 'Régularité',
+      current: activeDays,
+      target: 7,
+      unit: 'j',
+      color: 'var(--kt-chart-4)',
+    },
+  ]
+
+  const stats: { label: string; value: string; color: string; note: string }[] = [
+    { label: 'Concentration', value: `${focusMin} min`, color: 'var(--kt-chart-1)', note: 'sur 150 min d’objectif hebdo' },
+    { label: 'Tâches', value: `${tasksDone} terminées`, color: 'var(--kt-chart-2)', note: 'sur 21 d’objectif hebdo' },
+    {
+      label: 'Habitudes',
+      value: habitCapacity > 0 ? `${habitCount} / ${habitCapacity}` : '—',
+      color: 'var(--kt-chart-3)',
+      note: habitCapacity > 0 ? 'sur la capacité réelle de la semaine' : 'aucune habitude suivie',
+    },
+    { label: 'Journal', value: `${journalCount} entrées`, color: 'var(--kt-complement)', note: 'sur 7 jours possibles' },
+    {
+      label: 'Objectifs',
+      value: avgGoal !== null ? `${avgGoal} %` : '—',
+      color: 'var(--kt-warm)',
+      note: avgGoal !== null ? 'progression moyenne des objectifs en cours' : 'aucun objectif avec tâches liées',
+    },
+    { label: 'Régularité', value: `${activeDays} j`, color: 'var(--kt-chart-4)', note: 'jours actifs sur 7' },
+  ]
+
+  const hasAnyActivity = focusMin > 0 || tasksDone > 0 || habitCount > 0 || journalCount > 0
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className={cardVariants({ padding: 'md' })}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <TrendingUp className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Ma semaine</h3>
+        <span className="ml-auto text-xs text-muted-foreground">7 derniers jours</span>
+      </div>
+
+      {!hasAnyActivity && habits.length === 0 ? (
+        <div className="py-8 text-center">
+          <p className="text-sm text-foreground font-medium">Aucune activité cette semaine</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            Termine une tâche, lance une session Focus ou note une habitude —
+            les anneaux se rempliront avec tes vraies données.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col md:flex-row items-center gap-8 md:gap-10 py-4">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5 shrink-0">
+            {rings.map((r, i) => (
+              <Ring key={r.label} datum={r} index={i} />
+            ))}
+          </div>
+
+          <div className="w-full md:flex-1 grid sm:grid-cols-2 gap-x-6 gap-y-3">
+            {stats.map((s) => (
+              <div key={s.label} className="flex items-center gap-2.5 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground font-medium truncate">
+                    {s.label} <span className="font-bold">· {s.value}</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-snug">{s.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-[11px] text-muted-foreground/80 border-t border-border pt-3 mt-1 leading-relaxed">
+        Concentration et tâches comparent tes 7 derniers jours à un objectif hebdo par défaut.
+        Habitudes, journal et régularité sont calculés sur ta capacité réelle — aucune donnée inventée.
+      </p>
+    </motion.div>
+  )
+}
+
+export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journalEntries, goals }: Props) {
   const [range, setRange] = useState<RangeOption>(30)
   const [habitFilter, setHabitFilter] = useState<string>('all')
 
@@ -372,6 +611,16 @@ export function AnalyticsClient({ tasks, focusSessions, habits, habitLogs, journ
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-5xl mx-auto space-y-6">
+          {/* Ma semaine — anneaux de progression (couleurs du thème actif) */}
+          <WeeklyRings
+            tasks={tasks}
+            focusSessions={focusSessions}
+            habits={habits}
+            habitLogs={habitLogs}
+            journalEntries={journalEntries}
+            goals={goals}
+          />
+
           {/* KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {kpis.map((kpi, i) => (

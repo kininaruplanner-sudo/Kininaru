@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans, Inter, Pacifico } from 'next/font/google'
 import { SITE_URL } from '@/lib/site-url'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -52,6 +52,15 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
   weight: ['500', '700'],
+  display: 'swap',
+})
+
+// Pacifico — accent manuscrit réservé à un mot du hero (landing). Chargée
+// côté serveur comme les autres polices ; exposée via --font-pacifico.
+const pacifico = Pacifico({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-pacifico',
   display: 'swap',
 })
 
@@ -158,7 +167,7 @@ export default function RootLayout({
     <html
       lang="fr"
       suppressHydrationWarning
-      className={`${jakarta.variable} ${inter.variable} bg-background`}
+      className={`${jakarta.variable} ${inter.variable} ${pacifico.variable} bg-background`}
     >
       <body className={`${inter.className} antialiased`}>
         {/* Google Tag Manager (noscript) — placé juste après l'ouverture de

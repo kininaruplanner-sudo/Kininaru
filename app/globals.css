@@ -246,6 +246,33 @@
   }
 }
 
+  /* Accent manuscrit (Pacifico) — un seul mot du hero, jamais du corps de texte. */
+  .kin-script {
+    font-family: var(--font-pacifico), 'Segoe Script', cursive;
+    font-weight: 400;
+  }
+
+  /* Anneaux concentriques du Card Flip (recto) — pulsation douce qui suit
+     la couleur primaire du thème actif. */
+  @keyframes kin-ring {
+    0% {
+      transform: scale(1.8);
+      opacity: 0;
+      box-shadow: 0 0 40px color-mix(in srgb, var(--kt-primary) 45%, transparent);
+    }
+    45% {
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(0.4);
+      opacity: 0;
+      box-shadow: 0 0 0 color-mix(in srgb, var(--kt-primary) 0%, transparent);
+    }
+  }
+  .kin-ring {
+    animation: kin-ring 3s linear infinite;
+  }
+
 /* ---------------------------------------------------------------------- */
 /* Respect users who prefer reduced motion: kill animations/transitions.  */
 /* ---------------------------------------------------------------------- */

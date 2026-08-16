@@ -595,17 +595,35 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
     }
   }, [searchParams, router])
 
-  // Keyboard shortcuts: arrows navigate, T = today, M/W/D/A switch views, N = new event.
-  // Guards (fixed in the UX audit): never while typing in input/textarea/
-  // select/contentEditable, never during IME composition, never when a
-  // Ctrl/Cmd/Alt combo is pressed (browser shortcuts must keep working),
-  // and the handled keys preventDefault so 'n'/'t' never type into the page.
+  // Keyboard shortcuts: ←/→ navigate, T = today, M/W/D/A switch views,
+  // N = new event, Esc = fermer la modale d'événement.
+  // Guards (audit UX — testés en réel, pas seulement affichés) : jamais
+  // pendant la saisie (input/textarea/select/contentEditable), jamais pendant
+  // la composition IME, jamais avec Ctrl/Cmd/Alt (raccourcis navigateur),
+  // jamais si un autre handler a déjà consommé la touche (defaultPrevented),
+  // jamais sous une autre fenêtre modale (aria-modal). Les touches gérées
+  // preventDefault pour que 'n'/'t' ne tapent jamais dans la page.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (showModal) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.isComposing) return
+
+      // Esc ferme toujours la modale d'événement (même en cours de saisie).
+      if (e.key === 'Escape') {
+        if (showModal) {
+          e.preventDefault()
+          setShowModal(false)
+        }
+        return
+      }
+
+      if (showModal) return
       if (isTypingTarget(e.target)) return
+      if (e.defaultPrevented) return
+      // Fenêtres superposées (Paramètres flottants…) : pas de raccourci sous
+      // une autre modale — le calendrier n'est pas l'écran actif.
+      if (document.querySelector('[aria-modal="true"]')) return
+
       switch (e.key) {
         case 'ArrowLeft': e.preventDefault(); goToPrevious(); break
         case 'ArrowRight': e.preventDefault(); goToNext(); break
@@ -711,6 +729,7 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
             ['T', 'Jump to today'],
             ['M W D A', 'Switch view'],
             ['N', 'New event'],
+            ['Esc', 'Close dialog'],
           ].map(([keys, label]) => (
             <div key={label} className="flex items-center justify-between">
               <span>{label}</span>

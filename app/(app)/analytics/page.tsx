@@ -11,12 +11,13 @@ export default async function AnalyticsPage() {
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
   const dateStr = ninetyDaysAgo.toISOString().split('T')[0]
 
-  const [tasksRes, focusRes, habitsRes, habitLogsRes, journalRes] = await Promise.all([
+  const [tasksRes, focusRes, habitsRes, habitLogsRes, journalRes, goalsRes] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user!.id).gte('created_at', dateStr),
     supabase.from('focus_sessions').select('*').eq('user_id', user!.id).gte('created_at', dateStr),
     supabase.from('habits').select('*').eq('user_id', user!.id),
     supabase.from('habit_logs').select('*').eq('user_id', user!.id).gte('logged_date', dateStr),
     supabase.from('journal_entries').select('mood, entry_date').eq('user_id', user!.id).gte('entry_date', dateStr),
+    supabase.from('goals').select('id, title').eq('user_id', user!.id),
   ])
 
   return (
@@ -26,6 +27,7 @@ export default async function AnalyticsPage() {
       habits={habitsRes.data ?? []}
       habitLogs={habitLogsRes.data ?? []}
       journalEntries={journalRes.data ?? []}
+      goals={goalsRes.data ?? []}
     />
   )
 }
