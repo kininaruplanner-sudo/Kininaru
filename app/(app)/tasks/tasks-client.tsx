@@ -34,6 +34,7 @@ import { cardVariants } from '@/components/ui/card'
 import { palette } from '@/lib/palette'
 import { PageHeader } from '@/components/page-header'
 import { enqueueOp, newLocalId } from '@/lib/offline/sync-queue'
+import { useI18n } from '@/lib/i18n'
 
 type Priority = 'low' | 'medium' | 'high' | 'urgent'
 type Status = 'todo' | 'in_progress' | 'done'
@@ -133,6 +134,7 @@ function SubtaskProgress({ done, total }: { done: number; total: number }) {
 }
 
 export function TasksClient({ tasks: initialTasks, userId }: Props) {
+  const { t } = useI18n()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [view, setView] = useState<ViewMode>('list')
   const [showModal, setShowModal] = useState(false)
@@ -1199,14 +1201,18 @@ export function TasksClient({ tasks: initialTasks, userId }: Props) {
                     className="flex-1 transition-smooth"
                     onClick={() => setShowModal(false)}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     className="flex-1 transition-smooth hover:scale-[1.02]"
                     onClick={saveTask}
                     disabled={loading || !form.title.trim()}
                   >
-                    {loading ? 'Saving...' : editingTask ? 'Save changes' : 'Create task'}
+                    {loading
+                      ? t('tasks.saving')
+                      : editingTask
+                        ? t('tasks.saveChanges')
+                        : t('tasks.createTask')}
                   </Button>
                 </div>
               </div>

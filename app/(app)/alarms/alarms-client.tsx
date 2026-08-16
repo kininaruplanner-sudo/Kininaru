@@ -76,6 +76,7 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
   const [sound, setSound] = useState(true)
   const [vibrate, setVibrate] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   )
@@ -202,7 +203,7 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
     if (!trimmed || !time) return
     const ok = await ensurePermission()
     if (!ok && permission !== 'unsupported') return
-    const { data } = await supabase
+    const { data, error: insertErr } = await supabase
       .from('alarms')
       .insert({
         user_id: userId,
@@ -215,7 +216,14 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
       })
       .select()
       .single()
+    if (insertErr) {
+      setError(
+        "Impossible d'enregistrer l'alarme (table non initialisée ?). Exécutez supabase/alarms.sql dans Supabase, puis réessayez."
+      )
+      return
+    }
     if (data) {
+      setError(null)
       setAlarms((prev) => [...prev, data as AlarmRow])
       setTitle('')
       setAdding(false)
@@ -228,17 +236,43 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
       const ok = await ensurePermission()
       if (!ok && permission !== 'unsupported') return
     }
-    await supabase.from('alarms').update({ enabled: next }).eq('id', alarm.id)
+    const { error: toggleErr } = await supabase
+      .from('alarms')
+      .update({ enabled: next })
+      .eq('id', alarm.id)
+    if (toggleErr) {
+      setError("Impossible de modifier l'alarme. Réessayez dans un instant.")
+      return
+    }
+    setError(null)
     setAlarms((prev) => prev.map((a) => (a.id === alarm.id ? { ...a, enabled: next } : a)))
   }
 
   const deleteAlarm = async (id: string) => {
-    await supabase.from('alarms').delete().eq('id', id)
+    const { error: deleteErr } = await supabase.from('alarms').delete().eq('id', id)
+    if (deleteErr) {
+      setError("Impossible de supprimer l'alarme. Réessayez dans un instant.")
+      return
+    }
+    setError(null)
     setAlarms((prev) => prev.filter((a) => a.id !== id))
   }
 
   return (
     <div className="space-y-5">
+      {error && (
+        <div
+          className={cn(
+            cardVariants({ padding: 'md' }),
+            'flex items-start gap-3 border-destructive/30 bg-destructive/10'
+          )}
+          role="alert"
+        >
+          <Info className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <p className="text-xs text-destructive leading-relaxed">{error}</p>
+        </div>
+      )}
+
       {/* Honest platform limits — never over-promise an alarm while closed. */}
       <div
         className={cn(

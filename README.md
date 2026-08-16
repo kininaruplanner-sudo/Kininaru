@@ -56,6 +56,10 @@ Ouvrez http://localhost:3000.
 | `CRON_SECRET` | Secret partagé qui protège `/api/cron/briefs` (en-tête `x-cron-secret`) |
 | `KIN_TEST_EMAIL` / `KIN_TEST_PASSWORD` | Compte de test pour `npm run test:ai:live` |
 | `ADMIN_FEEDBACK_WEBHOOK_URL` | **Optionnel** — URL d'un webhook (Discord, Slack, n8n…) prévenu à chaque nouveau retour utilisateur (`POST` fire-and-forget), **en plus** de l'email. |
+| `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | **Calendriers Google** — ID client OAuth (public par nature). Requis pour le bouton « Connecter » Google. |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | **Calendriers Google** — secret OAuth (**serveur uniquement**). |
+| `NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID` | **Calendriers Microsoft** — ID client Entra (public par nature). Requis pour le bouton « Connecter » Microsoft. |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | **Calendriers Microsoft** — secret Entra (**serveur uniquement**). |
 | `SENDGRID_API_KEY` | **Requis pour l'email admin** — clé API SendGrid (**serveur uniquement**, plan gratuit 100 emails/jour). Sans elle, les retours restent dans Supabase mais aucun email n'est envoyé. |
 | `ADMIN_FEEDBACK_EMAIL` | **Requis pour l'email admin** — destinataire des alertes (ex. `kininaru.planner@gmail.com`). Définie dans Vercel, jamais codée en dur dans le code. |
 | `ADMIN_FEEDBACK_FROM_EMAIL` | **Optionnel** — expéditeur de l'alerte (adresse **vérifiée dans SendGrid** comme Single Sender). Si absente, l'expéditeur = destinataire (`ADMIN_FEEDBACK_EMAIL`). |
@@ -78,12 +82,16 @@ Puis exécutez les fichiers **additifs** (sans risque, relançables) :
 3. `supabase/feedback.sql` — active les **retours utilisateurs** (table `feedback`, RLS strict : chaque utilisateur ne crée/consulte que ses propres retours, aucune modification/suppression possible, pas de page admin publique). **Décision bêta : les retours sont réservés aux utilisateurs connectés** — l'API `/api/feedback` exige une session et pose `user_id` depuis celle-ci ; aucun retour anonyme n'est accepté. Sans lui, le formulaire affiche une erreur à l'envoi.
 4. `supabase/alarms.sql` — active les **alarmes** (table `alarms`, RLS par utilisateur). Sans lui, la page Alarmes s'affiche mais rien ne peut être enregistré.
 5. `supabase/calendar.sql` — active les **calendriers externes** (`calendar_connections` + `calendar_synced_events`, RLS par utilisateur). Sans lui, la section « Calendriers connectés » des Paramètres reste vide.
-7. `supabase/calendar-security.sql` — **sécurité des tokens OAuth** : révoque tout accès client aux tables de connexion et expose une fonction `my_calendar_connections()` qui ne renvoie QUE les champs sûrs (jamais `access_token`/`refresh_token`). Toutes les mutations passent par les routes API. Sans lui, les tokens restent théoriquement lisibles par le navigateur.
-8. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
-9. `supabase/goals.sql` — active les **Objectifs** (table `goals` + colonne `tasks.goal_id`, RLS par utilisateur). Sans lui, la page Objectifs s'affiche mais rien ne peut être enregistré et l'action IA `create_goal` échoue.
-10. `supabase/reminders.sql` — active les **rappels temporels** (colonne `tasks.scheduled_time` + déduplication `push_send_log.reminder_key`). Sans lui, l'heure planifiée n'est pas persistée et le cron de rappels ne peut pas dédupliquer.
-11. `supabase/scheduler.sql` — planifie les crons dans Supabase (pg_cron + pg_net : brief du soir 20:00 UTC, brief hebdo lundi 08:00 UTC, rappels toutes les 15 min) et autorise le type de notification `reminder`. Aucun secret ni domaine codé en dur : les valeurs sont lues dans la table serveur `public.app_config` (`app_url`, `cron_secret`) — **à renseigner une fois dans le SQL Editor** (voir l'en-tête du fichier). Sans lui : brief du matin et maintenance via le cron Vercel unique, briefs soir/hebdo et rappels uniquement quand l'app est ouverte.
-12. `supabase/timezone.sql` — ajoute `profiles.timezone` (nom IANA) : le cron de rappels convertit alors `scheduled_time` (heure mur locale) en instant UTC exact pour chaque utilisateur. Sans lui, les rappels serveur retombent sur UTC.
+6. `supabase/calendar-security.sql` — **sécurité des tokens OAuth** : révoque tout accès client aux tables de connexion et expose une fonction `my_calendar_connections()` qui ne renvoie QUE les champs sûrs (jamais `access_token`/`refresh_token`). Toutes les mutations passent par les routes API. Sans lui, les tokens restent théoriquement lisibles par le navigateur.
+7. `supabase/offline.sql` — active le **registre de synchronisation hors ligne** (table `sync_queue`, RLS par utilisateur). La file locale (IndexedDB) fonctionne sans lui ; il conserve la trace des opérations rejouées et des conflits.
+8. `supabase/goals.sql` — active les **Objectifs** (table `goals` + colonne `tasks.goal_id`, RLS par utilisateur). Sans lui, la page Objectifs s'affiche mais rien ne peut être enregistré et l'action IA `create_goal` échoue.
+9. `supabase/reminders.sql` — active les **rappels temporels** (colonne `tasks.scheduled_time` + déduplication `push_send_log.reminder_key`). Sans lui, l'heure planifiée n'est pas persistée et le cron de rappels ne peut pas dédupliquer.
+10. `supabase/scheduler.sql` — planifie les crons dans Supabase (pg_cron + pg_net : brief du soir 20:00 UTC, brief hebdo lundi 08:00 UTC, rappels toutes les 15 min) et autorise le type de notification `reminder`. Aucun secret ni domaine codé en dur : les valeurs sont lues dans la table serveur `public.app_config` (`app_url`, `cron_secret`) — **à renseigner une fois dans le SQL Editor** (voir l'en-tête du fichier). Sans lui : brief du matin et maintenance via le cron Vercel unique, briefs soir/hebdo et rappels uniquement quand l'app est ouverte.
+11. `supabase/timezone.sql` — ajoute `profiles.timezone` (nom IANA) : le cron de rappels convertit alors `scheduled_time` (heure mur locale) en instant UTC exact pour chaque utilisateur. Sans lui, les rappels serveur retombent sur UTC.
+12. `supabase/oauth-states.sql` — **sécurité OAuth** : table des états one-time (anti-CSRF / anti-replay) utilisée par les flux Google/Microsoft. Sans lui, le bouton « Connecter » des calendriers affiche une erreur explicite (aucun faux succès).
+13. `supabase/calendar-sync-rpc.sql` — **import atomique** des événements de calendrier (transaction PostgreSQL unique : événement + mapping ensemble, suppression fenêtrée des événements disparus). Sans lui, la synchronisation affiche une erreur explicite.
+14. `supabase/ai-rate-limit.sql` — **rate limit IA distribué** (chat / actions / journal) : compteurs atomiques par utilisateur, globaux entre instances serverless. Sans lui, le fallback mémoire local reste actif (limite par instance).
+15. `supabase/calendar-vault.sql` — **OPTIONNEL** (plans Supabase avec `supabase_vault`) : préparation au chiffrement des tokens OAuth au repos. Ne pas exécuter avant la bascule runtime documentée dans le fichier.
 
 ### Consulter les retours utilisateurs (admin)
 
@@ -184,7 +192,7 @@ portent la logique métier, les routes `app/api/*` encapsulent les appels serveu
 ## Sécurité
 
 - RLS active sur toutes les tables ; chaque requête est scopée à `auth.uid()`.
-- La clé Groq reste **uniquement côté serveur** ; l'API `/api/chat` est authentifiée et limitée (20 requêtes/min).
+- La clé Groq reste **uniquement côté serveur** ; l'API `/api/chat` est authentifiée et limitée (20 requêtes/min), `/api/ai/actions` 40/min, `/api/ai/journal` 10/min — compteurs **distribués** (Supabase, `supabase/ai-rate-limit.sql`), plus une limite purement locale.
 - Les actions IA passent par une **whitelist validée côté serveur** — le modèle ne génère jamais de SQL et ne peut pas exécuter de code.
 - La clé `service_role` est réservée au cron serveur ; jamais utilisée depuis le client.
 - Les données IA sont **minimales** : le journal n'envoie que l'entrée sélectionnée, la mémoire n'est injectée que si l'utilisateur l'active.

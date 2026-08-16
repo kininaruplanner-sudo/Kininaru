@@ -33,13 +33,19 @@ def twaManifest = [
     navigationDividerColor: '#F7F9FC', // The navbar divider color.
     navigationDividerColorDark: '#16161F', // The dark navbar divider color.
     backgroundColor: '#F7F9FC', // The color used for the splash screen background.
-    enableNotifications: false, // Set to true to enable notification delegation.
+    enableNotifications: true, // Web Push is a core Kininaru feature — delegation enabled.
     // Every shortcut must include the following fields:
     // - name: String that will show up in the shortcut.
     // - short_name: Shorter string used if |name| is too long.
     // - url: Absolute path of the URL to launch the app with (e.g '/create').
     // - icon: Name of the resource in the drawable folder to use as an icon.
-    shortcuts: [],
+    // The URLs below match the REAL Kininaru web routes (deep links handled
+    // by the web app: /tasks?new=1, /focus, /journal).
+    shortcuts: [
+        [name: 'Nouvelle tâche', short_name: 'Tâche', url: '/tasks?new=1'],
+        [name: 'Session Focus', short_name: 'Focus', url: '/focus'],
+        [name: 'Écrire au journal', short_name: 'Journal', url: '/journal'],
+    ],
     // The duration of fade out animation in milliseconds to be played when removing splash screen.
     splashScreenFadeOutDuration: 300,
     generatorApp: 'bubblewrap-cli', // Application that generated the Android Project

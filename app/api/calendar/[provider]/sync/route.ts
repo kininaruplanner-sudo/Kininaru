@@ -8,6 +8,7 @@ import {
   refreshMicrosoftToken,
 } from '@/lib/calendar/oauth'
 import { parseIcs } from '@/lib/calendar/ics'
+import { localToUtcDate } from '@/lib/time'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,8 +20,16 @@ export const dynamic = 'force-dynamic'
  * ICS subscriptions. Reads the connection (tokens included) via the service
  * role — the client can never touch tokens — refreshes the access token when
  * needed, imports/updates events with deduplication keyed by
- * (connection_id, external_event_id), and updates last_sync_at / sync_error
- * honestly. Returns structured errors (503 = configuration, 502 = upstream).
+ * (connection_id, external_event_id) inside a SINGLE PostgreSQL transaction
+ * (RPC calendar_import_events, supabase/calendar-sync-rpc.sql), deletes
+ * events that disappeared from the provider within the sync window, and
+ * updates last_sync_at / sync_error honestly.
+ *
+ * Pagination is followed (5 pages max per provider), all-day events are
+ * anchored at local noon in the USER's timezone so they land on the right
+ * date wherever the user is, and recurring series are expanded by the
+ * providers themselves (singleEvents / calendarview). Idempotent: re-syncing
+ * never creates duplicates.
  */
 interface ExternalItem {
   externalId: string
@@ -33,6 +42,9 @@ interface ExternalItem {
 }
 
 const FETCH_TIMEOUT_MS = 15_000
+const MAX_PAGES = 5
+const WINDOW_PAST_DAYS = 7
+const WINDOW_FUTURE_MONTHS = 2
 
 async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
   const controller = new AbortController()
@@ -46,80 +58,141 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
   }
 }
 
-async function fetchGoogleEvents(accessToken: string): Promise<ExternalItem[]> {
-  const timeMin = new Date()
-  timeMin.setDate(timeMin.getDate() - 7)
-  const timeMax = new Date()
-  timeMax.setMonth(timeMax.getMonth() + 2)
-  const params = new URLSearchParams({
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    singleEvents: 'true',
-    maxResults: '250',
-  })
-  const data = (await fetchJson(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  )) as {
-    items?: {
-      id?: string
-      etag?: string
-      summary?: string
-      description?: string
-      location?: string
-      start?: { dateTime?: string; date?: string }
-      end?: { dateTime?: string; date?: string }
-    }[]
-  }
-  return (data.items ?? [])
-    .map((it) => ({
-      externalId: it.id ?? '',
-      etag: it.etag ?? null,
-      title: it.summary || '(sans titre)',
-      description: it.description ?? null,
-      location: it.location ?? null,
-      startAt: new Date(it.start?.dateTime ?? it.start?.date ?? ''),
-      endAt: new Date(it.end?.dateTime ?? it.end?.date ?? ''),
-    }))
-    .filter((e) => e.externalId && !Number.isNaN(e.startAt.getTime()))
+interface GoogleItem {
+  id?: string
+  etag?: string
+  summary?: string
+  description?: string
+  location?: string
+  start?: { dateTime?: string; date?: string }
+  end?: { dateTime?: string; date?: string }
 }
 
-async function fetchMicrosoftEvents(accessToken: string): Promise<ExternalItem[]> {
+interface MsItem {
+  id?: string
+  subject?: string
+  bodyPreview?: string
+  location?: { displayName?: string }
+  start?: { dateTime?: string; date?: string }
+  end?: { dateTime?: string; date?: string }
+  changeKey?: string
+}
+
+function windowBounds(): { min: Date; max: Date } {
   const timeMin = new Date()
-  timeMin.setDate(timeMin.getDate() - 7)
+  timeMin.setDate(timeMin.getDate() - WINDOW_PAST_DAYS)
   const timeMax = new Date()
-  timeMax.setMonth(timeMax.getMonth() + 2)
-  const params = new URLSearchParams({
-    startdatetime: timeMin.toISOString(),
-    enddatetime: timeMax.toISOString(),
-    $select: 'id,subject,bodyPreview,location,start,end,changeKey',
-    $top: '250',
-  })
-  const data = (await fetchJson(
-    `https://graph.microsoft.com/v1.0/me/calendarview?${params}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  )) as {
-    value?: {
-      id?: string
-      subject?: string
-      bodyPreview?: string
-      location?: { displayName?: string }
-      start?: { dateTime?: string }
-      end?: { dateTime?: string }
-      changeKey?: string
-    }[]
+  timeMax.setMonth(timeMax.getMonth() + WINDOW_FUTURE_MONTHS)
+  return { min: timeMin, max: timeMax }
+}
+
+/**
+ * All-day events (start.date without start.dateTime) are anchored at local
+ * noon in the user's timezone: whatever the user's offset, the event stays
+ * on the right calendar day. Timed events keep their exact instant.
+ */
+function toInstants(
+  start: { dateTime?: string; date?: string } | undefined,
+  end: { dateTime?: string; date?: string } | undefined,
+  userTz: string
+): { startAt: Date; endAt: Date } {
+  const allDay = Boolean(start?.date && !start?.dateTime)
+  if (allDay) {
+    const dateKey = start?.date ?? ''
+    const endKey = end?.date || dateKey
+    const startAt = /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+      ? localToUtcDate(dateKey, '12:00', userTz)
+      : new Date(Number.NaN)
+    let endAt = /^\d{4}-\d{2}-\d{2}$/.test(endKey)
+      ? localToUtcDate(endKey, '12:00', userTz)
+      : new Date(Number.NaN)
+    if (Number.isNaN(endAt.getTime())) {
+      endAt = Number.isNaN(startAt.getTime())
+        ? new Date(Number.NaN)
+        : new Date(startAt.getTime() + 24 * 60 * 60 * 1000)
+    }
+    return { startAt, endAt }
   }
-  return (data.value ?? [])
-    .map((it) => ({
-      externalId: it.id ?? '',
-      etag: it.changeKey ?? null,
-      title: it.subject || '(sans titre)',
-      description: it.bodyPreview ?? null,
-      location: it.location?.displayName ?? null,
-      startAt: new Date(it.start?.dateTime ?? ''),
-      endAt: new Date(it.end?.dateTime ?? ''),
-    }))
-    .filter((e) => e.externalId && !Number.isNaN(e.startAt.getTime()))
+  return {
+    startAt: new Date(start?.dateTime ?? ''),
+    endAt: new Date(end?.dateTime ?? start?.dateTime ?? ''),
+  }
+}
+
+async function fetchGoogleEvents(
+  accessToken: string,
+  calendarId: string | null,
+  userTz: string
+): Promise<ExternalItem[]> {
+  const { min, max } = windowBounds()
+  const out: ExternalItem[] = []
+  let pageToken: string | null = null
+  const cal = calendarId || 'primary'
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      timeMin: min.toISOString(),
+      timeMax: max.toISOString(),
+      singleEvents: 'true',
+      maxResults: '250',
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+    const data = (await fetchJson(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events?${params}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )) as { items?: GoogleItem[]; nextPageToken?: string }
+    for (const it of data.items ?? []) {
+      if (!it.id) continue
+      const { startAt, endAt } = toInstants(it.start, it.end, userTz)
+      if (Number.isNaN(startAt.getTime())) continue
+      out.push({
+        externalId: it.id,
+        etag: it.etag ?? null,
+        title: it.summary || '(sans titre)',
+        description: it.description ?? null,
+        location: it.location ?? null,
+        startAt,
+        endAt,
+      })
+    }
+    pageToken = data.nextPageToken ?? null
+    if (!pageToken) break
+  }
+  return out
+}
+
+async function fetchMicrosoftEvents(accessToken: string, userTz: string): Promise<ExternalItem[]> {
+  const { min, max } = windowBounds()
+  const out: ExternalItem[] = []
+  const base = 'https://graph.microsoft.com/v1.0/me/calendarview'
+  let url: string | null =
+    `${base}?` +
+    new URLSearchParams({
+      startdatetime: min.toISOString(),
+      enddatetime: max.toISOString(),
+      $select: 'id,subject,bodyPreview,location,start,end,changeKey',
+      $top: '250',
+    }).toString()
+  for (let page = 0; page < MAX_PAGES && url; page++) {
+    const data = (await fetchJson(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })) as { value?: MsItem[]; '@odata.nextLink'?: string }
+    for (const it of data.value ?? []) {
+      if (!it.id) continue
+      const { startAt, endAt } = toInstants(it.start, it.end, userTz)
+      if (Number.isNaN(startAt.getTime())) continue
+      out.push({
+        externalId: it.id,
+        etag: it.changeKey ?? null,
+        title: it.subject || '(sans titre)',
+        description: it.bodyPreview ?? null,
+        location: it.location?.displayName ?? null,
+        startAt,
+        endAt,
+      })
+    }
+    url = data['@odata.nextLink'] ?? null
+  }
+  return out
 }
 
 interface ConnectionRow {
@@ -131,65 +204,6 @@ interface ConnectionRow {
   refresh_token: string | null
   token_expires_at: string | null
   enabled: boolean
-}
-
-async function upsertExternalItems(
-  service: ReturnType<typeof createServiceClient>,
-  userId: string,
-  connectionId: string,
-  items: ExternalItem[]
-): Promise<number> {
-  const { data: existing } = await service
-    .from('calendar_synced_events')
-    .select('external_event_id, event_id')
-    .eq('connection_id', connectionId)
-  const map = new Map((existing ?? []).map((r) => [r.external_event_id, r.event_id]))
-  const nowIso = new Date().toISOString()
-  for (const item of items) {
-    const eventId = map.get(item.externalId)
-    if (eventId) {
-      await service
-        .from('events')
-        .update({
-          title: item.title,
-          description: item.description,
-          location: item.location,
-          start_at: item.startAt.toISOString(),
-          end_at: item.endAt.toISOString(),
-        })
-        .eq('id', eventId)
-      await service
-        .from('calendar_synced_events')
-        .update({ external_etag: item.etag ?? null, last_synced_at: nowIso })
-        .eq('connection_id', connectionId)
-        .eq('external_event_id', item.externalId)
-    } else {
-      const { data: ev } = await service
-        .from('events')
-        .insert({
-          user_id: userId,
-          title: item.title,
-          description: item.description,
-          location: item.location,
-          start_at: item.startAt.toISOString(),
-          end_at: item.endAt.toISOString(),
-          color: '#CDE9D2',
-          category: 'external',
-        })
-        .select('id')
-        .single()
-      if (ev) {
-        await service.from('calendar_synced_events').insert({
-          user_id: userId,
-          connection_id: connectionId,
-          external_event_id: item.externalId,
-          event_id: ev.id,
-          external_etag: item.etag ?? null,
-        })
-      }
-    }
-  }
-  return items.length
 }
 
 export async function POST(
@@ -210,14 +224,18 @@ export async function POST(
     return Response.json({ error: "Connectez-vous d'abord." }, { status: 401 })
   }
 
-  if (p.kind === 'oauth' && !p.configured) {
-    return Response.json(
-      {
-        error: `Synchronisation ${p.label} non disponible : configurez d'abord l'OAuth (voir docs/calendar-integrations.md).`,
-        missing: p.clientIdEnv,
-      },
-      { status: 503 }
-    )
+  if (p.kind === 'oauth') {
+    const cfgOk =
+      provider === 'google' ? googleOAuthConfig() !== null : microsoftOAuthConfig() !== null
+    if (!cfgOk) {
+      return Response.json(
+        {
+          error: `Synchronisation ${p.label} non disponible : configurez d'abord l'OAuth (voir docs/calendar-integrations.md).`,
+          missing: p.clientIdEnv,
+        },
+        { status: 503 }
+      )
+    }
   }
 
   let body: { connectionId?: string } = {}
@@ -250,18 +268,23 @@ export async function POST(
     }
     syncingConnectionId = conn.id
 
+    // User timezone — all-day events are anchored to local noon in it.
+    const { data: profile } = await service
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .maybeSingle()
+    const userTz = (profile?.timezone as string | undefined) ?? 'UTC'
+
     let items: ExternalItem[] = []
+    const windowStart = new Date()
+    windowStart.setDate(windowStart.getDate() - WINDOW_PAST_DAYS)
+
     if (provider === 'ics') {
       const url = conn.external_account_id
       if (!url || !/^https:\/\//i.test(url)) {
         throw new Error("URL ICS invalide (https requis)")
       }
-      const { data: profile } = await service
-        .from('profiles')
-        .select('timezone')
-        .eq('id', user.id)
-        .maybeSingle()
-      const userTz = (profile?.timezone as string | undefined) ?? 'UTC'
       const controller = new AbortController()
       const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
       let raw: string
@@ -316,11 +339,42 @@ export async function POST(
       }
       items =
         provider === 'google'
-          ? await fetchGoogleEvents(accessToken)
-          : await fetchMicrosoftEvents(accessToken)
+          ? await fetchGoogleEvents(accessToken, conn.external_account_id, userTz)
+          : await fetchMicrosoftEvents(accessToken, userTz)
     }
 
-    const imported = await upsertExternalItems(service, user.id, conn.id, items)
+    // Atomic import: single PostgreSQL transaction (event + mapping upserts
+    // and window-scoped deletion of events missing from the feed).
+    const rpcItems = items.map((i) => ({
+      external_id: i.externalId,
+      etag: i.etag ?? null,
+      title: i.title,
+      description: i.description ?? null,
+      location: i.location ?? null,
+      start_at: i.startAt.toISOString(),
+      end_at: i.endAt.toISOString(),
+    }))
+    const rpc = (await service.rpc('calendar_import_events', {
+      p_user_id: user.id,
+      p_connection_id: conn.id,
+      p_items: rpcItems,
+      p_delete_missing: true,
+      p_window_start:
+        provider === 'ics' ? new Date(0).toISOString() : windowStart.toISOString(),
+    })) as { data: number | null; error: { message: string; code?: string } | null }
+    if (rpc.error) {
+      if (
+        rpc.error.code === 'PGRST202' ||
+        /could not find the function/i.test(rpc.error.message)
+      ) {
+        throw new Error(
+          "Synchronisation impossible : exécutez supabase/calendar-sync-rpc.sql dans Supabase, puis réessayez."
+        )
+      }
+      throw rpc.error
+    }
+    const imported = Number(rpc.data ?? items.length)
+
     await service
       .from('calendar_connections')
       .update({ last_sync_at: new Date().toISOString(), sync_error: null })

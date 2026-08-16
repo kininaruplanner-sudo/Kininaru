@@ -5,6 +5,7 @@ import {
   exchangeMicrosoftCode,
   microsoftAccountInfo,
 } from '@/lib/calendar/oauth'
+import { consumeOAuthState } from '@/lib/oauth-state'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,9 +13,10 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/calendar/microsoft/callback
  *
- * Real Microsoft OAuth callback (Graph): code exchange, account resolution,
- * connection stored via the service role — tokens never readable by the
- * client — then back to /settings?calendar=connected.
+ * Real Microsoft OAuth callback (Graph): consumes the one-time state
+ * (CSRF/replay-safe), code exchange, account resolution via /me (stable
+ * object id), connection stored via the service role — tokens never
+ * readable by the client — then back to /settings?calendar=connected.
  */
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
@@ -39,8 +41,18 @@ export async function GET(req: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user || (state && state !== user.id)) {
+  if (!user) {
     return fail("Session expirée — reconnectez-vous et réessayez")
+  }
+  if (!state) {
+    return fail("Réponse OAuth invalide (state manquant)")
+  }
+
+  // Consume the one-time state (single use, bound to this user, 10 min TTL).
+  const service = createServiceClient()
+  const ok = await consumeOAuthState(service, state, user.id)
+  if (!ok) {
+    return fail("Connexion refusée : état OAuth invalide, expiré ou déjà utilisé — réessayez")
   }
 
   try {
@@ -51,7 +63,6 @@ export async function GET(req: Request) {
       `${origin}/api/calendar/microsoft/callback`
     )
     const account = await microsoftAccountInfo(tokens.access_token)
-    const service = createServiceClient()
     await service.from('calendar_connections').upsert(
       {
         user_id: user.id,

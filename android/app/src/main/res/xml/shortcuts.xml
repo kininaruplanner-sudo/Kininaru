@@ -1,1 +1,46 @@
-<shortcuts xmlns:android='http://schemas.android.com/apk/res/android' />
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Launcher shortcuts — must match the REAL web routes (deep links):
+      - /tasks?new=1   → create a task (handled by tasks-client ?new=1)
+      - /focus         → start a Focus session
+      - /journal       → today's journal entry
+    The web manifest (app/manifest.ts) declares the same three entries.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_legacy_background"
+        android:shortcutId="kin-task"
+        android:shortcutLabel="Nouvelle tâche"
+        android:shortcutShortLabel="Tâche">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://kininaru-planner.vercel.app/tasks?new=1"
+            android:targetClass="com.kininaru.planner.LauncherActivity"
+            android:targetPackage="com.kininaru.planner" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_legacy_background"
+        android:shortcutId="kin-focus"
+        android:shortcutLabel="Session Focus"
+        android:shortcutShortLabel="Focus">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://kininaru-planner.vercel.app/focus"
+            android:targetClass="com.kininaru.planner.LauncherActivity"
+            android:targetPackage="com.kininaru.planner" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_legacy_background"
+        android:shortcutId="kin-journal"
+        android:shortcutLabel="Écrire au journal"
+        android:shortcutShortLabel="Journal">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://kininaru-planner.vercel.app/journal"
+            android:targetClass="com.kininaru.planner.LauncherActivity"
+            android:targetPackage="com.kininaru.planner" />
+    </shortcut>
+</shortcuts>

@@ -1,5 +1,7 @@
 import { runDueBriefs } from '@/lib/web-push/briefs'
 import { createServiceClient } from '@/lib/supabase/service'
+import { cleanupOAuthStates } from '@/lib/oauth-state'
+import { cleanupRateLimits } from '@/lib/ai/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -60,6 +62,16 @@ async function runMaintenance() {
     .lt('created_at', cutoff)
     .select('id')
   purged.notifications = notifRows?.length ?? 0
+
+  // États OAuth consommés/expirés (> 24 h) — jamais de fuite de mémoire.
+  try {
+    purged.oauth_states = await cleanupOAuthStates(supabase)
+  } catch {
+    purged.oauth_states = 0
+  }
+
+  // Buckets de rate-limit IA de plus de 48 h.
+  purged.ai_rate_limits = await cleanupRateLimits()
 
   return purged
 }

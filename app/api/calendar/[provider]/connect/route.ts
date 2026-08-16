@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getProvider } from '@/lib/calendar/providers'
 import {
   googleOAuthConfig,
@@ -6,6 +7,7 @@ import {
   googleAuthorizeUrl,
   microsoftAuthorizeUrl,
 } from '@/lib/calendar/oauth'
+import { createOAuthState } from '@/lib/oauth-state'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,11 +15,13 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/calendar/:provider/connect
  *
- * Starts the real OAuth flow for Google / Microsoft. The authenticated
- * user id is embedded in `state` so the callback can bind the connection
- * to the right account (and reject mismatches). Returns a redirect to the
- * provider's authorize URL — or an honest JSON error when credentials are
- * missing (never a fake button).
+ * Starts the real OAuth flow for Google / Microsoft. A cryptographically
+ * random `state` is generated server-side, stored in oauth_states bound
+ * to the authenticated user (10-min TTL), and placed in the authorize URL
+ * — the callback will consume it once (replay/CSRF-safe, see
+ * lib/oauth-state.ts). Returns a redirect to the provider's authorize URL
+ * — or an honest JSON error when credentials are missing (never a fake
+ * button).
  */
 export async function GET(
   req: Request,
@@ -45,6 +49,7 @@ export async function GET(
 
   const origin = new URL(req.url).origin
 
+  let clientId: string
   if (p.id === 'google') {
     const cfg = googleOAuthConfig()
     if (!cfg) {
@@ -59,10 +64,8 @@ export async function GET(
         { status: 503 }
       )
     }
-    return Response.redirect(googleAuthorizeUrl(origin, cfg.clientId, user.id))
-  }
-
-  if (p.id === 'microsoft') {
+    clientId = cfg.clientId
+  } else if (p.id === 'microsoft') {
     const cfg = microsoftOAuthConfig()
     if (!cfg) {
       return Response.json(
@@ -76,8 +79,28 @@ export async function GET(
         { status: 503 }
       )
     }
-    return Response.redirect(microsoftAuthorizeUrl(origin, cfg.clientId, user.id))
+    clientId = cfg.clientId
+  } else {
+    return Response.json({ error: "Flux non implémenté" }, { status: 501 })
   }
 
-  return Response.json({ error: "Flux non implémenté" }, { status: 501 })
+  // One-time random state bound to this user (server-side). If the SQL
+  // migration is not deployed, the flow cannot start safely — say so.
+  const service = createServiceClient()
+  const state = await createOAuthState(service, user.id)
+  if (!state) {
+    return Response.json(
+      {
+        error:
+          "Impossible de préparer la connexion OAuth — exécutez supabase/oauth-states.sql dans Supabase, puis réessayez.",
+        guide: '/docs/calendar-integrations.md',
+      },
+      { status: 500 }
+    )
+  }
+
+  if (p.id === 'google') {
+    return Response.redirect(googleAuthorizeUrl(origin, clientId, state))
+  }
+  return Response.redirect(microsoftAuthorizeUrl(origin, clientId, state))
 }

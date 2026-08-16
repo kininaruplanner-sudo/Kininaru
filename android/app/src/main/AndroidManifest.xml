@@ -22,6 +22,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.kininaru.planner">
 
+    <!-- Android 13+ : permission nécessaire pour afficher les Web Push
+         délégués dans la TWA (Kininaru utilise le Web Push natif). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     
 
     

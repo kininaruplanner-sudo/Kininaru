@@ -11,7 +11,7 @@
   "navigationDividerColor": "#F7F9FC",
   "navigationDividerColorDark": "#16161F",
   "backgroundColor": "#F7F9FC",
-  "enableNotifications": false,
+  "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://kininaru-planner.vercel.app/icon-512x512.png",
   "maskableIconUrl": "https://kininaru-planner.vercel.app/icon-maskable-512x512.png",
@@ -22,7 +22,26 @@
   },
   "appVersionName": "1",
   "appVersionCode": 1,
-  "shortcuts": [],
+  "shortcuts": [
+    {
+      "name": "Nouvelle tâche",
+      "short_name": "Tâche",
+      "url": "/tasks?new=1",
+      "icon": "https://kininaru-planner.vercel.app/icon-192x192.png"
+    },
+    {
+      "name": "Session Focus",
+      "short_name": "Focus",
+      "url": "/focus",
+      "icon": "https://kininaru-planner.vercel.app/icon-192x192.png"
+    },
+    {
+      "name": "Écrire au journal",
+      "short_name": "Journal",
+      "url": "/journal",
+      "icon": "https://kininaru-planner.vercel.app/icon-192x192.png"
+    }
+  ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://kininaru-planner.vercel.app/manifest.webmanifest",
   "fallbackType": "customtabs",

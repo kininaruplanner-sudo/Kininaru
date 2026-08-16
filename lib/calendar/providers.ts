@@ -11,6 +11,11 @@
  * credentials for it yet (the client id is public by design — OAuth client
  * ids are not secrets; the SECRET stays server-side), and "Connecter" only
  * once it can actually run the OAuth flow.
+ *
+ * The `configured` flag is NOT computed here (build-time env on the client
+ * cannot see the server secret). It comes from the server at runtime via
+ * GET /api/calendar/config — the single source of truth that checks BOTH
+ * the client id and the secret.
  */
 
 export type CalendarProviderId = 'google' | 'microsoft' | 'ics'
@@ -24,17 +29,11 @@ export interface CalendarProvider {
   clientIdEnv: string
   /** Server-side config env var checked by /api/calendar/[provider]/connect. */
   serverConfigEnv: string
-  /** True when the app has the credentials to run this OAuth flow. */
-  configured: boolean
   /** Sync direction this provider currently supports. */
   defaultSyncMode: 'read' | 'read_write'
   /** How the user connects (OAuth URL or manual ICS URL). */
   kind: 'oauth' | 'subscription'
   docsUrl: string
-}
-
-function envConfigured(name: string | undefined): boolean {
-  return Boolean(name && name.trim().length > 0)
 }
 
 export const CALENDAR_PROVIDERS: CalendarProvider[] = [
@@ -45,7 +44,6 @@ export const CALENDAR_PROVIDERS: CalendarProvider[] = [
       'Vos événements Google apparaissent dans votre calendrier Kininaru (lecture seule par défaut).',
     clientIdEnv: 'NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID',
     serverConfigEnv: 'GOOGLE_OAUTH_CLIENT_SECRET',
-    configured: envConfigured(process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID),
     defaultSyncMode: 'read',
     kind: 'oauth',
     docsUrl: '/docs/calendar-integrations.md',
@@ -57,7 +55,6 @@ export const CALENDAR_PROVIDERS: CalendarProvider[] = [
       'Vos calendriers Outlook ou Microsoft 365 dans Kininaru, via le flux OAuth officiel Microsoft.',
     clientIdEnv: 'NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID',
     serverConfigEnv: 'MICROSOFT_OAUTH_CLIENT_SECRET',
-    configured: envConfigured(process.env.NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID),
     defaultSyncMode: 'read',
     kind: 'oauth',
     docsUrl: '/docs/calendar-integrations.md',
@@ -69,7 +66,6 @@ export const CALENDAR_PROVIDERS: CalendarProvider[] = [
       'Abonnement à un flux .ics (iCloud Calendrier, etc.) — la méthode officiellement compatible avec une PWA.',
     clientIdEnv: '',
     serverConfigEnv: '',
-    configured: true,
     defaultSyncMode: 'read',
     kind: 'subscription',
     docsUrl: '/docs/calendar-integrations.md',

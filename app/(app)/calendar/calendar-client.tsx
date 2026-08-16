@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cardVariants } from '@/components/ui/card'
 import { palette } from '@/lib/palette'
+import { useI18n } from '@/lib/i18n'
 
 const EVENT_COLORS = [
   palette('rose-dark'), palette('lavender'), palette('blue'), palette('sage'),
@@ -414,6 +415,7 @@ function TimeGrid({
 // Agenda view — chronological list grouped by day
 // ---------------------------------------------------------------------
 function AgendaView({ events, onDelete }: { events: CalendarEvent[]; onDelete: (id: string) => void }) {
+  const { t } = useI18n()
   const upcoming = events
     .filter((e) => !isBefore(parseISO(e.start_at), startOfDay(new Date())))
     .sort((a, b) => a.start_at.localeCompare(b.start_at))
@@ -450,7 +452,9 @@ function AgendaView({ events, onDelete }: { events: CalendarEvent[]; onDelete: (
         >
           <h3 className="text-sm font-semibold text-foreground mb-2 sticky top-0 bg-background/95 backdrop-blur-sm py-1 z-10">
             {format(group.date, 'EEEE, MMMM d')}
-            {isToday(group.date) && <span className="ml-2 text-primary text-xs font-medium">Today</span>}
+            {isToday(group.date) && (
+              <span className="ml-2 text-primary text-xs font-medium">{t('calendar.today')}</span>
+            )}
           </h3>
           <div className="space-y-2">
             {group.events.map((event) => (
@@ -492,6 +496,7 @@ function AgendaView({ events, onDelete }: { events: CalendarEvent[]; onDelete: (
 // Main
 // ---------------------------------------------------------------------
 export function CalendarClient({ events: initialEvents, userId }: Props) {
+  const { t } = useI18n()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [miniMonth, setMiniMonth] = useState(new Date())
   const [view, setView] = useState<ViewMode>('month')
@@ -1003,14 +1008,14 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
 
                 <div className="flex gap-3 pt-2">
                   <Button variant="outline" className="flex-1 transition-smooth" onClick={() => setShowModal(false)}>
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     className="flex-1 transition-smooth hover:scale-[1.02]"
                     onClick={saveEvent}
                     disabled={loading || !form.title.trim()}
                   >
-                    {loading ? 'Saving...' : 'Save event'}
+                    {loading ? t('calendar.saving') : t('calendar.saveEvent')}
                   </Button>
                 </div>
               </div>

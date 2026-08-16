@@ -6,6 +6,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LocaleProvider } from '@/lib/i18n'
 import { SwRegister } from '@/components/sw-register'
+import { AnalyticsPageViews } from '@/components/analytics-page-views'
 
 const THEME_INIT_SCRIPT = `
 (function () {
@@ -40,7 +41,11 @@ const GA4_SCRIPT = `
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${GA4_ID}');
+// Confidentialité : send_page_view:false + anonymize_ip. Les vues de page
+// sont envoyées par le composant AnalyticsPageViews avec le chemin UNIQUEMENT
+// (jamais les query strings — elles contiennent des données personnelles
+// comme taskId ou les titres de tâches).
+gtag('config', '${GA4_ID}', { send_page_view: false, anonymize_ip: true });
 `
 
 const jakarta = Plus_Jakarta_Sans({
@@ -192,6 +197,7 @@ export default function RootLayout({
         <ThemeProvider>
           <LocaleProvider>{children}</LocaleProvider>
         </ThemeProvider>
+        <AnalyticsPageViews />
         <SwRegister />
       </body>
     </html>

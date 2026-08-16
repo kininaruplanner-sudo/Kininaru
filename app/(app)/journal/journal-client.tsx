@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, parseISO, addDays } from 'date-fns'
 import {
@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { useI18n } from '@/lib/i18n'
 import {
   renderMarkdown,
   wrapSelection,
@@ -49,12 +50,12 @@ import {
 } from '@/lib/journal/markdown'
 
 const MOODS = [
-  { value: 1, emoji: '😔', label: 'Sad' },
-  { value: 2, emoji: '😕', label: 'Down' },
-  { value: 3, emoji: '😐', label: 'Neutral' },
-  { value: 4, emoji: '🙂', label: 'Good' },
-  { value: 5, emoji: '😄', label: 'Great' },
-]
+  { value: 1, emoji: '😔', labelKey: 'journal.moodSad' },
+  { value: 2, emoji: '😕', labelKey: 'journal.moodDown' },
+  { value: 3, emoji: '😐', labelKey: 'journal.moodNeutral' },
+  { value: 4, emoji: '🙂', labelKey: 'journal.moodGood' },
+  { value: 5, emoji: '😄', labelKey: 'journal.moodGreat' },
+] as const
 
 const EMOJIS = ['😊', '🎯', '✨', '📚', '💪', '🌟', '🔥', '🧘', '☕', '🌿', '💡', '❤️', '🎉', '🌅', '😌', '🙏', '📝', '🏆']
 
@@ -92,6 +93,24 @@ interface JournalProposal {
 const JOURNAL_DRAFT_KEY = 'kininaru-journal-draft'
 
 export function JournalClient({ entries: initialEntries, userId }: Props) {
+  const { locale, t } = useI18n()
+  // Locale-aware date formatting (French or English month/weekday names).
+  const dateFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+    [locale]
+  )
+  const weekdayFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+        weekday: 'long',
+      }),
+    [locale]
+  )
   const [entries, setEntries] = useState(initialEntries)
   // Local calendar-day key so "Today" is the user's local day in any timezone.
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -307,7 +326,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
 
   const deleteEntry = async () => {
     if (!currentEntry) return
-    if (!window.confirm('Supprimer cette entrée de journal ?')) return
+    if (!window.confirm(t('journal.deleteConfirm'))) return
     await supabase.from('journal_entries').delete().eq('id', currentEntry.id)
     setEntries((prev) => prev.filter((e) => e.id !== currentEntry.id))
     setForm({ mood: 3, content: '', gratitude: '', goals: '' })
@@ -541,7 +560,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
       <PageHeader
         icon={BookOpen}
         title="Journal"
-        subtitle={`${entries.length} entrées · humeur moyenne ${moodAvg}/5`}
+        subtitle={t('journal.entries', { count: entries.length, avg: moodAvg })}
       />
 
       <div className="flex-1 overflow-auto">
@@ -558,10 +577,10 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
               <Plus className={cn('w-4 h-4 shrink-0', isToday ? 'text-primary-foreground' : 'text-primary')} />
               <div>
                 <p className={cn('text-sm font-medium', isToday ? 'text-primary-foreground' : 'text-foreground')}>
-                  Today
+                  {t('journal.today')}
                 </p>
                 <p className={cn('text-xs', isToday ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                  {format(new Date(), 'MMMM d, yyyy')}
+                  {dateFmt.format(new Date())}
                 </p>
               </div>
             </button>
@@ -581,7 +600,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                   <span className="text-xl">{mood?.emoji ?? '😐'}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
-                      {format(parseISO(entry.entry_date), 'MMM d, yyyy')}
+                      {dateFmt.format(parseISO(entry.entry_date))}
                     </p>
                     {entry.content && (
                       <p className="text-xs text-muted-foreground truncate">{entry.content}</p>
@@ -592,7 +611,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
             })}
             {entries.length === 0 && (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                Aucune entrée pour ce jour — écrivez votre première pensée dans l&apos;éditeur.
+                {t('journal.emptyList')}
               </p>
             )}
           </div>
@@ -617,10 +636,12 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                 </Button>
                 <div className="text-center">
                   <h2 className="text-lg font-serif font-bold text-foreground">
-                    {isToday ? 'Today' : format(new Date(selectedDate + 'T12:00:00'), 'EEEE')}
+                    {isToday
+                      ? t('journal.today')
+                      : weekdayFmt.format(new Date(selectedDate + 'T12:00:00'))}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(selectedDate + 'T12:00:00'), 'MMMM d, yyyy')}
+                    {dateFmt.format(new Date(selectedDate + 'T12:00:00'))}
                   </p>
                 </div>
                 <Button
@@ -635,7 +656,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
 
               {/* Mood selector */}
               <Card padding="sm">
-                <p className="text-sm font-medium text-foreground mb-3">How are you feeling?</p>
+                <p className="text-sm font-medium text-foreground mb-3">{t('journal.moodQuestion')}</p>
                 <div className="flex gap-3 justify-center">
                   {MOODS.map((m) => (
                     <button
@@ -649,7 +670,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                       )}
                     >
                       <span className="text-2xl">{m.emoji}</span>
-                      <span className="text-xs text-muted-foreground">{m.label}</span>
+                      <span className="text-xs text-muted-foreground">{t(m.labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -660,7 +681,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <label className="text-sm font-medium text-foreground">
                     <BookOpen className="w-4 h-4 inline mr-1.5 text-primary" />
-                    What&apos;s on your mind?
+                    {t('journal.mind')}
                   </label>
                   <button
                     type="button"
@@ -673,7 +694,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                     )}
                   >
                     {preview ? <PencilLine className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    {preview ? 'Éditer' : 'Aperçu'}
+                    {preview ? t('journal.edit') : t('journal.preview')}
                   </button>
                 </div>
 
@@ -773,7 +794,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                       className="gap-1.5"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      ✨ Demander à Kininaru
+                      {t('journal.ask')}
                     </Button>
                     <AnimatePresence>
                       {aiMenuOpen && (
@@ -808,7 +829,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                     </AnimatePresence>
                   </div>
                   <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium ml-auto">
-                    IA · une seule entrée envoyée
+                    {t('journal.aiSingleEntry')}
                   </span>
                 </div>
 
@@ -975,12 +996,12 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
               {/* Gratitude */}
               <Card padding="sm">
                 <label className="text-sm font-medium text-foreground mb-2 block">
-                  What are you grateful for?
+                  {t('journal.grateful')}
                 </label>
                 <textarea
                   value={form.gratitude}
                   onChange={(e) => setForm({ ...form, gratitude: e.target.value })}
-                  placeholder="3 things you appreciate today..."
+                  placeholder={t('journal.gratefulPlaceholder')}
                   className="w-full h-20 px-0 py-1 text-sm text-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground leading-relaxed"
                 />
               </Card>
@@ -988,12 +1009,12 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
               {/* Goals */}
               <Card padding="sm">
                 <label className="text-sm font-medium text-foreground mb-2 block">
-                  Goals for tomorrow
+                  {t('journal.goalsTomorrow')}
                 </label>
                 <textarea
                   value={form.goals}
                   onChange={(e) => setForm({ ...form, goals: e.target.value })}
-                  placeholder="What will you accomplish tomorrow?"
+                  placeholder={t('journal.goalsPlaceholder')}
                   className="w-full h-20 px-0 py-1 text-sm text-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground leading-relaxed"
                 />
               </Card>
@@ -1008,7 +1029,7 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                   )}
                 >
                   <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Entry'}
+                  {saving ? t('journal.saving') : saved ? t('journal.saved') : t('journal.save')}
                 </Button>
                 {currentEntry && (
                   <Button
@@ -1017,33 +1038,33 @@ export function JournalClient({ entries: initialEntries, userId }: Props) {
                     className="gap-2 text-destructive hover:bg-destructive/10 transition-smooth"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Delete
+                    {t('journal.delete')}
                   </Button>
                 )}
                 {/* Auto-save status: Sauvegarde… / ✓ Sauvegardé / ⚠ + Réessayer */}
                 {saveState === 'saving' && (
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Loader2 className="w-3 h-3 animate-spin motion-reduce:hidden" />
-                    Sauvegarde…
+                    {t('journal.savingStatus')}
                   </span>
                 )}
                 {saveState === 'saved' && (
                   <span className="flex items-center gap-1.5 text-xs text-kin-sage">
                     <Check className="w-3 h-3" />
-                    ✓ Sauvegardé
+                    {t('journal.savedStatus')}
                   </span>
                 )}
                 {saveState === 'error' && (
                   <span className="flex items-center gap-1.5 text-xs text-destructive">
                     <AlertTriangle className="w-3 h-3" />
-                    ⚠ Impossible de sauvegarder
+                    {t('journal.saveError')}
                     <Button
                       variant="ghost"
                       size="xs"
                       onClick={() => void persist(selectedDate, form)}
                       className="text-destructive underline underline-offset-2 hover:bg-destructive/10"
                     >
-                      Réessayer
+                      {t('journal.retry')}
                     </Button>
                   </span>
                 )}

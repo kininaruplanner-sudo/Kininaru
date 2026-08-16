@@ -105,16 +105,31 @@ export async function refreshGoogleToken(
   }
 }
 
-/** Stable external account id + display name (email of the calendar). */
+/**
+ * Stable external account id + display name.
+ *
+ * Identity = the PRIMARY calendar id, which is stable per Google account
+ * (for Gmail accounts it IS the account email). We deliberately do NOT
+ * take the first calendar returned by calendarList: with maxResults=1 the
+ * ordering is not guaranteed to put the primary calendar first, which
+ * would make the identity unstable and could drift from the calendar the
+ * sync actually reads. The primary calendar is picked explicitly, with a
+ * fallback to the first item when nothing is flagged primary.
+ */
 export async function googleAccountInfo(accessToken: string): Promise<{ id: string; name: string }> {
   const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1',
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&minAccessRole=reader',
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
   if (!res.ok) throw new Error(`Profil Google inaccessible (${res.status})`)
-  const data = (await res.json()) as { items?: { id?: string }[] }
-  const id = data.items?.[0]?.id ?? 'google'
-  return { id, name: id }
+  const data = (await res.json()) as {
+    items?: { id?: string; primary?: boolean; summaryOverride?: string }[]
+  }
+  const primary = (data.items ?? []).find((c) => c.primary === true)
+  const chosen = primary ?? data.items?.[0]
+  const id = chosen?.id
+  if (!id) throw new Error('Aucun calendrier trouvé sur ce compte Google')
+  return { id, name: primary?.summaryOverride ?? id }
 }
 
 /* ------------------------------------------------------------------ */
@@ -191,15 +206,25 @@ export async function refreshMicrosoftToken(
   }
 }
 
-/** Stable external account id + display name (calendar name). */
+/**
+ * Stable external account id + display name.
+ *
+ * Identity = the SIGNED-IN USER, resolved via GET /me — not the default
+ * calendar. The Graph /me `id` (object id) is stable across sessions and
+ * calendars, whereas a calendar id identifies the calendar, not the
+ * account, and varies if the default calendar changes. Display name falls
+ * back to the mailbox address, then to the id. The events themselves are
+ * still read from the default calendar (calendarview) in the sync route.
+ */
 export async function microsoftAccountInfo(
   accessToken: string
 ): Promise<{ id: string; name: string }> {
-  const res = await fetch('https://graph.microsoft.com/v1.0/me/calendar', {
+  const res = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
-  if (!res.ok) throw new Error(`Calendrier Microsoft inaccessible (${res.status})`)
-  const data = (await res.json()) as { id?: string; name?: string }
-  const id = data.id ?? 'microsoft'
-  return { id, name: data.name || id }
+  if (!res.ok) throw new Error(`Profil Microsoft inaccessible (${res.status})`)
+  const data = (await res.json()) as { id?: string; displayName?: string; mail?: string }
+  const id = data.id
+  if (!id) throw new Error('Identité Microsoft introuvable')
+  return { id, name: data.displayName || data.mail || id }
 }

@@ -23,6 +23,7 @@ import {
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Card, cardVariants } from '@/components/ui/card'
 
@@ -248,6 +249,12 @@ function WeeklyChart({ sessions }: { sessions: FocusSession[] }) {
 // Session history, grouped by day
 // ---------------------------------------------------------------------
 function SessionHistory({ sessions, onDelete }: { sessions: FocusSession[]; onDelete: (id: string) => void }) {
+  const { locale, t } = useI18n()
+  const dayFmt = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  })
   const groups: { key: string; label: string; items: FocusSession[] }[] = []
   const indexByKey = new Map<string, number>()
   for (const s of sessions) {
@@ -255,14 +262,18 @@ function SessionHistory({ sessions, onDelete }: { sessions: FocusSession[]; onDe
     const key = format(d, 'yyyy-MM-dd')
     if (!indexByKey.has(key)) {
       indexByKey.set(key, groups.length)
-      const label = isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'EEEE, MMM d')
+      const label = isToday(d)
+        ? t('focus.today')
+        : isYesterday(d)
+          ? t('focus.yesterday')
+          : dayFmt.format(d)
       groups.push({ key, label, items: [] })
     }
     groups[indexByKey.get(key)!].items.push(s)
   }
 
   if (groups.length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-6">No sessions yet — start focusing!</p>
+    return <p className="text-sm text-muted-foreground text-center py-6">{t('focus.noSessions')}</p>
   }
 
   return (
@@ -306,6 +317,7 @@ function SessionHistory({ sessions, onDelete }: { sessions: FocusSession[]; onDe
 // Main
 // ---------------------------------------------------------------------
 export function FocusClient({ userId, todaySessions, allSessions, initialTask, initialMinutes }: Props) {
+  const { t } = useI18n()
   // Preselect the mode when a duration was passed via the coach (?duration=25):
   // lazy initializers keep the component pure (no effect needed).
   const initialModeIdx =
@@ -589,7 +601,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
         <button
           onClick={reset}
           className="p-3 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-smooth hover:scale-105 active:scale-95"
-          title="Reset"
+          title={t('focus.reset')}
         >
           <RotateCcw className="w-5 h-5" />
         </button>
@@ -742,10 +754,29 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
                 className="grid grid-cols-2 gap-3"
               >
                 {[
-                  { label: "Today's focus", value: `${todayMinutes}m`, sub: `${sessions.length} sessions` },
-                  { label: 'Current streak', value: streak, sub: streak === 1 ? 'day' : 'days', icon: Flame },
-                  { label: 'All time', value: `${Math.round(allTimeMinutes / 60)}h`, sub: `${allSessionsState.length} sessions` },
-                  { label: 'Avg session', value: allSessionsState.length ? `${Math.round(allTimeMinutes / allSessionsState.length)}m` : '—', sub: 'per session' },
+                  {
+                    label: t('focus.todayFocus'),
+                    value: `${todayMinutes}m`,
+                    sub: t('focus.sessions', { count: sessions.length }),
+                  },
+                  {
+                    label: t('focus.currentStreak'),
+                    value: streak,
+                    sub: streak === 1 ? t('focus.day') : t('focus.days'),
+                    icon: Flame,
+                  },
+                  {
+                    label: t('focus.allTime'),
+                    value: `${Math.round(allTimeMinutes / 60)}h`,
+                    sub: t('focus.sessions', { count: allSessionsState.length }),
+                  },
+                  {
+                    label: t('focus.avgSession'),
+                    value: allSessionsState.length
+                      ? `${Math.round(allTimeMinutes / allSessionsState.length)}m`
+                      : '—',
+                    sub: t('focus.perSession'),
+                  },
                 ].map((stat) => (
                   <Card key={stat.label} padding="sm">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">

@@ -213,6 +213,63 @@ const fr = {
   'auth.configRequiredHome': "Retour à l'accueil",
   'auth.configRequiredCopy': 'Copier',
   'auth.configRequiredCopied': 'Copié !',
+
+  // Journal
+  'journal.today': "Aujourd'hui",
+  'journal.entries': '{count} entrées · humeur moyenne {avg}/5',
+  'journal.moodQuestion': 'Comment te sens-tu ?',
+  'journal.moodSad': 'Triste',
+  'journal.moodDown': 'Bof',
+  'journal.moodNeutral': 'Neutre',
+  'journal.moodGood': 'Bien',
+  'journal.moodGreat': 'Génial',
+  'journal.mind': "Qu'est-ce qui te passe par la tête ?",
+  'journal.grateful': 'De quoi es-tu reconnaissant·e ?',
+  'journal.gratefulPlaceholder': '3 choses appréciées aujourd’hui…',
+  'journal.goalsTomorrow': 'Objectifs pour demain',
+  'journal.goalsPlaceholder': 'Qu’accompliras-tu demain ?',
+  'journal.save': 'Enregistrer',
+  'journal.saving': 'Enregistrement…',
+  'journal.saved': 'Enregistré !',
+  'journal.delete': 'Supprimer',
+  'journal.deleteConfirm': 'Supprimer cette entrée de journal ?',
+  'journal.emptyList':
+    'Aucune entrée pour ce jour — écrivez votre première pensée dans l’éditeur.',
+  'journal.savingStatus': 'Sauvegarde…',
+  'journal.savedStatus': '✓ Sauvegardé',
+  'journal.saveError': '⚠ Impossible de sauvegarder',
+  'journal.retry': 'Réessayer',
+  'journal.preview': 'Aperçu',
+  'journal.edit': 'Éditer',
+  'journal.ask': '✨ Demander à Kininaru',
+  'journal.aiSingleEntry': 'IA · une seule entrée envoyée',
+
+  // Calendrier
+  'calendar.today': 'Aujourd’hui',
+  'calendar.saveEvent': 'Enregistrer l’événement',
+  'calendar.saving': 'Enregistrement…',
+
+  // Focus
+  'focus.noSessions': 'Aucune session pour le moment — lance-toi !',
+  'focus.reset': 'Réinitialiser',
+  'focus.today': 'Aujourd’hui',
+  'focus.yesterday': 'Hier',
+  'focus.todayFocus': "Focus d'aujourd'hui",
+  'focus.currentStreak': 'Série en cours',
+  'focus.allTime': 'Total',
+  'focus.avgSession': 'Session moyenne',
+  'focus.sessions': '{count} sessions',
+  'focus.day': 'jour',
+  'focus.days': 'jours',
+  'focus.perSession': 'par session',
+
+  // Tâches
+  'tasks.createTask': 'Créer la tâche',
+  'tasks.saveChanges': 'Enregistrer les modifications',
+  'tasks.saving': 'Enregistrement…',
+
+  // Commun
+  'common.cancel': 'Annuler',
 } as const
 
 export type TranslationKey = keyof typeof fr
@@ -396,6 +453,62 @@ const en: Record<TranslationKey, string> = {
   'auth.configRequiredHome': 'Back to home',
   'auth.configRequiredCopy': 'Copy',
   'auth.configRequiredCopied': 'Copied!',
+
+  // Journal
+  'journal.today': 'Today',
+  'journal.entries': '{count} entries · average mood {avg}/5',
+  'journal.moodQuestion': 'How are you feeling?',
+  'journal.moodSad': 'Sad',
+  'journal.moodDown': 'Down',
+  'journal.moodNeutral': 'Neutral',
+  'journal.moodGood': 'Good',
+  'journal.moodGreat': 'Great',
+  'journal.mind': "What's on your mind?",
+  'journal.grateful': 'What are you grateful for?',
+  'journal.gratefulPlaceholder': '3 things you appreciate today...',
+  'journal.goalsTomorrow': 'Goals for tomorrow',
+  'journal.goalsPlaceholder': 'What will you accomplish tomorrow?',
+  'journal.save': 'Save',
+  'journal.saving': 'Saving...',
+  'journal.saved': 'Saved!',
+  'journal.delete': 'Delete',
+  'journal.deleteConfirm': 'Delete this journal entry?',
+  'journal.emptyList': 'No entry for this day — write your first thought in the editor.',
+  'journal.savingStatus': 'Saving…',
+  'journal.savedStatus': '✓ Saved',
+  'journal.saveError': '⚠ Could not save',
+  'journal.retry': 'Retry',
+  'journal.preview': 'Preview',
+  'journal.edit': 'Edit',
+  'journal.ask': '✨ Ask Kininaru',
+  'journal.aiSingleEntry': 'AI · only this entry is sent',
+
+  // Calendar
+  'calendar.today': 'Today',
+  'calendar.saveEvent': 'Save event',
+  'calendar.saving': 'Saving...',
+
+  // Focus
+  'focus.noSessions': 'No sessions yet — start focusing!',
+  'focus.reset': 'Reset',
+  'focus.today': 'Today',
+  'focus.yesterday': 'Yesterday',
+  'focus.todayFocus': "Today's focus",
+  'focus.currentStreak': 'Current streak',
+  'focus.allTime': 'All time',
+  'focus.avgSession': 'Avg session',
+  'focus.sessions': '{count} sessions',
+  'focus.day': 'day',
+  'focus.days': 'days',
+  'focus.perSession': 'per session',
+
+  // Tasks
+  'tasks.createTask': 'Create task',
+  'tasks.saveChanges': 'Save changes',
+  'tasks.saving': 'Saving...',
+
+  // Common
+  'common.cancel': 'Cancel',
 }
 
 const dictionaries: Record<Locale, Record<TranslationKey, string>> = { fr, en }

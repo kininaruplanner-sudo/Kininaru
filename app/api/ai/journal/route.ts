@@ -1,6 +1,7 @@
 import { createGroq } from '@ai-sdk/groq'
 import { generateText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
+import { isRateLimited } from '@/lib/ai/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -57,22 +58,8 @@ export interface JournalProposal {
   steps: string[]
 }
 
-const RATE_LIMIT_WINDOW_MS = 60_000
+// Distributed rate limit (supabase/ai-rate-limit.sql) — 10 appels/min max.
 const RATE_LIMIT_MAX = 10
-const rateBuckets = new Map<string, number[]>()
-
-function isRateLimited(userId: string): boolean {
-  const now = Date.now()
-  const cutoff = now - RATE_LIMIT_WINDOW_MS
-  const timestamps = (rateBuckets.get(userId) ?? []).filter((t) => t > cutoff)
-  if (timestamps.length >= RATE_LIMIT_MAX) {
-    rateBuckets.set(userId, timestamps)
-    return true
-  }
-  timestamps.push(now)
-  rateBuckets.set(userId, timestamps)
-  return false
-}
 
 /** Extracts a well-formed { title, steps } object from a model answer. */
 function parseProposal(raw: string): JournalProposal | null {
@@ -105,7 +92,7 @@ export async function POST(req: Request) {
     if (!user) {
       return Response.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    if (isRateLimited(user.id)) {
+    if (await isRateLimited('journal', user.id, RATE_LIMIT_MAX)) {
       return Response.json({ error: 'Trop de requêtes. Réessaie dans un instant.' }, { status: 429 })
     }
 

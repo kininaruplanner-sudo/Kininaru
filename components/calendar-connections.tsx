@@ -44,6 +44,10 @@ export function CalendarConnections() {
   const [info, setInfo] = useState<string | null>(null)
   const [icsUrl, setIcsUrl] = useState('')
   const [icsName, setIcsName] = useState('')
+  // Server truth about which providers can run OAuth (client id + secret).
+  const [serverConfig, setServerConfig] = useState<
+    Record<string, { configured: boolean; missing: string[] }>
+  >({})
   // Ticking clock for the « il y a X min » labels (pure during render).
   const [now, setNow] = useState(() => Date.now())
 
@@ -63,6 +67,29 @@ export function CalendarConnections() {
       setLoading(false)
     }
   }, [supabase])
+
+  // Fetch the server-side OAuth configuration once (never shows a
+  // "Connecter" button when the backend cannot start the flow).
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/calendar/config')
+        if (res.ok) {
+          const j = (await res.json()) as {
+            providers?: Record<string, { configured: boolean; missing: string[] }>
+          }
+          if (!cancelled && j.providers) setServerConfig(j.providers)
+        }
+      } catch {
+        // API unreachable — provider states stay unknown; the Connect
+        // button will surface the server error honestly on click.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     // Deferred so the initial fetch never calls setState synchronously
@@ -100,9 +127,10 @@ export function CalendarConnections() {
     if (provider.kind === 'subscription') return // ICS is handled inline below
     setError(null)
     setInfo(null)
-    if (!provider.configured) {
+    const cfg = serverConfig[provider.id]
+    if (cfg && !cfg.configured) {
       setError(
-        `OAuth ${provider.label} non configuré — ajoutez ${provider.clientIdEnv} (et son secret côté serveur), voir le guide d'intégration.`
+        `OAuth ${provider.label} non configuré — ajoutez ${cfg.missing.join(', ')} côté serveur (voir le guide d'intégration).`
       )
       return
     }
@@ -260,6 +288,10 @@ export function CalendarConnections() {
                       <span className="flex items-center gap-1 text-xs text-kin-sage font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-kin-sage" /> Connecté
                       </span>
+                    ) : provider.kind === 'oauth' &&
+                      serverConfig[provider.id] &&
+                      !serverConfig[provider.id].configured ? (
+                      <span className="text-xs text-muted-foreground">Non configuré</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">Non connecté</span>
                     )}
@@ -312,7 +344,7 @@ export function CalendarConnections() {
                     </>
                   ) : provider.kind === 'oauth' ? (
                     <Button variant="outline" size="sm" onClick={() => void connect(provider)}>
-                      {provider.configured ? (
+                      {serverConfig[provider.id]?.configured ? (
                         <>
                           <Link2 className="w-3.5 h-3.5" /> Connecter
                         </>
