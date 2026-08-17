@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
+import { CoachMascot } from '@/components/coach-mascot'
 import { BetaBadge } from '@/components/beta-badge'
 import { Button } from '@/components/ui/button'
 import { InstallAppButton } from '@/components/install-app-button'
@@ -63,7 +64,7 @@ function PlannerMock() {
             <p className="font-serif font-bold text-lg text-foreground">Bonjour, Camille 👋</p>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-            <Sparkles className="w-3.5 h-3.5" /> Coach IA
+            <CoachMascot mood="calm" className="w-4 h-4" /> Coach IA
           </div>
         </div>
 
@@ -150,7 +151,8 @@ function PlannerMock() {
         transition={{ delay: 0.7, duration: 0.5 }}
         className="absolute -right-4 sm:-right-10 bottom-10 glass rounded-2xl border border-border shadow-kin px-3.5 py-2.5 flex items-center gap-2 hidden sm:flex"
       >
-        <Sparkles className="w-4 h-4 text-primary" />
+        {/* Progression détectée : le coach propose la suite — étincelle animée. */}
+        <CoachMascot mood="progress" className="w-5 h-5" />
         <p className="text-xs font-medium text-foreground">3 suggestions prêtes</p>
       </motion.div>
     </div>

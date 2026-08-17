@@ -3,7 +3,8 @@
 import { useCallback, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { CoachMascot } from '@/components/coach-mascot'
 import { AIAssistantClient } from '@/app/(app)/ai/ai-client'
 import { useI18n } from '@/lib/i18n'
 
@@ -75,8 +76,8 @@ export function AssistantPanel({ displayName }: { displayName?: string }) {
             {/* Header */}
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border shrink-0 bg-background/60">
               <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <span className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5" />
+                <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CoachMascot mood="calm" className="w-5 h-5" />
                 </span>
                 Kininaru
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">

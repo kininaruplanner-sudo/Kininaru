@@ -1,8 +1,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CoachMascot } from '@/components/coach-mascot'
 
 /**
  * Bouton flottant Kininaru — ouvre l'assistant conversationnel.
@@ -30,7 +30,8 @@ export function CoachBubble() {
         isAi ? 'bottom-32 right-4 md:bottom-32 md:right-6' : 'bottom-24 right-4 md:bottom-6 md:right-6'
       )}
     >
-      <Sparkles className="w-6 h-6" />
+      {/* Le visage du coach : cristal blanc sur fond primaire (onPrimary). */}
+      <CoachMascot mood="calm" variant="onPrimary" className="w-7 h-7" />
     </button>
   )
 }

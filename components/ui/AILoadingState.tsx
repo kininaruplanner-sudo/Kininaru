@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
-import { KinLogoMark } from '@/components/kin-logo'
+import { CoachMascot } from '@/components/coach-mascot'
 import { cn } from '@/lib/utils'
 
 /**
@@ -54,7 +54,10 @@ export default function AILoadingState({ className }: { className?: string }) {
           transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           className="relative w-16 h-16 rounded-3xl kin-gradient-brand shadow-kin-hover flex items-center justify-center"
         >
-          <KinLogoMark className="w-8 h-8 fill-white" />
+          {/* Le visage du coach : cristal blanc sur le dégradé de marque.
+              Pas d'animation propre ici — le halo, la respiration de la
+              boîte et le shimmer animent déjà l'état de chargement. */}
+          <CoachMascot mood="loading" variant="onPrimary" className="w-9 h-9" animated={false} />
         </motion.div>
       </div>
 

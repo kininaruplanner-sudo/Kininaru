@@ -35,6 +35,7 @@ import {
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { CoachMascot } from '@/components/coach-mascot'
 import { cardVariants } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { streamChatResponse } from '@/lib/ai-stream'
@@ -485,7 +486,7 @@ export function DashboardClient({
             onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
             className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
           >
-            <Sparkles className="w-4 h-4" />
+            <CoachMascot mood="calm" variant="onPrimary" className="w-4.5 h-4.5" />
             Parler au coach
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
@@ -820,7 +821,7 @@ export function DashboardClient({
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
+            <CoachMascot mood="calm" className="w-4.5 h-4.5" />
             <span className="text-xs font-semibold text-primary uppercase tracking-wide">Conseil du jour</span>
           </div>
           <div className="flex items-center gap-2">

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import { fr as frLocale, enUS } from 'date-fns/locale'
 import { Bell, Users, CheckSquare, Repeat2, Trophy, Info, CheckCheck, Inbox } from 'lucide-react'
+import { CoachMascot } from '@/components/coach-mascot'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useI18n } from '@/lib/i18n'
@@ -136,6 +137,9 @@ export function NotificationBell() {
                 ) : (
                   notifications.map((n) => {
                     const Icon = TYPE_ICONS[n.type] ?? Info
+                    // Les notifications du coach (type 'info', insérées par
+                    // /api/coach/notify) portent le visage du coach.
+                    const isCoach = n.type === 'info'
                     return (
                       <button
                         key={n.id}
@@ -151,7 +155,11 @@ export function NotificationBell() {
                             TYPE_COLORS[n.type] ?? 'bg-primary/10 text-primary'
                           )}
                         >
-                          <Icon className="w-4 h-4" />
+                          {isCoach ? (
+                            <CoachMascot mood="notify" className="w-4.5 h-4.5" />
+                          ) : (
+                            <Icon className="w-4 h-4" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">

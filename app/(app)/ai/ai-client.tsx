@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   Send,
-  Sparkles,
   User,
   RotateCcw,
   Copy,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { CoachMascot } from '@/components/coach-mascot'
 import { PageHeader } from '@/components/page-header'
 import { ActionsPanel, type PendingAction } from './actions-panel'
 import { isMemoryEnabled } from '@/lib/memory'
@@ -490,7 +490,7 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
       <div className="flex flex-col flex-1 min-w-0">
         {!embedded && (
         <PageHeader
-        icon={Sparkles}
+        icon={CoachMascot}
         title="Assistant IA"
         subtitle="Votre coach personnel de productivité"
         actions={
@@ -544,7 +544,7 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
             className="text-center max-w-md mx-auto pt-6 pb-4"
           >
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 shadow-kin">
-              <Sparkles className="w-6 h-6 text-primary" />
+              <CoachMascot mood="calm" className="w-8 h-8" />
             </div>
             <h2 className="kin-h2 text-foreground mb-2">Comment puis-je vous aider, {displayName} ?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -582,7 +582,10 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
                   )}
                   {msg.role === 'user'
                     ? <User className="w-4 h-4" />
-                    : <Sparkles className="w-4 h-4 text-primary" />
+                    : <CoachMascot
+                        mood={isActivelyStreaming || isEmptyPlaceholder ? 'loading' : 'calm'}
+                        className="w-5 h-5"
+                      />
                   }
                 </div>
 
