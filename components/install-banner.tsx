@@ -31,7 +31,9 @@ export function InstallBanner() {
     return () => clearTimeout(timer)
   }, [canInstall, installed, dismissed])
 
-  if (!visible || !canInstall || installed) return null
+  // `dismissed` fait partie de la garde : sans lui, la croix mettait bien
+  // l'état à true mais la bannière restait affichée (le clic semblait mort).
+  if (!visible || dismissed || !canInstall || installed) return null
 
   const dismiss = () => {
     setDismissed(true)

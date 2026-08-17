@@ -313,8 +313,24 @@ export function Landing() {
           scrolled || mobileOpen ? 'glass-topbar' : 'bg-transparent'
         )}
       >
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" aria-label="Kininaru — accueil" className="flex items-center gap-2.5 min-h-11">
+        {/* Grille mobile 3 colonnes (burger / logo / contrepoids) pour que le
+            logo reste parfaitement centré au téléphone ; flex classique à
+            partir de md (logo à gauche, nav au centre, actions à droite). */}
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 grid grid-cols-[1fr_auto_1fr] items-center md:flex md:items-center md:justify-between">
+          {/* Burger — mobile uniquement, colonne gauche */}
+          <button
+            className="md:hidden justify-self-start p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+
+          <Link
+            href="/"
+            aria-label="Kininaru — accueil"
+            className="flex items-center gap-2.5 min-h-11 justify-self-center md:justify-self-auto"
+          >
             <KinLogo variant="row" markClassName="w-8 h-8" wordmarkClassName="text-lg" />
             <BetaBadge />
           </Link>
@@ -336,13 +352,8 @@ export function Landing() {
             <Button render={<Link href="/auth/sign-up">Commencer gratuitement</Link>} />
           </div>
 
-          <button
-            className="md:hidden p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          {/* Contrepoids — équilibre le burger à droite sur mobile */}
+          <span className="md:hidden w-11" aria-hidden />
         </div>
 
         {mobileOpen && (
