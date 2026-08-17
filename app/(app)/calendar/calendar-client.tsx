@@ -34,6 +34,7 @@ import { palette } from '@/lib/palette'
 import { useI18n } from '@/lib/i18n'
 import { isTypingTarget } from '@/lib/shortcuts'
 import { CalendarQuickConnect } from '@/components/calendar-quick-connect'
+import { CalendarBackdrop } from './calendar-backdrop'
 
 const EVENT_COLORS = [
   palette('rose-dark'), palette('lavender'), palette('blue'), palette('sage'),
@@ -704,9 +705,13 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full">
+      {/* Fond géométrique animé — uniquement décoratif, derrière le contenu.
+          pointer-events-none : aucune interaction du calendrier n'est touchée. */}
+      <CalendarBackdrop />
+
       {/* Mini sidebar */}
-      <div className="hidden lg:flex w-64 shrink-0 border-r border-border flex-col bg-card/40">
+      <div className="relative z-10 hidden lg:flex w-64 shrink-0 border-r border-border flex-col bg-card/40">
         <MiniCalendar
           month={miniMonth}
           onMonthChange={setMiniMonth}
@@ -739,7 +744,7 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
       <PageHeader
         icon={Calendar}
