@@ -587,39 +587,50 @@ export function Landing() {
       {/* ---------------- Une journée avec Kininaru ---------------- */}
       <section id="day" className="py-20 sm:py-28 border-t border-border/60 bg-card/40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-14 items-center">
+          {/* Apparition séquentielle : message → détails → action. */}
           <Reveal>
-            <div className="max-w-lg">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kin-blue/15 text-kin-blue text-xs font-semibold mb-4">
-                <Sunrise className="w-3 h-3" /> Une journée avec Kininaru
-              </span>
-              <h2 className="kin-h1 text-foreground mb-5">
-                Votre journée,
-                <br /> accompagnée du matin au soir.
-              </h2>
-              <p className="text-muted-foreground leading-relaxed mb-8">
-                Kininaru ne se contente pas de vous écouter : il prépare votre journée, vous
-                rappelle ce qui compte vraiment, vous aide à entrer en focus et clôture la
-                journée avec vous. Discret, jamais envahissant.
-              </p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Brief du matin : vos 1 à 3 priorités du jour',
-                  'Rappels intelligents au bon moment, jamais en excès',
-                  'Sessions Focus lancées en un clic depuis une tâche',
-                  'Bilan du soir + préparation du lendemain',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-foreground/90">
-                    <span className="w-5 h-5 rounded-full bg-kin-blue/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="w-3 h-3 text-kin-blue" strokeWidth={3} />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2 h-11 sm:h-8">
-                Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kin-blue/15 text-kin-blue text-xs font-semibold mb-4">
+              <Sunrise className="w-3 h-3" /> Une journée avec Kininaru
+            </span>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <h2 className="kin-h1 text-foreground mb-5">
+              Votre journée,
+              <br /> accompagnée du matin au soir.
+            </h2>
+          </Reveal>
+
+          <Reveal delay={0.12}>
+            <p className="text-muted-foreground leading-relaxed mb-8 max-w-lg">
+              Kininaru ne se contente pas de vous écouter : il prépare votre journée, vous
+              rappelle ce qui compte vraiment, vous aide à entrer en focus et clôture la
+              journée avec vous. Discret, jamais envahissant.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.18}>
+            <ul className="space-y-3 mb-8">
+              {[
+                'Brief du matin : vos 1 à 3 priorités du jour',
+                'Rappels intelligents au bon moment, jamais en excès',
+                'Sessions Focus lancées en un clic depuis une tâche',
+                'Bilan du soir + préparation du lendemain',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3 text-sm text-foreground/90">
+                  <span className="w-5 h-5 rounded-full bg-kin-blue/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3 h-3 text-kin-blue" strokeWidth={3} />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+
+          <Reveal delay={0.24}>
+            <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2 h-11 sm:h-8">
+              Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
+            </Button>
           </Reveal>
 
           <Reveal delay={0.1}>
@@ -665,7 +676,15 @@ export function Landing() {
                       color: 'bg-primary/10 text-primary',
                     },
                   ].map((step, i) => (
-                    <div key={step.time} className="relative flex gap-4 pb-5 last:pb-0">
+                    /* Chaque moment de la journée apparaît l'un après l'autre. */
+                    <motion.div
+                      key={step.time}
+                      initial={{ opacity: 0, y: 18 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.45, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                      className="relative flex gap-4 pb-5 last:pb-0"
+                    >
                       {i < 4 && (
                         <span className="absolute left-[15px] top-8 bottom-0 w-px bg-border" aria-hidden="true" />
                       )}
@@ -684,7 +703,7 @@ export function Landing() {
                         <p className="text-sm font-semibold text-foreground leading-snug">{step.title}</p>
                         <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{step.text}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
