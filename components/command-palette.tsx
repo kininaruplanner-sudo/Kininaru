@@ -12,7 +12,6 @@ import {
   Repeat,
   BookOpen,
   Users,
-  Sparkles,
   Settings,
   Plus,
   CornerDownLeft,
@@ -21,6 +20,7 @@ import {
   Keyboard,
   X,
 } from 'lucide-react'
+import { CoachMascot } from '@/components/coach-mascot'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { KEYBOARD_SHORTCUTS, isTypingTarget } from '@/lib/shortcuts'
@@ -50,7 +50,7 @@ const QUICK_ACTIONS: { label: string; href: string; icon: React.ElementType }[] 
   { label: 'Nouvel événement', href: '/calendar?new=1', icon: Plus },
   { label: 'Nouvelle habitude', href: '/habits?new=1', icon: Plus },
   // L'assistant vit dans le panneau flottant — pas de page de navigation.
-  { label: 'Parler à l’assistant', href: '__assistant__', icon: Sparkles },
+  { label: 'Parler à l’assistant', href: '__assistant__', icon: CoachMascot },
 ]
 
 export function CommandPalette() {

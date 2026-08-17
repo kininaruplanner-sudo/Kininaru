@@ -526,7 +526,7 @@ export function DashboardClient({
               {[
                 { step: '1', label: 'Créer une tâche', href: '/tasks?new=1', icon: CheckSquare },
                 { step: '2', label: 'Lancer un Focus', href: '/focus', icon: Timer },
-                { step: '3', label: 'Parler au coach', href: '/ai', icon: Sparkles },
+                { step: '3', label: 'Parler au coach', href: '/ai', icon: CoachMascot },
               ].map((s) => (
                 <Link
                   key={s.step}

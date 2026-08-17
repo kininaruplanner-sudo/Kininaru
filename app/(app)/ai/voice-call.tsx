@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Mic, MicOff, Phone, PhoneOff, Settings2, Volume2, X } from 'lucide-react'
+import { Mic, MicOff, Phone, PhoneOff, Settings2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { CoachMascot, type CoachMood } from '@/components/coach-mascot'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { pickVoice, type VoicePrefs } from '@/lib/voice-preferences'
 
@@ -141,6 +142,22 @@ function formatDuration(totalSeconds: number): string {
   const mm = Math.floor(totalSeconds / 60)
   const ss = totalSeconds % 60
   return `${mm}:${ss.toString().padStart(2, '0')}`
+}
+
+/** Humeur du visage du coach selon l'état de l'appel — jamais exagérée. */
+function moodForStatus(status: CallStatus): CoachMood {
+  switch (status) {
+    case 'starting':
+      return 'loading'
+    case 'transcribing':
+      return 'thinking'
+    case 'speaking':
+      return 'success'
+    case 'error':
+      return 'notify'
+    default:
+      return 'calm'
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -551,7 +568,7 @@ export function VoiceCallBar({
   return (
     <div className="relative">
       <div className="rounded-2xl border border-primary/20 bg-card shadow-kin px-4 py-3 flex items-center gap-3">
-        {/* Pulsing orb */}
+        {/* Pulsing orb — le visage du coach, dont l'humeur suit l'appel */}
         <div className="relative w-11 h-11 shrink-0">
           {status === 'listening' && (
             <motion.span
@@ -564,14 +581,10 @@ export function VoiceCallBar({
           <div
             className={cn(
               'absolute inset-0 rounded-full flex items-center justify-center transition-colors duration-300',
-              status === 'speaking' ? 'bg-kin-sage/20 text-kin-sage' : 'bg-primary/10 text-primary'
+              status === 'speaking' ? 'bg-kin-sage/20' : 'bg-primary/10'
             )}
           >
-            {status === 'speaking' ? (
-              <Volume2 className="w-5 h-5" aria-hidden />
-            ) : (
-              <Mic className="w-5 h-5" aria-hidden />
-            )}
+            <CoachMascot mood={moodForStatus(status)} className="w-6 h-6" />
           </div>
         </div>
 
@@ -694,7 +707,7 @@ export function VoiceCallHome({
   return (
     <div className="relative">
       <div className="rounded-2xl border border-primary/20 bg-card shadow-kin px-4 py-4 flex items-center gap-3">
-        {/* Coach orb */}
+        {/* Coach orb — le visage du coach avant l'appel */}
         <div className="relative w-12 h-12 shrink-0">
           <motion.span
             animate={reduce ? { opacity: 0.3 } : { scale: [1, 1.6], opacity: [0.4, 0] }}
@@ -703,7 +716,7 @@ export function VoiceCallHome({
             aria-hidden
           />
           <div className="absolute inset-0 rounded-full bg-primary/10 flex items-center justify-center">
-            <Phone className="w-5 h-5 text-primary" aria-hidden />
+            <CoachMascot mood="calm" className="w-7 h-7" />
           </div>
         </div>
 

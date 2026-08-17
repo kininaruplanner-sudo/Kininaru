@@ -10,7 +10,6 @@ import {
   Save,
   CheckCircle2,
   Languages,
-  Sparkles,
   Trash2,
   SlidersHorizontal,
   Settings,
@@ -29,6 +28,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { PageHeader } from '@/components/page-header'
+import { CoachMascot } from '@/components/coach-mascot'
 import { VoiceSettingsPanel } from '@/components/voice-settings-panel'
 import { CoachSettingsPanel } from '@/components/coach/coach-settings-panel'
 import { PushSettingsPanel } from '@/components/push-settings-panel'
@@ -286,7 +286,7 @@ export function SettingsClient({ profile, user, userId, memories: initialMemorie
     },
     {
       id: 'assistant',
-      icon: Sparkles,
+      icon: CoachMascot,
       title: t('settings.coach'),
       desc: t('settings.coachDesc'),
       content: (

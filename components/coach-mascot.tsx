@@ -6,16 +6,15 @@ import { cn } from '@/lib/utils'
 /**
  * CoachMascot — le visage du coach IA Kininaru.
  *
- * Forme géométrique abstraite : un cristal / losange arrondi dont la
- * silhouette reprend la géométrie du logo (le pétale central du lotus
- * est déjà un losange arrondi — M32 25 C 36.8 32 … dans kin-logo.tsx) et
- * deux petits pétales de base qui ferment la fleur. Pas de robot, pas de
- * personnage cartoon : uniquement des yeux minimalistes, une bouche très
- * simple et beaucoup de respiration.
+ * Forme géométrique abstraite : une tête ronde (cercle simple, lisible
+ * même en très petite taille) posée sur deux petits pétales de base qui
+ * ancrent la forme dans le système du logo (le lotus de kin-logo.tsx).
+ * Pas de robot, pas de personnage cartoon : uniquement des yeux
+ * minimalistes, une bouche très simple et beaucoup de respiration.
  *
- * - `variant="gradient"`  → cristal rempli du dégradé de marque
+ * - `variant="gradient"`  → tête remplie du dégradé de marque
  *   (brand → cool → warm, comme le logo) — pour les surfaces claires.
- * - `variant="onPrimary"` → cristal en `--kt-primary-foreground` (blanc)
+ * - `variant="onPrimary"` → tête en `--kt-primary-foreground` (blanc)
  *   avec détails en `--kt-primary` — pour la bulle / les boutons primaires.
  *
  * Les expressions suivent les couleurs et l'ambiance du thème actif
@@ -174,12 +173,9 @@ export function CoachMascot({
         animate={moodLoop.animate ?? { scale: 1, opacity: 1 }}
         transition={moodLoop.transition ?? { duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Cristal / losange arrondi — le pétale central du logo, agrandi. */}
-        <path
-          d="M32 9 C 41.5 19, 43.5 30, 32 47.5 C 20.5 30, 22.5 19, 32 9 Z"
-          fill={faceFill}
-        />
-        {/* Deux petits pétales de base — ferment le lotus, ancrent la forme. */}
+        {/* Tête ronde — cercle simple, sans cristal ni losange. */}
+        <circle cx="32" cy="28" r="19" fill={faceFill} />
+        {/* Deux petits pétales de base — ancrent la forme dans le logo. */}
         <path
           d="M21.5 46.5 C 15 49, 9.5 53, 7.5 57 C 12 55.5, 17 53.5, 22.5 52 Z"
           fill={faceFill}
@@ -189,10 +185,10 @@ export function CoachMascot({
           fill={faceFill}
         />
 
-        {/* Étincelle lumineuse — progression détectée */}
+        {/* Étincelle lumineuse — progression détectée (au-dessus de la tête) */}
         {mood === 'progress' && (
           <motion.path
-            d="M45.5 11 L46.85 14.85 L50.7 16.2 L46.85 17.55 L45.5 21.4 L44.15 17.55 L40.3 16.2 L44.15 14.85 Z"
+            d="M45.5 5 L46.85 8.85 L50.7 10.2 L46.85 11.55 L45.5 15.4 L44.15 11.55 L40.3 10.2 L44.15 8.85 Z"
             fill={detail}
             style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
             animate={motionOff ? undefined : { opacity: [0.35, 1, 0.35], scale: [0.85, 1.18, 0.85] }}
