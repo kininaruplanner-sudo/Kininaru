@@ -22,7 +22,6 @@ export default function robots(): MetadataRoute.Robots {
         '/habits',
         '/calendar',
         '/family',
-        '/journal',
         '/settings',
         '/focus',
         '/analytics',

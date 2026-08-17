@@ -84,14 +84,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
   description:
-    "Tu as déjà une liste de choses à faire. Kininaru t'aide à choisir laquelle faire maintenant — tâches, habitudes, focus, journal, famille et un coach IA qui guide ta journée.",
+    "Tu as déjà une liste de choses à faire. Kininaru t'aide à choisir laquelle faire maintenant — tâches, habitudes, focus, famille et un coach IA qui guide ta journée.",
   openGraph: {
     type: 'website',
     url: SITE_URL,
     siteName: 'Kininaru',
     title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
     description:
-      'Choisis quoi faire maintenant : tâches, habitudes, focus, journal, famille et un coach IA qui observe tes vraies données.',
+      'Choisis quoi faire maintenant : tâches, habitudes, focus, famille et un coach IA qui observe tes vraies données.',
     // Image 1200×630 dédiée (app/opengraph-image.tsx), résolue en URL absolue
     // via metadataBase → https://kininaru-planner.vercel.app/opengraph-image
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Kininaru — Ton coach pour savoir quoi faire maintenant' }],
@@ -100,7 +100,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Kininaru — Ton coach pour savoir quoi faire maintenant',
     description:
-      'Choisis quoi faire maintenant : tâches, habitudes, focus, journal, famille et un coach IA qui guide ta journée.',
+      'Choisis quoi faire maintenant : tâches, habitudes, focus, famille et un coach IA qui guide ta journée.',
     images: ['/opengraph-image'],
   },
   // Balises Google Search Console (codes actifs uniquement).

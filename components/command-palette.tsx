@@ -10,7 +10,7 @@ import {
   CheckSquare,
   Timer,
   Repeat,
-  BookOpen,
+  Sparkles,
   Users,
   Settings,
   Plus,
@@ -40,7 +40,7 @@ const NAV_ITEMS: { label: string; href: string; icon: React.ElementType }[] = [
   { label: 'Tâches', href: '/tasks', icon: CheckSquare },
   { label: 'Focus', href: '/focus', icon: Timer },
   { label: 'Habitudes', href: '/habits', icon: Repeat },
-  { label: 'Journal', href: '/journal', icon: BookOpen },
+  { label: 'Assistant IA', href: '/ai', icon: Sparkles },
   { label: 'Famille', href: '/family', icon: Users },
   { label: 'Réglages', href: '/settings', icon: Settings },
 ]

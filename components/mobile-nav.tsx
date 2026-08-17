@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CheckSquare, Timer, BookOpen } from 'lucide-react'
+import { Home, CheckSquare, Timer, Sparkles } from 'lucide-react'
 import { CoachMascot } from '@/components/coach-mascot'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +19,7 @@ const TABS = [
   { kind: 'link', href: '/dashboard', label: 'Accueil', icon: Home },
   { kind: 'link', href: '/tasks', label: 'Tâches', icon: CheckSquare },
   { kind: 'link', href: '/focus', label: 'Focus', icon: Timer },
-  { kind: 'link', href: '/journal', label: 'Journal', icon: BookOpen },
+  { kind: 'link', href: '/ai', label: 'IA', icon: Sparkles },
   { kind: 'assistant', label: 'Coach', icon: CoachMascot },
 ] as const
 

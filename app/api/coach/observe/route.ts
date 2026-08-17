@@ -103,7 +103,6 @@ export async function POST(req: Request) {
         habitsTotal: ctx.habitsTotal,
         eventsToday: ctx.eventsToday,
         focusMinutesToday: ctx.focusMinutesToday,
-        journalThisWeek: ctx.journalThisWeek,
       },
       nextAction: ctx.nextPriorityTask
         ? {

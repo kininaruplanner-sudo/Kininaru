@@ -16,7 +16,6 @@ export type CoachPage =
   | 'tasks'
   | 'habits'
   | 'calendar'
-  | 'journal'
   | 'focus'
   | 'family'
   | 'analytics'
@@ -29,7 +28,6 @@ export const COACH_PAGES: ReadonlySet<string> = new Set([
   'tasks',
   'habits',
   'calendar',
-  'journal',
   'focus',
   'family',
   'analytics',
@@ -64,8 +62,6 @@ export interface CoachContext {
   /** Events whose start falls within today (local midnight → tomorrow). */
   eventsToday: number
   focusMinutesToday: number
-  /** Journal entries written in the last 7 days. */
-  journalThisWeek: number
   hasFamily: boolean
 }
 
@@ -90,7 +86,6 @@ export async function buildCoachContext(
     { data: habitLogs },
     { data: events },
     { data: focusWeek },
-    { data: journalWeek },
     { data: familyMemberships },
   ] = await Promise.all([
     supabase
@@ -142,12 +137,6 @@ export async function buildCoachContext(
       .eq('user_id', userId)
       .gte('created_at', weekAgo),
     supabase
-      .from('journal_entries')
-      .select('id')
-      .eq('user_id', userId)
-      .gte('created_at', weekAgo)
-      .limit(50),
-    supabase
       .from('family_members')
       .select('family_id')
       .eq('user_id', userId)
@@ -173,7 +162,6 @@ export async function buildCoachContext(
     habitsDoneToday: habitLogs?.length ?? 0,
     eventsToday: events?.length ?? 0,
     focusMinutesToday,
-    journalThisWeek: journalWeek?.length ?? 0,
     hasFamily: (familyMemberships?.length ?? 0) > 0,
   }
 }

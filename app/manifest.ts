@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Kininaru',
     short_name: 'Kininaru',
     description:
-      'Premium productivity planner with calendar, tasks, habits, focus, journal and an AI coach',
+      'Premium productivity planner with calendar, tasks, habits, focus and an AI coach',
     lang: 'fr',
     categories: ['productivity', 'lifestyle', 'health_fitness'],
     start_url: '/',
@@ -35,9 +35,9 @@ export default function manifest(): MetadataRoute.Manifest {
         icons: [{ src: '/icon-192x192.png', sizes: '192x192' }],
       },
       {
-        name: 'Écrire au journal',
-        short_name: 'Journal',
-        url: '/journal',
+        name: 'Assistant IA',
+        short_name: 'IA',
+        url: '/ai',
         icons: [{ src: '/icon-192x192.png', sizes: '192x192' }],
       },
     ],

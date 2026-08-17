@@ -422,8 +422,8 @@ export function Landing() {
             Kininaru réunit tes <strong className="text-foreground font-semibold">tâches</strong>, tes{' '}
             <strong className="text-foreground font-semibold">objectifs</strong>, tes{' '}
             <strong className="text-foreground font-semibold">habitudes</strong>, ton{' '}
-            <strong className="text-foreground font-semibold">focus</strong>, ton{' '}
-            <strong className="text-foreground font-semibold">journal</strong> et un{' '}
+            <strong className="text-foreground font-semibold">focus</strong>, ta{' '}
+            <strong className="text-foreground font-semibold">réflexion</strong> et un{' '}
             <strong className="text-foreground font-semibold">coach IA</strong> — il observe ta journée
             et intervient au bon moment pour t’aider à avancer.
           </motion.p>
@@ -477,7 +477,7 @@ export function Landing() {
                 { icon: Target, label: 'Objectifs', color: 'text-warm' },
                 { icon: Repeat2, label: 'Habitudes', color: 'text-kin-sage' },
                 { icon: Timer, label: 'Focus', color: 'text-cool' },
-                { icon: BookOpen, label: 'Journal', color: 'text-complement' },
+                { icon: BookOpen, label: 'Réflexion', color: 'text-complement' },
                 { icon: Sparkles, label: 'Coach IA', color: 'text-primary' },
                 { icon: TrendingUp, label: 'Progression', color: 'text-kin-coral' },
               ].map((step, i) => (
@@ -684,8 +684,8 @@ export function Landing() {
                     {
                       time: '21:00',
                       icon: Moon,
-                      title: 'Journal + lendemain',
-                      text: 'Une pensée, un bilan, et demain est déjà préparé.',
+                      title: 'Bilan + lendemain',
+                      text: 'Le coach clôture la journée avec vous — et demain est déjà préparé.',
                       color: 'bg-primary/10 text-primary',
                     },
                   ].map((step, i) => (

@@ -36,9 +36,9 @@
       "icon": "https://kininaru-planner.vercel.app/icon-192x192.png"
     },
     {
-      "name": "Écrire au journal",
-      "short_name": "Journal",
-      "url": "/journal",
+      "name": "Assistant IA",
+      "short_name": "IA",
+      "url": "/ai",
       "icon": "https://kininaru-planner.vercel.app/icon-192x192.png"
     }
   ],

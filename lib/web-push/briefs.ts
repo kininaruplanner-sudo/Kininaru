@@ -133,7 +133,7 @@ export async function runDueBriefs(now = new Date()): Promise<BriefRunResult> {
         bits.length > 0
           ? `${bits.join(', ')}. Demain se prépare maintenant.`
           : 'Une journée douce. Demain se prépare maintenant.'
-      link = '/journal'
+      link = '/ai'
     } else {
       title = '📊 Ta semaine'
       body = ctx.tasksCompleted > 0 || ctx.focusMinutesToday > 0
