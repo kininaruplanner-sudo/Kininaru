@@ -39,9 +39,9 @@ export function MobileNav() {
               <button
                 key="assistant"
                 onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
-                className="flex flex-1 flex-col items-center justify-center gap-1 min-h-16 py-2 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-smooth"
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-smooth"
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4.5 h-4.5" />
                 {tab.label}
               </button>
             )
@@ -54,13 +54,13 @@ export function MobileNav() {
               href={href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 min-h-16 py-2 text-[10px] font-medium transition-smooth',
+                'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 py-1.5 text-[10px] font-medium transition-smooth',
                 active
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               )}
             >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+              <Icon className="w-4.5 h-4.5" strokeWidth={active ? 2.4 : 2} />
               {tab.label}
             </Link>
           )

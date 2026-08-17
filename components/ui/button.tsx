@@ -21,20 +21,21 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        // Mobile-first touch targets (audit UX/UI) : on phones every interactive
-        // control keeps a comfortable hit area (44×44px, 48px for the main CTA),
-        // while desktop keeps its original compact density via the sm: variants.
+        // Mobile-first touch targets, densité volontairement plus fine sur
+        // mobile (36 px pour le standard, 40 px pour les CTA principaux) pour
+        // une interface moins encombrée au téléphone ; desktop conserve sa
+        // compacité via les variantes sm:.
         default:
-          'h-8 min-h-11 sm:min-h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-        xs: "h-6 min-h-9 sm:min-h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 min-h-11 sm:min-h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: 'h-9 min-h-12 sm:min-h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-        icon: 'size-8 min-w-11 min-h-11 sm:min-w-8 sm:min-h-8',
+          'h-8 min-h-9 sm:min-h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
+        xs: "h-6 min-h-8 sm:min-h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 min-h-9 sm:min-h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: 'h-9 min-h-10 sm:min-h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
+        icon: 'size-8 min-w-9 min-h-9 sm:min-w-8 sm:min-h-8',
         'icon-xs':
-          "size-6 min-w-9 min-h-9 sm:min-w-6 sm:min-h-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
+          "size-6 min-w-8 min-h-8 sm:min-w-6 sm:min-h-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
         'icon-sm':
-          'size-7 min-w-11 min-h-11 sm:min-w-7 sm:min-h-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg',
-        'icon-lg': 'size-9 min-w-12 min-h-12 sm:min-w-9 sm:min-h-9',
+          'size-7 min-w-9 min-h-9 sm:min-w-7 sm:min-h-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg',
+        'icon-lg': 'size-9 min-w-10 min-h-10 sm:min-w-9 sm:min-h-9',
       },
     },
     defaultVariants: {

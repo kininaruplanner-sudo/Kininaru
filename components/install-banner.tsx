@@ -71,7 +71,7 @@ export function InstallBanner() {
             <button
               onClick={dismiss}
               aria-label={t('install.dismiss')}
-              className="shrink-0 min-w-11 min-h-11 sm:min-w-8 sm:min-h-8 size-11 sm:size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+              className="shrink-0 min-w-9 min-h-9 sm:min-w-8 sm:min-h-8 size-9 sm:size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
             >
               <X className="w-4 h-4" />
             </button>
@@ -79,7 +79,7 @@ export function InstallBanner() {
           <Button
             onClick={() => void install()}
             size="lg"
-            className="mt-3 h-12 sm:h-11 gap-2 w-full"
+            className="mt-3 h-11 sm:h-11 gap-2 w-full"
           >
             <Download className="w-4 h-4" />
             {t('settings.installButton')}

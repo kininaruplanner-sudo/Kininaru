@@ -319,7 +319,7 @@ export function Landing() {
         <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 grid grid-cols-[1fr_auto_1fr] items-center md:flex md:items-center md:justify-between">
           {/* Burger — mobile uniquement, colonne gauche */}
           <button
-            className="md:hidden justify-self-start p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+            className="md:hidden justify-self-start p-2 min-w-9 min-h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           >
@@ -436,7 +436,7 @@ export function Landing() {
           >
             <Button
               size="lg"
-              className="h-12 sm:h-11 px-7 gap-2 text-base"
+              className="h-11 sm:h-11 px-6 gap-2 text-base"
               render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
             />
             {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
@@ -444,7 +444,7 @@ export function Landing() {
                 disparaît une fois installée ou en mode standalone. */}
             <InstallAppButton
               variant="button"
-              className="h-12 sm:h-11 sm:w-auto sm:px-6 text-base border-primary/30 text-primary hover:border-primary/50"
+              className="h-11 sm:h-11 sm:w-auto sm:px-6 text-base border-primary/30 text-primary hover:border-primary/50"
             />
           </motion.div>
 

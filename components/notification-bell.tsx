@@ -88,7 +88,7 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'relative flex items-center justify-center w-full rounded-xl p-2.5 min-h-11 text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth',
+          'relative flex items-center justify-center w-full rounded-xl p-2 min-h-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth',
           open && 'bg-muted text-foreground'
         )}
         aria-label={t('notif.title')}

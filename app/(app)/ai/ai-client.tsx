@@ -746,7 +746,7 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.2 }}
                 onClick={() => sendMessage(s.text)}
-                className="flex items-center gap-2 px-3.5 py-2 min-h-11 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-primary hover:bg-primary/5 hover:-translate-y-0.5 transition-smooth shadow-kin"
+                className="flex items-center gap-2 px-3 py-1.5 min-h-9 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-primary hover:bg-primary/5 hover:-translate-y-0.5 transition-smooth shadow-kin"
               >
                 <s.icon className="w-3.5 h-3.5 text-primary shrink-0" />
                 {s.text}

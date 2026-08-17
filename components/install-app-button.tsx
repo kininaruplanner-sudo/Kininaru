@@ -63,7 +63,7 @@ export function InstallAppButton({
               <Button
                 onClick={() => void install()}
                 size="lg"
-                className={cn('mt-3.5 h-12 sm:h-11 gap-2 w-full sm:w-auto', buttonClassName)}
+                className={cn('mt-3.5 h-11 sm:h-11 gap-2 w-full sm:w-auto', buttonClassName)}
               >
                 <Download className="w-4 h-4" />
                 {t('settings.installButton')}

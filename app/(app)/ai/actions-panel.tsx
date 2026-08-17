@@ -347,7 +347,7 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
 
   const inputClass =
     'mt-1 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-ring focus:ring-3 focus:ring-ring/15 transition-smooth placeholder:text-muted-foreground'
-  const touchBtn = 'min-h-11 sm:min-h-8 w-full sm:w-auto'
+  const touchBtn = 'min-h-9 sm:min-h-8 w-full sm:w-auto'
 
   return (
     <div className="space-y-2.5">
@@ -355,7 +355,7 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
         <button
           onClick={() => confirm(pending.map((p) => p.id))}
           disabled={pending.length === 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 min-h-11 rounded-2xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary hover:bg-primary/15 transition-smooth disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 min-h-9 rounded-2xl border border-primary/30 bg-primary/10 text-sm font-semibold text-primary hover:bg-primary/15 transition-smooth disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4" />
           Tout confirmer ({pending.length})

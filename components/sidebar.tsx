@@ -134,7 +134,7 @@ export function Sidebar({
           {/* Mobile close button — 44×44 touch target */}
           <button
             onClick={onMobileClose}
-            className="lg:hidden p-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
+            className="lg:hidden p-2 min-w-9 min-h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-smooth"
             aria-label="Close menu"
           >
             <X className="w-4 h-4" />

@@ -26,12 +26,12 @@ export function CoachBubble() {
       title="Assistant Kininaru"
       className={cn(
         'fixed z-40 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-kin-hover transition-smooth hover:scale-105 active:scale-95',
-        'w-14 h-14',
+        'w-12 h-12 sm:w-14 sm:h-14',
         isAi ? 'bottom-32 right-4 md:bottom-32 md:right-6' : 'bottom-24 right-4 md:bottom-6 md:right-6'
       )}
     >
       {/* Le visage du coach : cristal blanc sur fond primaire (onPrimary). */}
-      <CoachMascot mood="calm" variant="onPrimary" className="w-7 h-7" />
+      <CoachMascot mood="calm" variant="onPrimary" className="w-6 h-6 sm:w-7 sm:h-7" />
     </button>
   )
 }

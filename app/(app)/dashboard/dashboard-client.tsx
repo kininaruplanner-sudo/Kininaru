@@ -476,7 +476,7 @@ export function DashboardClient({
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href="/focus"
-            className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-warm/15 text-warm text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
+            className="group flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl bg-warm/15 text-warm text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
           >
             <Timer className="w-4 h-4" />
             Mode Focus
@@ -484,7 +484,7 @@ export function DashboardClient({
           </Link>
           <button
             onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
-            className="group flex items-center gap-1.5 px-4 min-h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
+            className="group flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
           >
             <CoachMascot mood="calm" variant="onPrimary" className="w-4.5 h-4.5" />
             Parler au coach
@@ -531,7 +531,7 @@ export function DashboardClient({
                 <Link
                   key={s.step}
                   href={s.href}
-                  className="flex items-center gap-2.5 p-3 min-h-11 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-smooth"
+                  className="flex items-center gap-2.5 p-2.5 min-h-10 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-smooth"
                 >
                   <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
                     {s.step}
