@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { motion, MotionConfig } from 'framer-motion'
+import { motion, MotionConfig, useReducedMotion } from 'framer-motion'
 import {
   Sparkles,
   CheckSquare,
@@ -22,6 +22,7 @@ import {
   BellRing,
   Moon,
   Target,
+  type LucideIcon,
 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
 import { BetaBadge } from '@/components/beta-badge'
@@ -170,6 +171,92 @@ function Reveal({ children, delay = 0, className }: { children: React.ReactNode;
       className={className}
     >
       {children}
+    </motion.div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Progression — compteurs animés (0 → 128) déclenchés à l'affichage    */
+/* ------------------------------------------------------------------ */
+
+function AnimatedNumber({
+  value,
+  prefix = '',
+  suffix = '',
+  duration = 1.1,
+}: {
+  value: number
+  prefix?: string
+  suffix?: string
+  duration?: number
+}) {
+  const reduced = useReducedMotion()
+  const [display, setDisplay] = useState(0)
+  const [started, setStarted] = useState(false)
+
+  useEffect(() => {
+    if (!started) return
+    if (reduced) {
+      // prefers-reduced-motion : afficher directement la valeur finale,
+      // différée d'une frame pour éviter un setState synchrone dans l'effet.
+      const raf = requestAnimationFrame(() => setDisplay(value))
+      return () => cancelAnimationFrame(raf)
+    }
+    let raf = 0
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / (duration * 1000), 1)
+      const eased = 1 - Math.pow(1 - p, 3) // easeOutCubic : rapide au départ, doux à la fin
+      setDisplay(Math.round(eased * value))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [started, value, duration, reduced])
+
+  return (
+    <motion.span
+      onViewportEnter={() => setStarted(true)}
+      viewport={{ once: true, margin: '-40px' }}
+      className="tabular-nums"
+    >
+      {prefix}
+      {display.toLocaleString('fr-FR')}
+      {suffix}
+    </motion.span>
+  )
+}
+
+function ProgressStat({
+  icon: Icon,
+  value,
+  label,
+  chip,
+  suffix = '',
+  delay,
+}: {
+  icon: LucideIcon
+  value: number
+  label: string
+  chip: string
+  suffix?: string
+  delay: number
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 22 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] }}
+      className="rounded-2xl border border-border bg-card p-4 text-center hover-lift transition-smooth"
+    >
+      <span className={cn('inline-flex w-8 h-8 rounded-lg items-center justify-center mb-2.5', chip)}>
+        <Icon className="w-4 h-4" />
+      </span>
+      <p className="font-serif font-bold text-xl sm:text-2xl text-foreground leading-none">
+        <AnimatedNumber value={value} suffix={suffix} />
+      </p>
+      <p className="kin-caption mt-1.5">{label}</p>
     </motion.div>
   )
 }
@@ -693,33 +780,61 @@ export function Landing() {
       {/* ---------------- Progression ---------------- */}
       <section id="progress" className="py-20 sm:py-28">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-14 items-center">
+          {/* Apparition séquentielle : message → données → chiffres qui évoluent.
+              Le titre, le sous-texte puis chaque carte entrent dans le viewport
+              l'un après l'autre (whileInView, une seule fois). */}
           <Reveal>
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
-                <BarChart3 className="w-3 h-3" /> Progression
-              </span>
-              <h2 className="kin-h1 text-foreground mb-5">
-                Voyez le chemin parcouru,
-                <br /> pas seulement la liste.
-              </h2>
-              <p className="text-muted-foreground leading-relaxed mb-6 max-w-lg">
-                Analytics calcule votre productivité, vos séries d’habitudes et vos heures de
-                focus. Des graphiques lisibles, pas de chiffres pour le plaisir.
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { v: '87 %', l: 'Tâches faites' },
-                  { v: '12 j', l: 'Série record' },
-                  { v: '9 h 20', l: 'Focus cette semaine' },
-                ].map((s) => (
-                  <div key={s.l} className="rounded-2xl border border-border bg-card p-4 text-center hover-lift transition-smooth">
-                    <p className="font-serif font-bold text-xl text-foreground">{s.v}</p>
-                    <p className="kin-caption">{s.l}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
+              <BarChart3 className="w-3 h-3" /> Progression
+            </span>
           </Reveal>
+
+          <Reveal delay={0.06}>
+            <h2 className="kin-h1 text-foreground mb-5">
+              Voyez le chemin parcouru,
+              <br /> pas seulement la liste.
+            </h2>
+          </Reveal>
+
+          <Reveal delay={0.12}>
+            <p className="text-muted-foreground leading-relaxed mb-7 max-w-lg">
+              Analytics calcule votre productivité, vos séries d’habitudes et vos heures de
+              focus. Des graphiques lisibles, pas de chiffres pour le plaisir.
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-3 gap-3">
+            <ProgressStat icon={CheckSquare} value={128} label="Tâches terminées" chip="bg-kin-coral/15 text-kin-coral" delay={0.2} />
+            <ProgressStat icon={Timer} value={84} suffix=" h" label="Heures de focus" chip="bg-kin-blue/15 text-kin-blue" delay={0.28} />
+            <ProgressStat icon={Repeat2} value={37} label="Habitudes tenues" chip="bg-kin-sage/20 text-kin-sage" delay={0.36} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <ProgressStat icon={TrendingUp} value={12} suffix=" j" label="Jours de progression" chip="bg-warm/15 text-warm" delay={0.44} />
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.5, delay: 0.52, ease: [0.16, 1, 0.3, 1] }}
+              className="rounded-2xl border border-border bg-card p-4 hover-lift transition-smooth"
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-sm font-medium text-foreground">Progression globale</span>
+                <p className="font-serif font-bold text-lg text-foreground">
+                  <AnimatedNumber value={87} suffix=" %" />
+                </p>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: '87%' }}
+                  viewport={{ once: true, margin: '-60px' }}
+                  transition={{ duration: 1, delay: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                  className="h-full rounded-full kin-gradient-brand"
+                />
+              </div>
+            </motion.div>
+          </div>
 
           <Reveal delay={0.1}>
             <div className="relative mx-auto max-w-md w-full">
