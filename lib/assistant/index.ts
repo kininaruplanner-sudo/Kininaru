@@ -16,5 +16,18 @@ export type { ToolExecutionResult } from './tool-executor'
 export { buildEnrichedContext } from './context-builder'
 export type { EnrichedContext, ContextData, NextAction } from './context-builder'
 export { PERSONALITY, ACTION_PROTOCOL, INSIGHT_MODE } from './personality'
-export { loadConversationHistory, loadConversationSummaries, loadUserMemory, buildMemoryContext } from './memory-manager'
+export {
+  loadConversationHistory,
+  loadConversationSummaries,
+  loadUserMemory,
+  loadAllUserMemories,
+  deleteMemory,
+  deleteAllMemories,
+  createMemory,
+  buildMemoryContext,
+  generateConversationSummary,
+} from './memory-manager'
 export type { MemoryLayer, ConversationMessage, ConversationSummary, UserMemoryItem } from './memory-manager'
+export { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
+export { summarizeConversation } from './conversation-summarizer'
+export type { ConversationSummaryData } from './conversation-summarizer'

@@ -1,5 +1,5 @@
 /**
- * Kininaru Assistant — Memory Manager
+ * Kininaru Assistant — Memory Manager (Updated)
  *
  * Manages four layers of memory:
  * 1. Conversation history — raw messages in coach_messages (existing)
@@ -7,11 +7,15 @@
  * 3. User memory — durable facts stored in ai_memories (existing, opt-in)
  * 4. Current context — real-time data from today (tasks, habits, focus, etc.)
  *
- * This module only READS memory. Memory is written through the existing
- * create_memory action (with user confirmation).
+ * Phase 2 enhancements:
+ * - Relevant memory selection (not all memories, only topic-relevant ones)
+ * - Conversation summarization for long conversations
+ * - Integration with the context builder
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
+import { summarizeConversation } from './conversation-summarizer'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -134,9 +138,110 @@ export async function loadUserMemory(
 }
 
 /**
- * Builds a complete memory context string for the system prompt.
+ * Loads all user memories for management (settings panel).
+ * Returns full data including id for deletion.
  */
-export function buildMemoryContext(memory: MemoryLayer): string {
+export async function loadAllUserMemories(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Array<{ id: string; content: string; category: string; created_at: string }>> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_memories')
+      .select('id, content, category, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) return []
+    return (data ?? []) as Array<{ id: string; content: string; category: string; created_at: string }>
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Deletes a specific memory by id.
+ * Respects RLS — user can only delete their own memories.
+ */
+export async function deleteMemory(
+  supabase: SupabaseClient,
+  userId: string,
+  memoryId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('ai_memories')
+      .delete()
+      .eq('id', memoryId)
+      .eq('user_id', userId)
+
+    return !error
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Deletes all memories for a user.
+ * Respects RLS — user can only delete their own memories.
+ */
+export async function deleteAllMemories(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('ai_memories')
+      .delete()
+      .eq('user_id', userId)
+
+    return !error
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Creates a new memory item.
+ * Respects RLS — user can only create memories for themselves.
+ */
+export async function createMemory(
+  supabase: SupabaseClient,
+  userId: string,
+  content: string,
+  category: string
+): Promise<{ id: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_memories')
+      .insert({ user_id: userId, content, category })
+      .select('id')
+      .single()
+
+    if (error) return null
+    return data as { id: string }
+  } catch {
+    return null
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Context Builder Integration                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Builds a complete memory context string for the system prompt.
+ * Uses the memory selector to pick only relevant memories.
+ *
+ * @param memory - The memory layer data
+ * @param userMessage - The latest user message (for relevance selection)
+ * @param maxMemories - Maximum memories to include (default 5)
+ */
+export function buildMemoryContext(
+  memory: MemoryLayer,
+  userMessage?: string,
+  maxMemories = 5
+): string {
   const parts: string[] = []
 
   // Past conversation summaries
@@ -149,15 +254,27 @@ export function buildMemoryContext(memory: MemoryLayer): string {
     )
   }
 
-  // User memory
-  if (memory.userMemory.length > 0) {
-    parts.push(
-      'FAITS MÉMORISÉS (respecte-les — l\'utilisateur les a enregistrés consciemment) :\n' +
-      memory.userMemory
-        .map(m => `  • ${m.content} (${m.category})`)
-        .join('\n')
-    )
+  // User memory — select only relevant ones
+  if (memory.userMemory.length > 0 && userMessage) {
+    const relevantMemories = selectRelevantMemories(memory.userMemory, userMessage, maxMemories)
+    if (relevantMemories.length > 0) {
+      parts.push(formatMemoriesForContext(relevantMemories))
+    }
+  } else if (memory.userMemory.length > 0) {
+    // No user message for selection — include all (up to limit)
+    parts.push(formatMemoriesForContext(memory.userMemory.slice(0, maxMemories)))
   }
 
   return parts.join('\n\n')
+}
+
+/**
+ * Generates a summary for a conversation.
+ * Used when a conversation gets long enough to benefit from summarization.
+ */
+export function generateConversationSummary(
+  messages: Array<{ role: string; content: string }>
+): string {
+  const summary = summarizeConversation(messages)
+  return summary.summary
 }

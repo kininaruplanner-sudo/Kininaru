@@ -77,8 +77,12 @@ export async function POST(req: Request) {
     }
 
     // Build enriched context with next-action suggestion
+    // Pass the latest user message for relevant memory selection
+    const lastMsg = messages[messages.length - 1]
+    const latestUserMessage = typeof lastMsg?.content === 'string' ? lastMsg.content : undefined
     const enrichedContext = await buildEnrichedContext(supabase, user.id, {
       includeMemory: memoryEnabled,
+      userMessage: latestUserMessage,
     });
 
     // Also build the legacy context for backward compatibility

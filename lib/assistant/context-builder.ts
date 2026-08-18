@@ -14,6 +14,7 @@
 
 import { format } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -109,7 +110,7 @@ const MAX_GOALS = 5
 export async function buildEnrichedContext(
   supabase: SupabaseClient,
   userId: string,
-  opts?: { includeMemory?: boolean }
+  opts?: { includeMemory?: boolean; userMessage?: string }
 ): Promise<EnrichedContext> {
   const now = new Date()
   const todayKey = format(now, 'yyyy-MM-dd')
@@ -288,7 +289,8 @@ export async function buildEnrichedContext(
   const nextAction = computeNextAction(contextData, now)
 
   // Build context text for the system prompt
-  const text = buildContextText(contextData, opts?.includeMemory !== false ? memories ?? [] : [])
+  const allMemories = opts?.includeMemory !== false ? (memories ?? []) as { content: string; category: string }[] : []
+  const text = buildContextText(contextData, allMemories, opts?.userMessage)
 
   return { text, data: contextData, nextAction }
 }
@@ -381,7 +383,7 @@ function computeNextAction(data: ContextData, now: Date): NextAction | null {
 /* Context Text Builder                                               */
 /* ------------------------------------------------------------------ */
 
-function buildContextText(data: ContextData, memories: { content: string; category: string }[]): string {
+function buildContextText(data: ContextData, allMemories: { content: string; category: string }[], userMessage?: string): string {
   const lines: string[] = [
     'CONTEXTE DE L\'UTILISATEUR (extrait minimal — utilise-le pour personnaliser tes réponses) :',
     '',
@@ -469,13 +471,17 @@ function buildContextText(data: ContextData, memories: { content: string; catego
     lines.push(`JOURNAL : ${data.journal.thisWeek} entrée${data.journal.thisWeek > 1 ? 's' : ''} cette semaine`)
   }
 
-  // Memories
-  if (memories.length > 0) {
-    lines.push('')
-    lines.push('FAITS MÉMORISÉS (respecte-les — l\'utilisateur les a enregistrés consciemment) :')
-    memories.forEach(m => {
-      lines.push(`  • ${m.content} (${m.category})`)
-    })
+  // Memories — select only relevant ones based on the user message
+  if (allMemories.length > 0) {
+    const relevantMemories = userMessage
+      ? selectRelevantMemories(allMemories, userMessage, 5)
+      : allMemories.slice(0, 5)
+
+    if (relevantMemories.length > 0) {
+      lines.push('')
+      const memoryContext = formatMemoriesForContext(relevantMemories)
+      lines.push(memoryContext)
+    }
   }
 
   return lines.join('\n')
