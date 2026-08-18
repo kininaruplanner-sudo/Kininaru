@@ -15,7 +15,7 @@ export type { ToolDefinition, ToolCategory, ToolParam } from './tools'
 export { executeTool, executeConfirmedTool } from './tool-executor'
 export type { ToolExecutionResult } from './tool-executor'
 export { buildEnrichedContext } from './context-builder'
-export type { EnrichedContext, ContextData, NextAction } from './context-builder'
+export type { EnrichedContext, ContextData } from './context-builder'
 export { PERSONALITY, ACTION_PROTOCOL, INSIGHT_MODE } from './personality'
 export {
   loadConversationHistory,
@@ -59,3 +59,7 @@ export {
   getActionStats,
 } from './action-log'
 export type { ActionLogEntry, ActionStatus } from './action-log'
+export { buildTemporalContext, calculateAvailableSlots, calculateDailyLoad } from './planning/temporal-context'
+export type { TemporalContext, TimeSlot, TimePeriod } from './planning/temporal-context'
+export { selectNextAction } from './planning/next-action-engine'
+export type { NextAction, NextActionCandidate, NextActionScore } from './planning/next-action-engine'

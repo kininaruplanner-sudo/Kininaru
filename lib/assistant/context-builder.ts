@@ -15,6 +15,7 @@
 import { format } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
+import { buildTemporalContext, selectNextAction } from './planning'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -285,8 +286,24 @@ export async function buildEnrichedContext(
     },
   }
 
-  // Compute next action suggestion
-  const nextAction = computeNextAction(contextData, now)
+  // Build temporal context
+  const temporal = buildTemporalContext({
+    events: (todayEvents ?? []).map(e => ({ start_at: e.start_at, end_at: e.end_at })),
+    tasksToday: (todayTasks ?? []).length,
+    tasksOverdue: (overdueTasks ?? []).length,
+    habitsTotal: habitList.length,
+    habitsDone: habitsDoneToday,
+    focusTodayMinutes,
+    urgentTasks: (todayTasks ?? []).filter(t => t.priority === 'urgent' || t.priority === 'high').length,
+  })
+
+  // Compute next action suggestion using the planning engine
+  const nextActionResult = selectNextAction(contextData, temporal, goalsWithProgress)
+  const nextAction = nextActionResult ? {
+    title: nextActionResult.candidate.title,
+    taskId: nextActionResult.candidate.id,
+    reason: nextActionResult.explanation,
+  } : null
 
   // Build context text for the system prompt
   const allMemories = opts?.includeMemory !== false ? (memories ?? []) as { content: string; category: string }[] : []
