@@ -16,6 +16,8 @@
 
 import type { ContextData, TaskInfo, HabitInfo, GoalInfo } from '../context-builder'
 import type { TemporalContext } from './temporal-context'
+import { scorePreferenceFit, scoreHistoricalSuccess } from '../adaptation/adaptive-score'
+import { isAdaptationEnabled } from '../adaptation/preferences'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -52,6 +54,9 @@ export interface NextActionScore {
   contextFit: number
   /** Total score (0-100) */
   total: number
+  /** Adaptive adjustments (if adaptation is enabled) */
+  preferenceFit?: number
+  historicalSuccess?: number
 }
 
 export interface NextAction {
@@ -294,7 +299,7 @@ export function selectNextAction(
     const goalRelevance = scoreGoalRelevance(candidate, goals)
     const contextFit = scoreContextFit(candidate, temporal)
 
-    const total = Math.round(
+    let total = Math.round(
       (urgency / WEIGHTS.urgency) * 100 +
       (priority / WEIGHTS.priority) * 100 +
       (timeFit / WEIGHTS.timeFit) * 100 +
@@ -302,9 +307,24 @@ export function selectNextAction(
       (contextFit / WEIGHTS.contextFit) * 100
     ) / 5
 
+    // Apply adaptive scoring if available
+    let preferenceFit = 0
+    let historicalSuccess = 0
+    
+    if (isAdaptationEnabled()) {
+      try {
+        preferenceFit = scorePreferenceFit(candidate)
+        historicalSuccess = scoreHistoricalSuccess(candidate)
+        const adaptiveBonus = preferenceFit + historicalSuccess
+        total = Math.min(100, total + adaptiveBonus)
+      } catch {
+        // Adaptation not available, use base score
+      }
+    }
+
     return {
       candidate,
-      score: { urgency, priority, timeFit, goalRelevance, contextFit, total },
+      score: { urgency, priority, timeFit, goalRelevance, contextFit, total, preferenceFit, historicalSuccess },
     }
   })
 

@@ -63,3 +63,43 @@ export { buildTemporalContext, calculateAvailableSlots, calculateDailyLoad } fro
 export type { TemporalContext, TimeSlot, TimePeriod } from './planning/temporal-context'
 export { selectNextAction } from './planning/next-action-engine'
 export type { NextAction, NextActionCandidate, NextActionScore } from './planning/next-action-engine'
+
+// Adaptation (Phase 9: Adaptive Intelligence)
+export {
+  recordSignal,
+  getSignalsByType,
+  getRecentSignals,
+  clearSignals,
+} from './adaptation/signals'
+export type { SignalType, Signal } from './adaptation/signals'
+export {
+  isAdaptationEnabled,
+  setAdaptationEnabled,
+  getPreference,
+  getAllPreferences,
+  updatePreference,
+  deletePreference,
+  resetAllPreferences,
+  getRelevantPreferences,
+} from './adaptation/preferences'
+export type { LearnedPreference, PreferenceSource, AdaptationPrefs } from './adaptation/preferences'
+export {
+  calculateIncrease,
+  calculateDecrease,
+  isConfident,
+  confidenceLabel,
+  confidencePercent,
+  MIN_CONFIDENCE,
+  MAX_CONFIDENCE,
+} from './adaptation/confidence'
+export {
+  processFeedback,
+  getFeedbackStats,
+} from './adaptation/feedback'
+export type { FeedbackType, FeedbackContext } from './adaptation/feedback'
+export {
+  scorePreferenceFit,
+  scoreHistoricalSuccess,
+  extendScore,
+  getAdaptiveExplanationFactors,
+} from './adaptation/adaptive-score'
