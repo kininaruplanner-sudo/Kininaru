@@ -7,6 +7,7 @@
 // Register all tools (side-effect imports)
 import './read-tools'
 import './write-tools'
+import './calendar-tools'
 
 // Re-export public API
 export { getAllTools, getTool, getToolNames, isReadTool, isWriteTool } from './tools'
@@ -50,3 +51,11 @@ export { createWakeWordDetector } from './wake-word/detector'
 export type { WakeWordDetector, WakeWordState, WakeWordCallbacks } from './wake-word/detector'
 export { createVisionInput } from './vision/input'
 export type { VisionInput, VisionInputState, VisionImage, VisionInputCallbacks } from './vision/input'
+export {
+  logAction,
+  getRecentActions,
+  getTodayActions,
+  clearActionLog,
+  getActionStats,
+} from './action-log'
+export type { ActionLogEntry, ActionStatus } from './action-log'

@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-export type ToolCategory = 'read' | 'write'
+export type ToolCategory = 'read' | 'write' | 'external' | 'sensitive'
 
 export interface ToolParam {
   name: string
@@ -36,6 +36,10 @@ export interface ToolDefinition {
   /** Whether this tool requires user confirmation before execution */
   requiresConfirmation: boolean
   params: ToolParam[]
+  /** Human-readable label for the confirmation UI */
+  confirmationLabel?: string
+  /** Whether this tool can be undone */
+  canUndo?: boolean
 }
 
 export interface ToolContext {
