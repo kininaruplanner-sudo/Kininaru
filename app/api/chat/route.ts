@@ -2,6 +2,7 @@ import { createGroq } from '@ai-sdk/groq';
 import { streamText, type ModelMessage } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { buildSystemPrompt, buildUserContext } from '@/lib/ai/prompts';
+import { buildEnrichedContext } from '@/lib/assistant/context-builder';
 import { isRateLimited } from '@/lib/ai/rate-limit';
 
 export const runtime = 'nodejs';
@@ -75,12 +76,31 @@ export async function POST(req: Request) {
       }
     }
 
-    // AI 2.0: gather a minimal, relevant snapshot of the signed-in user's
-    // own data (RLS-scoped) and steer the model with the full coach prompt.
-    const context = await buildUserContext(supabase, user.id, {
+    // Build enriched context with next-action suggestion
+    const enrichedContext = await buildEnrichedContext(supabase, user.id, {
       includeMemory: memoryEnabled,
     });
-    const system = buildSystemPrompt({ context: context.text, actionsEnabled });
+
+    // Also build the legacy context for backward compatibility
+    const legacyContext = await buildUserContext(supabase, user.id, {
+      includeMemory: memoryEnabled,
+    });
+
+    // Combine contexts: enriched context takes priority, legacy fills gaps
+    const contextText = enrichedContext.text || legacyContext.text
+
+    // Inject next action suggestion into the context
+    const nextActionHint = enrichedContext.nextAction
+      ? `\n\nPROCHAINE ACTION SUGGÉRÉE (à considérer dans ta réponse) :\n` +
+        `• ${enrichedContext.nextAction.title}\n` +
+        `• Raison : ${enrichedContext.nextAction.reason}\n` +
+        `• ID : ${enrichedContext.nextAction.taskId}`
+      : ''
+
+    const system = buildSystemPrompt({
+      context: contextText + nextActionHint,
+      actionsEnabled,
+    });
 
     if (!process.env.GROQ_API_KEY) {
       console.error("❌ GROQ_API_KEY manquant dans .env.local");
@@ -92,9 +112,7 @@ export async function POST(req: Request) {
     });
 
     const result = streamText({
-      // Groq-hosted model (ÉTAPE 15.5 §19): llama-3.3-70b-versatile was
-      // deprecated by Groq (EOL 2026-08-16); gpt-oss-120b is its official
-      // recommended replacement and stays on the Groq platform.
+      // Groq-hosted model: gpt-oss-120b
       model: groq('openai/gpt-oss-120b'),
       system,
       messages,

@@ -123,6 +123,9 @@ const ACTION_WHITELIST = new Set([
   'create_event',
   'create_family_task',
   'create_memory',
+  'complete_task',
+  'update_task',
+  'start_focus',
 ])
 
 function extractActions(rawText: string): { text: string; actions: PendingAction[] } {
