@@ -50,6 +50,12 @@
   --color-kin-yellow: var(--kt-yellow);
   --color-kin-coral: var(--kt-coral);
 
+  /* KP Logo palette — sage green, lavender, peach. Used by the AI
+     assistant and other brand-specific elements. */
+  --color-kp-sage: #8fb5a1;
+  --color-kp-lavender: #b0a5d4;
+  --color-kp-peach: #e0a89a;
+
   /* Palette accents — exposed so the 4 colors of each theme are usable
      everywhere (badges, illustrations, gradients, highlights). */
   --color-brand: var(--kt-brand);
@@ -253,6 +259,21 @@
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--kt-border);
+  }
+
+  /* AI Assistant brand palette — gradient derived from the KP logo colors. */
+  .kin-ai-gradient {
+    background: linear-gradient(135deg, #8fb5a1 0%, #b0a5d4 50%, #e0a89a 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .kin-ai-surface {
+    background:
+      radial-gradient(600px circle at 20% 0%, color-mix(in srgb, #b0a5d4 10%, transparent), transparent 60%),
+      radial-gradient(500px circle at 80% 100%, color-mix(in srgb, #8fb5a1 8%, transparent), transparent 60%),
+      radial-gradient(400px circle at 50% 50%, color-mix(in srgb, #e0a89a 6%, transparent), transparent 60%),
+      var(--kt-background);
   }
 }
 

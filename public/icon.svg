@@ -1,39 +1,10 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Kininaru logo — lotus mark (open cup, never a cactus) + wordmark, brand Memphis
-       palette: cyan #00C2E0 → marine #1A365D → orange #FF6B35, fond blanc #FFFFFF.
-       Source of truth for scripts/generate-icons.mjs: keep the petal paths in sync
-       with components/kin-logo.tsx and re-run `npm run icons` after any change. -->
-  <defs>
-    <linearGradient id="kin-logo-grad" x1="0%" y1="20%" x2="100%" y2="90%">
-      <stop offset="0%" stop-color="#00C2E0" />
-      <stop offset="52%" stop-color="#1A365D" />
-      <stop offset="100%" stop-color="#FF6B35" />
-    </linearGradient>
-  </defs>
-  <rect width="180" height="180" rx="40" fill="#FFFFFF" />
-  <g fill="url(#kin-logo-grad)">
-    <g transform="translate(38 20) scale(1.63)">
-      <!-- Center petal -->
-      <path d="M32 25 C 36.8 32 36.8 44 32 50 C 27.2 44 27.2 32 32 25 Z" />
-      <!-- Inner petals -->
-      <path d="M30.5 47 C 24.5 44.5 18.5 38.5 18 28.5 C 23 30.5 28 39.5 30.5 47 Z" />
-      <path d="M33.5 47 C 39.5 44.5 45.5 38.5 46 28.5 C 41 30.5 36 39.5 33.5 47 Z" />
-      <!-- Outer petals -->
-      <path d="M30 51.5 C 21.5 51 13 48 10 41 C 17 43.5 24.5 47.5 30 51.5 Z" />
-      <path d="M34 51.5 C 42.5 51 51 48 54 41 C 47 43.5 39.5 47.5 34 51.5 Z" />
-      <!-- Base petals -->
-      <path d="M31.5 53.5 C 27.5 55.5 24.5 55.5 22.5 54 C 25.5 56 28.5 56 31.5 53.5 Z" />
-      <path d="M32.5 53.5 C 36.5 55.5 39.5 55.5 41.5 54 C 38.5 56 35.5 56 32.5 53.5 Z" />
-    </g>
-  </g>
-  <text
-    x="90"
-    y="162"
-    text-anchor="middle"
-    font-family="Plus Jakarta Sans, Inter, ui-sans-serif, system-ui, sans-serif"
-    font-size="26"
-    font-weight="600"
-    letter-spacing="0.2"
-    fill="#1A365D"
-  >kininaru</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" fill="none">
+  <!-- K letter - sage green -->
+  <path d="M30 20 L30 130 L45 130 L45 85 L75 130 L95 130 L65 80 L98 20 L78 20 L55 68 L45 58 L45 20 Z" fill="#8fb5a1"/>
+  <!-- P letter - lavender/lilac -->
+  <path d="M100 20 L100 130 L115 130 L115 80 L130 80 C148 80 155 68 155 55 C155 40 148 28 130 28 L115 28 L115 20 Z" fill="#b0a5d4"/>
+  <!-- P inner cutout - white -->
+  <rect x="115" y="42" width="20" height="30" rx="4" fill="#ffffff"/>
+  <!-- Star accent - peach/coral -->
+  <path d="M142 18 L146 26 L154 22 L148 28 L156 30 L148 30 L152 38 L146 32 L140 36 L144 28 L136 26 L144 24 Z" fill="#e0a89a"/>
 </svg>

@@ -543,10 +543,10 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
             transition={{ duration: 0.35 }}
             className="text-center max-w-md mx-auto pt-6 pb-4"
           >
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 shadow-kin">
-              <CoachMascot mood="calm" className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-kin" style={{ background: 'linear-gradient(135deg, #8fb5a1 0%, #b0a5d4 50%, #e0a89a 100%)' }}>
+              <CoachMascot mood="calm" className="w-8 h-8 text-white" />
             </div>
-            <h2 className="kin-h2 text-foreground mb-2">Comment puis-je vous aider, {displayName} ?</h2>
+            <h2 className="kin-h2 text-foreground mb-2"><span className="kin-ai-gradient">Comment puis-je vous aider</span>, {displayName} ?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Je peux planifier votre journée, fixer vos priorités, analyser votre semaine,
               découper un objectif en étapes — et créer des tâches, habitudes ou événements
@@ -582,10 +582,9 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
                   )}
                   {msg.role === 'user'
                     ? <User className="w-4 h-4" />
-                    : <CoachMascot
-                        mood={isActivelyStreaming || isEmptyPlaceholder ? 'loading' : 'calm'}
-                        className="w-5 h-5"
-                      />
+                    :              <div className="w-5 h-5 flex items-center justify-center" style={{ color: '#b0a5d4' }}>
+                <CoachMascot mood={isActivelyStreaming || isEmptyPlaceholder ? 'loading' : 'calm'} className="w-5 h-5" />
+              </div>
                   }
                 </div>
 
@@ -745,10 +744,9 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.2 }}
-                onClick={() => sendMessage(s.text)}
-                className="flex items-center gap-2 px-3 py-1.5 min-h-9 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-primary hover:bg-primary/5 hover:-translate-y-0.5 transition-smooth shadow-kin"
+                onClick={() => sendMessage(s.text)}                      className="flex items-center gap-2 px-3 py-1.5 min-h-9 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-kp-lavender hover:bg-kp-lavender/10 hover:-translate-y-0.5 transition-smooth shadow-kin"
               >
-                <s.icon className="w-3.5 h-3.5 text-primary shrink-0" />
+                <s.icon className="w-3.5 h-3.5 shrink-0" style={{ color: '#b0a5d4' }} />
                 {s.text}
               </motion.button>
             ))}

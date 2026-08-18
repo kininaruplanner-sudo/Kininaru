@@ -1210,7 +1210,7 @@ export function DashboardClient({
                 { label: 'Nouvelle tâche', href: '/tasks?new=1', icon: CheckSquare },
                 { label: 'Nouvel événement', href: '/calendar?new=1', icon: CalendarDays },
                 { label: 'Démarrer le focus', href: '/focus', icon: Timer },
-                { label: 'Assistant IA', href: '/ai', icon: Sparkles },
+                { label: 'Écrire au journal', href: '/journal', icon: CloudSun },
               ].map(({ label, href, icon: Icon }) => (
                 <Link
                   key={label}

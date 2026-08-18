@@ -194,6 +194,17 @@ const RULES: Rule[] = [
     },
   },
   {
+    // Journal page (§5): a weekly journaling pattern is forming.
+    id: 'journal_week',
+    weight: 26,
+    notify: false,
+    pages: ['journal'],
+    run: (ctx) => {
+      if (ctx.journalThisWeek < 2) return null
+      return `${ctx.journalThisWeek} entr\u00e9e${ctx.journalThisWeek > 1 ? 's' : ''} cette semaine. Un bilan peut t\u2019aider \u00e0 y voir clair.`
+    },
+  },
+  {
     // Family page (§5): invite to act together.
     id: 'family',
     weight: 22,
@@ -243,12 +254,13 @@ const ACTIONS: Record<string, CoachAction | null> = {
   focus_wow: null,
   priority_remaining: { label: 'Voir ma priorit\u00e9', href: '/tasks' },
   overdue: { label: 'Re-planifier', href: '/tasks' },
-  evening_review: { label: 'Faire un bilan', href: '/ai' },
+  evening_review: { label: 'Faire un bilan', href: '/journal' },
   afternoon_gap: { label: 'Pr\u00e9parer la suite', href: '/ai' },
   busy_day: { label: 'Voir mon agenda', href: '/calendar' },
   gentle_restart: { label: 'Voir mes priorités', href: '/tasks' },
   habits_left: { label: 'Mes habitudes', href: '/habits' },
   focus_session: { label: 'Nouvelle session', href: '/focus' },
+  journal_week: { label: '\u00c9crire maintenant', href: '/journal' },
   family: { label: 'Ma famille', href: '/family' },
   fresh_day: { label: 'Parler au coach', href: '/ai' },
 }
@@ -260,6 +272,7 @@ function toneFor(id: string): ObservationTone {
     case 'progress_done':
     case 'focus_session':
       return 'celebration'
+    case 'journal_week':
     case 'busy_day':
       return 'progress'
     case 'priority_remaining':
