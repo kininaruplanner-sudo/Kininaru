@@ -16,6 +16,8 @@ import { format } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
 import { buildTemporalContext, selectNextAction } from './planning'
+import { retrieveRelevantMemories, formatRetrievedMemories } from './memory'
+import type { Memory, MemoryQuery } from './memory'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -489,15 +491,43 @@ function buildContextText(data: ContextData, allMemories: { content: string; cat
   }
 
   // Memories — select only relevant ones based on the user message
+  // Phase 10: Use the new memory retrieval system with relevance scoring
   if (allMemories.length > 0) {
-    const relevantMemories = userMessage
-      ? selectRelevantMemories(allMemories, userMessage, 5)
-      : allMemories.slice(0, 5)
+    // Convert to Memory type for the new retrieval system
+    const typedMemories: Memory[] = allMemories.map((m, idx) => ({
+      id: `ctx-${idx}`,
+      content: m.content,
+      category: (m.category as Memory['category']) ?? 'fact',
+      importance: 'medium' as Memory['importance'],
+      source: 'conversation' as Memory['source'],
+      confidence: 0.7,
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now(),
+      accessCount: 1,
+      keywords: [],
+    }))
 
-    if (relevantMemories.length > 0) {
-      lines.push('')
-      const memoryContext = formatMemoriesForContext(relevantMemories)
-      lines.push(memoryContext)
+    if (userMessage) {
+      // Use Phase 10 relevance-based retrieval
+      const query: MemoryQuery = {
+        userMessage,
+        limit: 5,
+        respectExpiration: true,
+        excludeSuperseded: true,
+      }
+
+      const scored = retrieveRelevantMemories(typedMemories, query)
+      if (scored.length > 0) {
+        lines.push('')
+        lines.push(formatRetrievedMemories(scored, false))
+      }
+    } else {
+      // Fallback: use existing selection without a query
+      const relevantMemories = allMemories.slice(0, 5)
+      if (relevantMemories.length > 0) {
+        lines.push('')
+        lines.push(formatMemoriesForContext(relevantMemories))
+      }
     }
   }
 

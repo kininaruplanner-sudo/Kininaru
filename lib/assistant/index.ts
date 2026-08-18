@@ -103,3 +103,38 @@ export {
   extendScore,
   getAdaptiveExplanationFactors,
 } from './adaptation/adaptive-score'
+
+// Memory Module (Phase 10: Long-Term Memory & Context Continuity)
+export {
+  scoreMemoryRelevance,
+  retrieveRelevantMemories,
+  containsInjection,
+  containsSensitiveData,
+  formatRetrievedMemories,
+} from './memory/retrieval'
+export {
+  extractMemoryCandidates,
+  validateCandidate,
+  formatCandidateForUI,
+  isMessageWorthExtracting,
+} from './memory/extraction'
+export {
+  checkDuplicate,
+  checkContradiction,
+  mergeMemories,
+  supersedeMemory,
+  processBatch,
+} from './memory/dedup'
+export type {
+  Memory,
+  MemoryCategory,
+  MemoryImportance,
+  MemorySource,
+  MemoryQuery,
+  MemoryRelevanceScore,
+  MemoryExtractionCandidate,
+  DuplicateResult,
+  ContradictionResult,
+  MergeResult,
+  BatchResult,
+} from './memory'
