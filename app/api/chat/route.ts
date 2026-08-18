@@ -64,15 +64,42 @@ export async function POST(req: Request) {
     }
 
     // Validate every message shape and cap its length (server-side only —
-    // never trust the browser).
+    // never trust the browser). Accept both text and multimodal content.
     for (const m of messages) {
       if (
         !m ||
         typeof m.role !== 'string' ||
-        !ALLOWED_ROLES.has(m.role) ||
-        typeof m.content !== 'string' ||
-        m.content.length > MAX_MESSAGE_LENGTH
+        !ALLOWED_ROLES.has(m.role)
       ) {
+        return Response.json({ error: 'Message invalide' }, { status: 400 });
+      }
+
+      // Validate content: string or array of parts (text + image)
+      const content = m.content
+      if (typeof content === 'string') {
+        if (content.length > MAX_MESSAGE_LENGTH) {
+          return Response.json({ error: 'Message invalide' }, { status: 400 });
+        }
+      } else if (Array.isArray(content)) {
+        // Multimodal: validate each part
+        for (const part of content) {
+          if (!part || typeof part !== 'object') {
+            return Response.json({ error: 'Message invalide' }, { status: 400 });
+          }
+          if (part.type === 'text') {
+            if (typeof part.text !== 'string' || part.text.length > MAX_MESSAGE_LENGTH) {
+              return Response.json({ error: 'Message invalide' }, { status: 400 });
+            }
+          } else if (part.type === 'image') {
+            // Validate image data URL
+            if (typeof part.image !== 'string' || !part.image.startsWith('data:image/')) {
+              return Response.json({ error: 'Image invalide' }, { status: 400 });
+            }
+          } else {
+            return Response.json({ error: 'Type de contenu non supporté' }, { status: 400 });
+          }
+        }
+      } else {
         return Response.json({ error: 'Message invalide' }, { status: 400 });
       }
     }
