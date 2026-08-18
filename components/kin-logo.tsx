@@ -21,29 +21,18 @@ import { cn } from '@/lib/utils'
 export function KinLogoMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 64 64"
+      viewBox="0 0 64 80"
       aria-hidden="true"
-      fill="url(#kin-logo-grad)"
       className={cn('shrink-0', className)}
     >
-      <defs>
-        <linearGradient id="kin-logo-grad" x1="0%" y1="20%" x2="100%" y2="90%">
-          <stop offset="0%" style={{ stopColor: 'var(--kt-brand)' }} />
-          <stop offset="52%" style={{ stopColor: 'var(--kt-cool)' }} />
-          <stop offset="100%" style={{ stopColor: 'var(--kt-warm)' }} />
-        </linearGradient>
-      </defs>
-      {/* Center petal — short, wide, rounded (the lotus cup, never a spike) */}
-      <path d="M32 25 C 36.8 32 36.8 44 32 50 C 27.2 44 27.2 32 32 25 Z" />
-      {/* Inner petals — sweep outward and up */}
-      <path d="M30.5 47 C 24.5 44.5 18.5 38.5 18 28.5 C 23 30.5 28 39.5 30.5 47 Z" />
-      <path d="M33.5 47 C 39.5 44.5 45.5 38.5 46 28.5 C 41 30.5 36 39.5 33.5 47 Z" />
-      {/* Outer petals — the wide open bowl */}
-      <path d="M30 51.5 C 21.5 51 13 48 10 41 C 17 43.5 24.5 47.5 30 51.5 Z" />
-      <path d="M34 51.5 C 42.5 51 51 48 54 41 C 47 43.5 39.5 47.5 34 51.5 Z" />
-      {/* Base petals — close the flower */}
-      <path d="M31.5 53.5 C 27.5 55.5 24.5 55.5 22.5 54 C 25.5 56 28.5 56 31.5 53.5 Z" />
-      <path d="M32.5 53.5 C 36.5 55.5 39.5 55.5 41.5 54 C 38.5 56 35.5 56 32.5 53.5 Z" />
+      {/* K letter — sage green */}
+      <path d="M12 8 L12 52 L18 52 L18 34 L30 52 L38 52 L26 32 L40 8 L33 8 L22 27 L18 23 L18 8 Z" fill="#8fb5a1" />
+      {/* P letter — lavender/lilac */}
+      <path d="M40 8 L40 52 L46 52 L46 32 L52 32 C 59 32 62 27 62 22 C 62 16 59 11 52 11 L46 11 L46 8 Z" fill="#b0a5d4" />
+      {/* P inner cutout — white */}
+      <rect x="46" y="17" width="8" height="12" rx="1.5" fill="#ffffff" />
+      {/* Star accent — peach/coral */}
+      <path d="M57 2 L58.5 5.5 L62 4 L59.5 7 L63 8 L59.5 8 L61 11.5 L58 9 L55 11 L57 7.5 L53.5 6.5 L57 5.5 Z" fill="#e0a89a" />
     </svg>
   )
 }
@@ -83,14 +72,16 @@ export function KinLogo({
         )}
       />
       {showWordmark && (
-        <span
-          className={cn(
-            '[font-family:var(--font-jakarta),ui-sans-serif,system-ui,sans-serif] font-semibold lowercase tracking-tight leading-none',
-            variant === 'stack' ? 'text-xl' : 'text-lg',
-            wordmarkClassName
-          )}
-        >
-          kininaru
+        <span className={cn('flex flex-col', variant === 'stack' ? 'items-center' : 'items-start', wordmarkClassName)}>
+          <span
+            className={cn(
+              '[font-family:var(--font-jakarta),ui-sans-serif,system-ui,sans-serif] font-semibold uppercase tracking-[0.18em] leading-none',
+              variant === 'stack' ? 'text-lg' : 'text-sm'
+            )}
+          >
+            kininaru
+          </span>
+          <span className="text-[0.55em] tracking-[0.25em] text-muted-foreground/70 mt-0.5">PLAN · FOCUS · GROW</span>
         </span>
       )}
     </span>
