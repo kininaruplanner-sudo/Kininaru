@@ -3,6 +3,7 @@ import { streamText, type ModelMessage } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { buildSystemPrompt, buildUserContext } from '@/lib/ai/prompts';
 import { buildEnrichedContext } from '@/lib/assistant/context-builder';
+import { getProactiveSuggestion, formatOpportunityForContext } from '@/lib/assistant/proactivity';
 import { isRateLimited } from '@/lib/ai/rate-limit';
 
 export const runtime = 'nodejs';
@@ -101,8 +102,19 @@ export async function POST(req: Request) {
         `• ID : ${enrichedContext.nextAction.taskId}`
       : ''
 
+    // Check for proactive suggestion (contextual, not every message)
+    let proactiveHint = ''
+    try {
+      const suggestion = await getProactiveSuggestion(supabase, user.id)
+      if (suggestion) {
+        proactiveHint = '\n\n' + formatOpportunityForContext(suggestion)
+      }
+    } catch {
+      // Non-critical: proactivity failure should not break the chat
+    }
+
     const system = buildSystemPrompt({
-      context: contextText + nextActionHint,
+      context: contextText + nextActionHint + proactiveHint,
       actionsEnabled,
     });
 

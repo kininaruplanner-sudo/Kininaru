@@ -31,3 +31,14 @@ export type { MemoryLayer, ConversationMessage, ConversationSummary, UserMemoryI
 export { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
 export { summarizeConversation } from './conversation-summarizer'
 export type { ConversationSummaryData } from './conversation-summarizer'
+export {
+  getProactiveSuggestion,
+  recordSuggestionShown,
+  formatOpportunityForContext,
+  isProactivityEnabled,
+  detectOpportunities,
+  shouldShow,
+  recordOpportunityShown,
+  selectBestOpportunity,
+} from './proactivity'
+export type { Opportunity, OpportunityType, Decision } from './proactivity'
