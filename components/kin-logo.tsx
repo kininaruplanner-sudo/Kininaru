@@ -1,38 +1,41 @@
 import { cn } from '@/lib/utils'
 
 /**
- * Kininaru brand mark — a lotus flower, drawn as a wide open cup of
- * layered petals. Deliberately NOT a cactus: no dots, no tall vertical
- * spike; the silhouette is wider than it is tall, with petals that splay
- * outward and a gently rounded dome (growth → evolution → new day).
+ * Kininaru brand mark — interlocking K + P monogram.
  *
- * The mark is filled with the brand gradient (brand → cool → warm, i.e.
- * cyan → marine → orange for the single Memphis palette) so it carries the
- * full identity of Kininaru. The wordmark keeps `currentColor` (navy by
- * default) — surfaces can override it via the `color` prop.
+ * K: sage green with vertical bar + two diagonal strokes
+ * P: lavender/lilac with rounded bowl, overlapping the K
+ * Star: peach/coral 4-pointed sparkle accent
  *
- * ⚠️ The petal paths live in THREE places that must stay in sync:
+ * ⚠️ The mark paths live in TWO places that must stay in sync:
  *   1. here (React component)
  *   2. `public/icon.svg` (the visual source for generated PNG icons)
- *   3. `scripts/generate-icons.mjs` parses `public/icon.svg` — never hand-edit
- *      the PNGs in `public/`, re-run `npm run icons` instead.
  */
 
 export function KinLogoMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 64 80"
+      viewBox="0 0 200 170"
       aria-hidden="true"
       className={cn('shrink-0', className)}
     >
-      {/* K letter — sage green */}
-      <path d="M12 8 L12 52 L18 52 L18 34 L30 52 L38 52 L26 32 L40 8 L33 8 L22 27 L18 23 L18 8 Z" fill="#8fb5a1" />
-      {/* P letter — lavender/lilac */}
-      <path d="M40 8 L40 52 L46 52 L46 32 L52 32 C 59 32 62 27 62 22 C 62 16 59 11 52 11 L46 11 L46 8 Z" fill="#b0a5d4" />
-      {/* P inner cutout — white */}
-      <rect x="46" y="17" width="8" height="12" rx="1.5" fill="#ffffff" />
-      {/* Star accent — peach/coral */}
-      <path d="M57 2 L58.5 5.5 L62 4 L59.5 7 L63 8 L59.5 8 L61 11.5 L58 9 L55 11 L57 7.5 L53.5 6.5 L57 5.5 Z" fill="#e0a89a" />
+      {/* K letter — sage green, modern geometric with curved diagonal strokes */}
+      <path
+        d="M25 10 L25 145 L43 145 L43 75 L85 145 L105 145 L63 72 L115 10 L93 10 L48 66 L43 62 L43 10 Z"
+        fill="#8FB5A1"
+      />
+      {/* P letter — lavender/lilac, overlapping K with rounded bowl */}
+      <path
+        d="M100 10 L100 145 L118 145 L118 82 C118 52 130 34 155 34 C170 34 178 42 178 55 C178 68 170 78 155 78 L118 78 L118 10 Z"
+        fill="#B0A5D4"
+      />
+      {/* P inner cutout — white negative space */}
+      <rect x="133" y="45" width="27" height="22" rx="6" fill="#FFFFFF" />
+      {/* Star / sparkle accent — peach/coral, 4-pointed */}
+      <path
+        d="M168 8 L171.5 18 L182 14 L174 22 L184 24 L174 24 L178 34 L171.5 26 L164 30 L169 22 L158 20 L169 18 Z"
+        fill="#E0A89A"
+      />
     </svg>
   )
 }
@@ -51,7 +54,7 @@ export function KinLogo({
   markClassName?: string
   /** Brand marine (navy) by default; surfaces can pass any color. */
   color?: string
-  /** stack = wordmark below the lotus (brand lockup), row = beside it. */
+  /** stack = wordmark below the monogram (brand lockup), row = beside it. */
   variant?: 'stack' | 'row'
 }) {
   return (

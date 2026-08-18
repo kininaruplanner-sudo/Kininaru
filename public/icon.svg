@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" fill="none">
-  <!-- K letter - sage green -->
-  <path d="M30 20 L30 130 L45 130 L45 85 L75 130 L95 130 L65 80 L98 20 L78 20 L55 68 L45 58 L45 20 Z" fill="#8fb5a1"/>
-  <!-- P letter - lavender/lilac -->
-  <path d="M100 20 L100 130 L115 130 L115 80 L130 80 C148 80 155 68 155 55 C155 40 148 28 130 28 L115 28 L115 20 Z" fill="#b0a5d4"/>
-  <!-- P inner cutout - white -->
-  <rect x="115" y="42" width="20" height="30" rx="4" fill="#ffffff"/>
-  <!-- Star accent - peach/coral -->
-  <path d="M142 18 L146 26 L154 22 L148 28 L156 30 L148 30 L152 38 L146 32 L140 36 L144 28 L136 26 L144 24 Z" fill="#e0a89a"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 170" fill="none">
+  <!-- K letter — sage green, modern geometric -->
+  <path d="M25 10 L25 145 L43 145 L43 75 L85 145 L105 145 L63 72 L115 10 L93 10 L48 66 L43 62 L43 10 Z" fill="#8FB5A1"/>
+  <!-- P letter — lavender/lilac, overlapping K with rounded bowl -->
+  <path d="M100 10 L100 145 L118 145 L118 82 C118 52 130 34 155 34 C170 34 178 42 178 55 C178 68 170 78 155 78 L118 78 L118 10 Z" fill="#B0A5D4"/>
+  <!-- P inner cutout — white -->
+  <rect x="133" y="45" width="27" height="22" rx="6" fill="#FFFFFF"/>
+  <!-- Star / sparkle accent — peach/coral, 4 points -->
+  <path d="M168 8 L171.5 18 L182 14 L174 22 L184 24 L174 24 L178 34 L171.5 26 L164 30 L169 22 L158 20 L169 18 Z" fill="#E0A89A"/>
 </svg>
