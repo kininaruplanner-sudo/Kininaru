@@ -42,3 +42,7 @@ export {
   selectBestOpportunity,
 } from './proactivity'
 export type { Opportunity, OpportunityType, Decision } from './proactivity'
+export { createWebSpeechInput } from './speech/input'
+export type { SpeechInput, SpeechInputState, SpeechInputResult, SpeechInputCallbacks } from './speech/input'
+export { createWebSpeechOutput } from './speech/output'
+export type { SpeechOutput, SpeechOutputState, SpeechOutputPrefs, SpeechOutputCallbacks } from './speech/output'
