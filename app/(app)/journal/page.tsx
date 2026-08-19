@@ -1,20 +1,29 @@
-import { createClient } from '@/lib/supabase/server'
-import { JournalClient } from './journal-client'
+// =====================================================================
+// /journal — Journal Studio (replaces the old daily journal entry view)
+//
+// The old journal (journal_entries table, JournalClient component) is
+// still available at /journal/daily for backward compatibility.
+// The primary /journal route now shows the Journal Studio Library.
+// =====================================================================
 
-export default async function JournalPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+'use client';
 
-  // Load ALL entries (one per day, small rows): with a .limit() here, older
-  // entries would be invisible in the sidebar AND an accidental save on an
-  // older date could overwrite an existing entry with blank content.
-  const { data: entries } = await supabase
-    .from('journal_entries')
-    .select('*')
-    .eq('user_id', user!.id)
-    .order('entry_date', { ascending: false })
+import { useState } from 'react';
+import { JournalLibrary } from '@/components/journal-studio/journal-library';
+import { JournalEditor } from '@/components/journal-studio/journal-editor';
+import type { Journal } from '@/lib/journal-studio/types';
 
-  return <JournalClient entries={entries ?? []} userId={user!.id} />
+export default function JournalPage() {
+  const [selectedJournal, setSelectedJournal] = useState<Journal | null>(null);
+
+  if (selectedJournal) {
+    return (
+      <JournalEditor
+        journalId={selectedJournal.id}
+        onBack={() => setSelectedJournal(null)}
+      />
+    );
+  }
+
+  return <JournalLibrary onOpenJournal={setSelectedJournal} />;
 }
