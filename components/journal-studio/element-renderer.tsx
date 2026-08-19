@@ -24,6 +24,7 @@ interface ElementRendererProps {
   onRotateEnd: (id: string, rotation: number) => void;
   onUpdateLocal: (id: string, localOverrides: Partial<JournalElement>) => void;
   onDelete: () => void;
+  onUpdateElement?: (id: string, properties: Partial<TextProperties | ShapeProperties | StickerProperties | ImageProperties | DrawingProperties>) => void;
 }
 
 export function ElementRenderer({
@@ -38,6 +39,7 @@ export function ElementRenderer({
   onRotateEnd,
   onUpdateLocal,
   onDelete,
+  onUpdateElement,
 }: ElementRendererProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -174,8 +176,14 @@ export function ElementRenderer({
   useEffect(() => {
     if (!isEditing) return;
     const handler = () => setIsEditing(false);
-    window.addEventListener('pointerdown', handler);
-    return () => window.removeEventListener('pointerdown', handler);
+    // Delay to avoid catching the same click that opened editing
+    const timer = setTimeout(() => {
+      window.addEventListener('pointerdown', handler);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', handler);
+    };
   }, [isEditing]);
 
   return (
@@ -200,15 +208,15 @@ export function ElementRenderer({
       onPointerDown={handlePointerDown}
       onDoubleClick={handleDoubleClick}
     >
-      {renderInner(element, isEditing, setIsEditing)}
+      {renderInner(element, isEditing, setIsEditing, onUpdateElement)}
 
       {/* Selection handles */}
       {isSelected && !isEditing && (
         <>
-          {/* Rotation handle */}
+          {/* Rotation handle — bigger for touch */}
           <div
             data-handle="rotate"
-            className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 cursor-grab"
+            className="absolute -top-8 left-1/2 -translate-x-1/2 w-5 h-5 cursor-grab flex items-center justify-center"
             onPointerDown={handleRotateDown}
           >
             <div className="w-4 h-4 rounded-full bg-white border-2 border-primary shadow-sm flex items-center justify-center text-[8px]">
@@ -217,21 +225,24 @@ export function ElementRenderer({
             <div className="absolute top-4 left-1/2 -translate-x-1/2 w-px h-3 bg-primary/50" />
           </div>
 
-          {/* Resize handle (bottom-right) */}
+          {/* Resize handle — bigger for touch (44px touch target) */}
           <div
             data-handle="resize"
-            className="absolute -bottom-2 -right-2 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-white shadow-sm"
+            className="absolute -bottom-3 -right-3 w-5 h-5 min-w-[44px] min-h-[44px] flex items-center justify-end pb-1 pr-1 cursor-se-resize"
             onPointerDown={handleResizeDown}
-          />
+          >
+            <div className="w-4 h-4 bg-primary rounded-full border-2 border-white shadow-sm" />
+          </div>
 
-          {/* Delete button */}
+          {/* Delete button — bigger for touch */}
           <button
             data-handle="delete"
-            className="absolute -top-2 -right-2 w-5 h-5 bg-destructive rounded-full flex items-center justify-center text-white text-xs hover:bg-destructive/80 shadow-sm z-10"
+            className="absolute -top-2 -right-2 w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-destructive text-white text-sm hover:bg-destructive/80 shadow-sm z-10"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
+            aria-label="Supprimer l'élément"
           >
             ×
           </button>
@@ -248,11 +259,12 @@ export function ElementRenderer({
 function renderInner(
   element: JournalElement,
   isEditing: boolean,
-  setIsEditing: (v: boolean) => void
+  setIsEditing: (v: boolean) => void,
+  onUpdateElement?: (id: string, properties: Partial<TextProperties | ShapeProperties | StickerProperties | ImageProperties | DrawingProperties>) => void
 ) {
   switch (element.element_type) {
     case 'text':
-      return <TextInner element={element} isEditing={isEditing} setIsEditing={setIsEditing} />;
+      return <TextInner element={element} isEditing={isEditing} setIsEditing={setIsEditing} onUpdateElement={onUpdateElement} />;
     case 'shape':
       return <ShapeInner element={element} />;
     case 'sticker':
@@ -266,38 +278,55 @@ function renderInner(
   }
 }
 
-// ---- Text ----
-function TextInner({ element, isEditing, setIsEditing }: { element: JournalElement; isEditing: boolean; setIsEditing: (v: boolean) => void }) {
+// ---- Text (with controlled state — NO direct mutation) ----
+function TextInner({ element, isEditing, setIsEditing, onUpdateElement }: {
+  element: JournalElement;
+  isEditing: boolean;
+  setIsEditing: (v: boolean) => void;
+  onUpdateElement?: (id: string, properties: Partial<TextProperties>) => void;
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const props = element.properties as TextProperties;
   const [localText, setLocalText] = useState(props.content);
 
+  // Sync from props when element changes (e.g. undo/redo)
+  useEffect(() => {
+    setLocalText(props.content);
+  }, [props.content]);
+
   useEffect(() => {
     if (isEditing && ref.current) {
       ref.current.focus();
+      // Place cursor at end
+      ref.current.selectionStart = ref.current.value.length;
+      ref.current.selectionEnd = ref.current.value.length;
     }
   }, [isEditing]);
+
+  const handleBlur = useCallback(() => {
+    setIsEditing(false);
+    if (localText !== props.content && onUpdateElement) {
+      onUpdateElement(element.id, { content: localText });
+    }
+  }, [setIsEditing, localText, props.content, onUpdateElement, element.id]);
 
   if (isEditing) {
     return (
       <textarea
         ref={ref}
         value={localText}
-        onChange={(e) => {
-          setLocalText(e.target.value);
-          // Update properties locally
-          (element.properties as TextProperties).content = e.target.value;
-        }}
-        onBlur={() => {
-          setIsEditing(false);
-          // Persist via parent's handleDragEnd-like flow
-        }}
+        onChange={(e) => setLocalText(e.target.value)}
+        onBlur={handleBlur}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') setIsEditing(false);
+          if (e.key === 'Escape') {
+            setIsEditing(false);
+            // Revert if Escape
+            setLocalText(props.content);
+          }
           e.stopPropagation();
         }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full h-full p-2 border border-primary/50 rounded-lg bg-white resize-none focus:outline-none"
+        className="w-full h-full p-2 border border-primary/50 rounded-lg bg-white/90 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
         style={{
           fontFamily: props.font_family,
           fontSize: props.font_size,
@@ -309,13 +338,14 @@ function TextInner({ element, isEditing, setIsEditing }: { element: JournalEleme
           lineHeight: props.line_height,
           letterSpacing: props.letter_spacing,
         }}
+        aria-label="Éditer le texte"
       />
     );
   }
 
   return (
     <div
-      className="w-full h-full p-2 whitespace-pre-wrap break-words select-none"
+      className="w-full h-full p-2 whitespace-pre-wrap break-words select-none overflow-hidden"
       style={{
         fontFamily: props.font_family,
         fontSize: props.font_size,
@@ -434,7 +464,7 @@ function ImageInner({ element }: { element: JournalElement }) {
   );
 }
 
-// ---- Drawing ----
+// ---- Drawing (with eraser indicator) ----
 function DrawingInner({ element }: { element: JournalElement }) {
   const props = element.properties as DrawingProperties;
 
@@ -458,6 +488,9 @@ function DrawingInner({ element }: { element: JournalElement }) {
   const maxX = Math.max(...xs) + pad;
   const maxY = Math.max(...ys) + pad;
 
+  // For eraser strokes: use a dash pattern to indicate erasure
+  const isEraser = props.tool === 'eraser';
+
   return (
     <svg
       className="w-full h-full pointer-events-none"
@@ -467,11 +500,12 @@ function DrawingInner({ element }: { element: JournalElement }) {
       <path
         d={pathData}
         fill="none"
-        stroke={props.tool === 'highlighter' ? props.stroke_color : props.stroke_color}
+        stroke={isEraser ? 'rgba(200,200,200,0.6)' : props.stroke_color}
         strokeWidth={props.stroke_width}
         strokeLinecap="round"
         strokeLinejoin="round"
         opacity={props.tool === 'highlighter' ? 0.4 : props.opacity}
+        strokeDasharray={isEraser ? '4 4' : undefined}
       />
     </svg>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPageElements } from '@/lib/journal-studio/supabase';
@@ -17,7 +17,6 @@ interface PageThumbnailsProps {
 }
 
 const THUMB_W = 100;
-const THUMB_H = 141; // A4 ratio
 const SCALE = THUMB_W / 595;
 
 export function PageThumbnails({ pages, currentPageIndex, elements, onSelectPage, onAddPage }: PageThumbnailsProps) {
@@ -38,7 +37,7 @@ export function PageThumbnails({ pages, currentPageIndex, elements, onSelectPage
     return () => { cancelled = true; };
   }, [pages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update current page elements when they change
+  // Update current page elements when they change (in-memory)
   useEffect(() => {
     if (pages[currentPageIndex]) {
       setThumbElements((prev) => ({ ...prev, [pages[currentPageIndex].id]: elements }));
@@ -105,35 +104,64 @@ function ThumbElement({ element, scale }: { element: JournalElement; scale: numb
   if (element.element_type === 'text') {
     const p = element.properties as { content?: string; color?: string; font_size?: number };
     return (
-      <div style={{ ...style, color: p.color, fontSize: (p.font_size ?? 16) * scale, lineHeight: 1.2 }}>
+      <div style={{ ...style, color: p.color, fontSize: Math.max(3, (p.font_size ?? 16) * scale), lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden' }}>
         {(p.content ?? '').slice(0, 40)}
       </div>
     );
   }
 
   if (element.element_type === 'shape') {
-    const p = element.properties as { fill?: string; stroke?: string; shape_type?: string };
-    return <div style={{ ...style, backgroundColor: p.fill ?? 'transparent', border: `1px solid ${p.stroke ?? '#1a1a1a'}`, borderRadius: p.shape_type === 'circle' || p.shape_type === 'ellipse' ? '50%' : undefined }} />;
+    const p = element.properties as { fill?: string; stroke?: string; shape_type?: string; stroke_width?: number };
+    return (
+      <div
+        style={{
+          ...style,
+          backgroundColor: p.fill ?? 'transparent',
+          border: `${Math.max(0.5, (p.stroke_width ?? 2) * scale)}px solid ${p.stroke ?? '#1a1a1a'}`,
+          borderRadius: p.shape_type === 'circle' || p.shape_type === 'ellipse' ? '50%' : p.shape_type === 'rounded-rectangle' ? `${8 * scale}px` : undefined,
+        }}
+      />
+    );
   }
 
   if (element.element_type === 'sticker') {
     const p = element.properties as { sticker_id?: string };
     const sticker = p.sticker_id ? getStickerById(p.sticker_id) : null;
-    return <div style={{ ...style, fontSize: Math.max(8, 32 * scale), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sticker?.emoji ?? '⭐'}</div>;
+    return (
+      <div style={{ ...style, fontSize: Math.max(6, 32 * scale), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {sticker?.emoji ?? '⭐'}
+      </div>
+    );
   }
 
   if (element.element_type === 'image') {
     const p = element.properties as { url?: string };
-    return p.url ? <img src={p.url} alt="" style={{ ...style, objectFit: 'cover' }} draggable={false} /> : <div style={{ ...style, background: '#e5e5e5', border: '1px dashed #ccc' }} />;
+    return p.url ? (
+      <img src={p.url} alt="" style={{ ...style, objectFit: 'cover' }} draggable={false} />
+    ) : (
+      <div style={{ ...style, background: '#e5e5e5', border: '1px dashed #ccc' }} />
+    );
   }
 
   if (element.element_type === 'drawing') {
-    const p = element.properties as { points?: [number, number, number][]; stroke_color?: string; stroke_width?: number };
+    const p = element.properties as { points?: [number, number, number][]; stroke_color?: string; stroke_width?: number; tool?: string; opacity?: number };
     if (!p.points || p.points.length < 2) return null;
     const pathData = p.points.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt[0] * scale} ${pt[1] * scale}`).join(' ');
+    const xs = p.points.map((pt) => pt[0] * scale);
+    const ys = p.points.map((pt) => pt[1] * scale);
+    const pad = 1;
     return (
-      <svg style={style} viewBox={`0 0 ${595 * scale} ${842 * scale}`}>
-        <path d={pathData} fill="none" stroke={p.stroke_color ?? '#1a1a1a'} strokeWidth={Math.max(0.5, (p.stroke_width ?? 3) * scale)} strokeLinecap="round" strokeLinejoin="round" />
+      <svg style={style} viewBox={`${Math.min(...xs) - pad} ${Math.min(...ys) - pad} ${Math.max(...xs) - Math.min(...xs) + 2 * pad} ${Math.max(...ys) - Math.min(...ys) + 2 * pad}`} preserveAspectRatio="none">
+        <path
+          d={pathData}
+          fill="none"
+          stroke={p.tool === 'eraser' ? 'rgba(200,200,200,0.6)' : (p.stroke_color ?? '#1a1a1a')}
+          strokeWidth={Math.max(0.5, (p.stroke_width ?? 3) * scale)}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={p.tool === 'highlighter' ? 0.4 : p.opacity ?? 1}
+          strokeDasharray={p.tool === 'eraser' ? '2 2' : undefined}
+        />
       </svg>
     );
   }

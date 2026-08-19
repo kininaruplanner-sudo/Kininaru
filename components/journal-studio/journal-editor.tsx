@@ -6,19 +6,19 @@ import {
   ArrowLeft, Plus, Trash2, Copy, ZoomIn, ZoomOut, Maximize,
   Type, Square, Smile, Image, Pen, Undo2, Redo2,
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
-  AlertTriangle,
+  AlertTriangle, CopyPlus, GripVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   getJournal, getJournalPages, getPageElements,
-  createElement, deleteElement, deleteElements,
+  createElement, deleteElement,
   batchPersistElements, createJournalPage, deleteJournalPage,
-  reindexJournalPages, uploadJournalImage,
+  duplicateJournalPage, reindexJournalPages, uploadJournalImage,
 } from '@/lib/journal-studio/supabase';
 import type {
   Journal, JournalPage, JournalElement, ElementType,
-  TextProperties,
+  TextProperties, DrawingProperties,
 } from '@/lib/journal-studio/types';
 import {
   DEFAULT_TEXT_PROPERTIES, DEFAULT_SHAPE_PROPERTIES, PAPER_PATTERNS,
@@ -31,17 +31,11 @@ import { PageThumbnails } from './page-thumbnails';
 // ---- Constants ----
 const PAGE_W = 595;
 const PAGE_H = 842;
-const MAX_HISTORY = 80;
-const AUTOSAVE_DEBOUNCE = 2000;
+const MAX_HISTORY = 60;
+const AUTOSAVE_DEBOUNCE = 2500;
+const MAX_DRAWING_POINTS = 600;
 
 type Tool = 'select' | 'text' | 'shape' | 'sticker' | 'image' | 'drawing';
-
-interface LocalChange {
-  type: 'create' | 'update' | 'delete';
-  elementId: string;
-  before?: JournalElement;
-  after?: JournalElement;
-}
 
 export function JournalEditor({ journalId, onBack }: { journalId: string; onBack: () => void }) {
   // ---- Data ----
@@ -68,22 +62,23 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
 
-  // ---- Undo/Redo (operation log) ----
+  // ---- Undo/Redo ----
   const [undoStack, setUndoStack] = useState<JournalElement[][]>([]);
   const [redoStack, setRedoStack] = useState<JournalElement[][]>([]);
 
   // ---- Dirty tracking & autosave ----
-  const [dirty, setDirty] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elementsRef = useRef(elements);
   elementsRef.current = elements;
+  const currentPageRef = useRef<JournalPage | null>(null);
 
   // ---- Clipboard ----
   const clipboardRef = useRef<JournalElement | null>(null);
 
   const currentPage = pages[currentPageIndex] || null;
+  currentPageRef.current = currentPage;
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // ===================================================================
@@ -124,7 +119,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       setSelectedId(null);
       setUndoStack([]);
       setRedoStack([]);
-      setDirty(false);
+      dirtyRef.current = false;
       setSaveStatus('idle');
     } catch { /* silent */ }
   }, [pages]);
@@ -134,53 +129,69 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   }, [currentPageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===================================================================
-  // AUTOSAVE — batch persist dirty elements to Supabase
+  // AUTOSAVE — real batch persist
   // ===================================================================
   const persistToServer = useCallback(async () => {
     if (!dirtyRef.current) return;
     dirtyRef.current = false;
-    setDirty(false);
     setSaveStatus('saving');
 
     try {
       const els = elementsRef.current;
-      // For now: upsert all elements of the current page
-      // In production we'd track which specific elements changed
-      if (currentPage) {
-        const updates = els
-          .filter((el) => el.id && !el.id.startsWith('local-'))
-          .map((el) => ({
-            id: el.id,
-            updates: {
-              x: el.x,
-              y: el.y,
-              width: el.width,
-              height: el.height,
-              rotation: el.rotation,
-              z_index: el.z_index,
-              opacity: el.opacity,
-              properties: el.properties as unknown as Record<string, unknown>,
-            },
-          }));
+      const page = currentPageRef.current;
+      if (!page) { setSaveStatus('error'); return; }
 
-        await batchPersistElements(updates, { page_id: '', elements: [] }, []);
+      // Build updates for existing elements (server-created IDs)
+      const updates = els
+        .filter((el) => el.id && !el.id.startsWith('local-'))
+        .map((el) => ({
+          id: el.id,
+          updates: {
+            x: Math.round(el.x * 100) / 100,
+            y: Math.round(el.y * 100) / 100,
+            width: Math.round(el.width * 100) / 100,
+            height: Math.round(el.height * 100) / 100,
+            rotation: Math.round(el.rotation * 100) / 100,
+            z_index: el.z_index,
+            opacity: Math.round(el.opacity * 100) / 100,
+            properties: el.properties as unknown as Record<string, unknown>,
+          },
+        }));
+
+      // Real batch persist with actual data
+      if (updates.length > 0) {
+        await batchPersistElements(
+          updates,
+          { page_id: page.id, elements: [] },
+          []
+        );
       }
+
       setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch {
-      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('[Journal] autosave failed:', err);
+      if (!navigator.onLine) {
+        setSaveStatus('offline');
+      } else {
+        setSaveStatus('error');
+      }
       dirtyRef.current = true;
-      setDirty(true);
     }
-  }, [currentPage]);
+  }, []);
 
   // Debounced autosave
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirtyRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(persistToServer, AUTOSAVE_DEBOUNCE);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [dirty, persistToServer]);
+  }, [elements, persistToServer]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mark dirty whenever elements change
+  const markDirty = useCallback(() => {
+    dirtyRef.current = true;
+  }, []);
 
   // ===================================================================
   // HISTORY (undo/redo via element snapshots)
@@ -199,10 +210,10 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const snapshot = prev[prev.length - 1];
       setRedoStack((r) => [...r, elementsRef.current]);
       setElements(snapshot);
-      setDirty(true);
+      markDirty();
       return prev.slice(0, -1);
     });
-  }, []);
+  }, [markDirty]);
 
   const handleRedo = useCallback(() => {
     setRedoStack((prev) => {
@@ -210,39 +221,41 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const snapshot = prev[prev.length - 1];
       setUndoStack((u) => [...u, elementsRef.current]);
       setElements(snapshot);
-      setDirty(true);
+      markDirty();
       return prev.slice(0, -1);
     });
-  }, []);
+  }, [markDirty]);
 
   // ===================================================================
   // ELEMENT OPERATIONS (all local-first)
   // ===================================================================
   const addElement = useCallback(
     async (type: ElementType, properties: Record<string, unknown>, x?: number, y?: number) => {
-      if (!currentPage) return;
+      const page = currentPageRef.current;
+      if (!page) return;
 
-      // Create server-side to get a real ID
       try {
         const newEl = await createElement({
-          page_id: currentPage.id,
+          page_id: page.id,
           element_type: type,
           x: x ?? 100,
           y: y ?? 100,
           width: type === 'text' ? 200 : type === 'sticker' ? 80 : 120,
           height: type === 'text' ? 100 : type === 'sticker' ? 80 : 120,
-          z_index: elements.length,
+          z_index: elementsRef.current.length,
           properties,
         });
 
-        pushUndo(elements);
-        const newElements = [...elements, newEl];
-        setElements(newElements);
+        pushUndo(elementsRef.current);
+        setElements((prev) => [...prev, newEl]);
         setSelectedId(newEl.id);
         setActiveTool('select');
-      } catch { /* silent */ }
+        markDirty();
+      } catch (err) {
+        console.error('[Journal] createElement failed:', err);
+      }
     },
-    [currentPage, elements, pushUndo]
+    [pushUndo, markDirty]
   );
 
   // Local update during drag/resize/rotate — NO network
@@ -250,35 +263,33 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     setElements((prev) =>
       prev.map((el) => (el.id === id ? { ...el, ...overrides } : el))
     );
-    setDirty(true);
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
   // Persist after drag ends
-  const handleDragEnd = useCallback((_id: string, x: number, y: number) => {
-    // Already in local state via handleUpdateLocal, just mark dirty
-    setDirty(true);
-  }, []);
+  const handleDragEnd = useCallback((_id: string, _x: number, _y: number) => {
+    markDirty();
+  }, [markDirty]);
 
   // Persist after resize ends
-  const handleResizeEnd = useCallback((_id: string, w: number, h: number) => {
-    setDirty(true);
-  }, []);
+  const handleResizeEnd = useCallback((_id: string, _w: number, _h: number) => {
+    markDirty();
+  }, [markDirty]);
 
   // Persist after rotate ends
   const handleRotateEnd = useCallback((_id: string, _r: number) => {
-    setDirty(true);
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
   // Delete
-  const handleDeleteElement = useCallback(async (id: string) => {
-    pushUndo(elements);
-    const removed = elements.find((e) => e.id === id);
+  const handleDeleteElement = useCallback((id: string) => {
+    pushUndo(elementsRef.current);
     setElements((prev) => prev.filter((e) => e.id !== id));
     setSelectedId(null);
-    setDirty(true);
-    // Fire-and-forget server delete
+    markDirty();
+    // Server delete (fire-and-forget)
     deleteElement(id).catch(() => {});
-  }, [elements, pushUndo]);
+  }, [pushUndo, markDirty]);
 
   // ===================================================================
   // COPY / PASTE / DUPLICATE
@@ -286,32 +297,35 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const handleCopy = useCallback(() => {
     if (!selectedId) return;
     const el = elements.find((e) => e.id === selectedId);
-    if (el) clipboardRef.current = { ...el };
+    if (el) clipboardRef.current = JSON.parse(JSON.stringify(el)); // deep clone
   }, [elements, selectedId]);
 
   const handlePaste = useCallback(async () => {
     const src = clipboardRef.current;
-    if (!src || !currentPage) return;
+    const page = currentPageRef.current;
+    if (!src || !page) return;
 
     try {
       const newEl = await createElement({
-        page_id: currentPage.id,
+        page_id: page.id,
         element_type: src.element_type,
         x: src.x + 20,
         y: src.y + 20,
         width: src.width,
         height: src.height,
         rotation: src.rotation,
-        z_index: elements.length,
+        z_index: elementsRef.current.length,
         opacity: src.opacity,
-        properties: src.properties as unknown as Record<string, unknown>,
+        properties: JSON.parse(JSON.stringify(src.properties)) as Record<string, unknown>,
       });
-      pushUndo(elements);
+      pushUndo(elementsRef.current);
       setElements((prev) => [...prev, newEl]);
       setSelectedId(newEl.id);
-      setDirty(true);
-    } catch { /* silent */ }
-  }, [currentPage, elements, pushUndo]);
+      markDirty();
+    } catch (err) {
+      console.error('[Journal] paste failed:', err);
+    }
+  }, [pushUndo, markDirty]);
 
   const handleDuplicate = useCallback(async () => {
     handleCopy();
@@ -319,19 +333,26 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   }, [handleCopy, handlePaste]);
 
   // ===================================================================
-  // CANVAS CLICK — tool actions
+  // CANVAS CLICK — coordinate conversion accounting for flex centering
   // ===================================================================
+  const screenToPage = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    // Account for flex centering offset within the scrollable container
+    const x = (clientX - rect.left) / zoom;
+    const y = (clientY - rect.top) / zoom;
+    return { x, y };
+  }, [zoom]);
+
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target !== canvasRef.current && !target.classList.contains('canvas-bg')) return;
 
       if (activeTool === 'text') {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const x = (e.clientX - rect.left - (rect.width - PAGE_W * zoom) / 2) / zoom;
-        const y = (e.clientY - rect.top - (rect.height - PAGE_H * zoom) / 2) / zoom;
-        addElement('text', DEFAULT_TEXT_PROPERTIES as unknown as Record<string, unknown>, x, y);
+        const pos = screenToPage(e.clientX, e.clientY);
+        if (!pos) return;
+        addElement('text', DEFAULT_TEXT_PROPERTIES as unknown as Record<string, unknown>, pos.x, pos.y);
       } else if (activeTool === 'shape') {
         setShowShapePicker(true);
       } else if (activeTool === 'sticker') {
@@ -342,18 +363,22 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         input.accept = 'image/png,image/jpeg,image/webp';
         input.onchange = async (ev) => {
           const file = (ev.target as HTMLInputElement).files?.[0];
-          if (!file || !currentPage || !journal) return;
+          const page = currentPageRef.current;
+          const j = journal;
+          if (!file || !page || !j) return;
           try {
-            const url = await uploadJournalImage(file, journal.id);
+            const url = await uploadJournalImage(file, j.id);
             addElement('image', { url, alt: file.name, object_fit: 'cover' });
-          } catch { /* silent */ }
+          } catch (err) {
+            console.error('[Journal] image upload failed:', err);
+          }
         };
         input.click();
       } else {
         setSelectedId(null);
       }
     },
-    [activeTool, zoom, addElement, currentPage, journal]
+    [activeTool, addElement, journal, screenToPage]
   );
 
   // ===================================================================
@@ -383,65 +408,143 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   // PAGE OPERATIONS
   // ===================================================================
   const handleAddPage = useCallback(async () => {
-    if (!journal) return;
+    const j = journal;
+    if (!j) return;
     try {
-      const newPage = await createJournalPage(journal.id, pages.length + 1, journal.paper_style);
+      const newPage = await createJournalPage(j.id, pages.length + 1, j.paper_style);
       setPages((prev) => [...prev, newPage]);
       setCurrentPageIndex(pages.length);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('[Journal] addPage failed:', err);
+    }
   }, [journal, pages]);
 
+  const handleDuplicatePage = useCallback(async () => {
+    const page = currentPageRef.current;
+    if (!page) return;
+    try {
+      const dup = await duplicateJournalPage(page.id, pages.length + 1);
+      setPages((prev) => [...prev, dup]);
+      setCurrentPageIndex(pages.length);
+    } catch (err) {
+      console.error('[Journal] duplicatePage failed:', err);
+    }
+  }, [pages.length]);
+
   const handleDeletePage = useCallback(async () => {
-    if (!currentPage || pages.length <= 1) return;
+    const page = currentPageRef.current;
+    if (!page || pages.length <= 1) return;
     if (!window.confirm('Supprimer cette page ?')) return;
     try {
-      await deleteJournalPage(currentPage.id);
-      const newPages = pages.filter((p) => p.id !== currentPage.id);
+      await deleteJournalPage(page.id);
+      const newPages = pages.filter((p) => p.id !== page.id);
       setPages(newPages);
-      // Reindex
-      const jId = currentPage.journal_id;
-      reindexJournalPages(jId).catch(() => {});
-      setCurrentPageIndex((prev) => Math.max(0, prev - 1));
+      reindexJournalPages(page.journal_id).catch(() => {});
+      setCurrentPageIndex((prev) => Math.max(0, Math.min(prev, newPages.length - 1)));
+    } catch (err) {
+      console.error('[Journal] deletePage failed:', err);
+    }
+  }, [pages]);
+
+  const handleMovePage = useCallback(async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= pages.length) return;
+    const newPages = [...pages];
+    const [moved] = newPages.splice(fromIndex, 1);
+    newPages.splice(toIndex, 0, moved);
+    setPages(newPages);
+    if (currentPageIndex === fromIndex) {
+      setCurrentPageIndex(toIndex);
+    } else if (fromIndex < currentPageIndex && toIndex >= currentPageIndex) {
+      setCurrentPageIndex((prev) => prev - 1);
+    } else if (fromIndex > currentPageIndex && toIndex <= currentPageIndex) {
+      setCurrentPageIndex((prev) => prev + 1);
+    }
+    // Persist new order
+    try {
+      for (let i = 0; i < newPages.length; i++) {
+        if (newPages[i].page_number !== i + 1) {
+          const { createClient } = await import('@/lib/supabase/client');
+          const supabase = createClient();
+          await supabase.from('journal_pages').update({ page_number: i + 1 }).eq('id', newPages[i].id);
+        }
+      }
     } catch { /* silent */ }
-  }, [currentPage, pages]);
+  }, [pages, currentPageIndex]);
 
   // ===================================================================
   // DRAWING — inline on canvas, coordinates relative to page
   // ===================================================================
+  const drawingRef = useRef(false);
+  const drawingPointsRef = useRef<[number, number, number][]>([]);
+
   const handleDrawPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    drawingRef.current = true;
     setIsDrawing(true);
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = (e.clientX - rect.left - (rect.width - PAGE_W * zoom) / 2) / zoom;
-    const y = (e.clientY - rect.top - (rect.height - PAGE_H * zoom) / 2) / zoom;
-    setDrawingPoints([[x, y, e.pressure || 0.5]]);
-  }, [zoom]);
+    const pos = screenToPage(e.clientX, e.clientY);
+    if (!pos) return;
+    const point: [number, number, number] = [pos.x, pos.y, e.pressure || 0.5];
+    drawingPointsRef.current = [point];
+    setDrawingPoints([point]);
+
+    // Capture pointer to avoid lost events
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  }, [screenToPage]);
 
   const handleDrawPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDrawing) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = (e.clientX - rect.left - (rect.width - PAGE_W * zoom) / 2) / zoom;
-    const y = (e.clientY - rect.top - (rect.height - PAGE_H * zoom) / 2) / zoom;
-    setDrawingPoints((prev) => [...prev, [x, y, e.pressure || 0.5]]);
-  }, [isDrawing, zoom]);
+    if (!drawingRef.current) return;
+    // Throttle: only add point every ~4ms
+    const pos = screenToPage(e.clientX, e.clientY);
+    if (!pos) return;
+    const pts = drawingPointsRef.current;
+    const last = pts[pts.length - 1];
+    if (last) {
+      const dx = pos.x - last[0];
+      const dy = pos.y - last[1];
+      if (dx * dx + dy * dy < 4) return; // skip tiny moves
+    }
+    const point: [number, number, number] = [pos.x, pos.y, e.pressure || 0.5];
+
+    // Limit total points for performance
+    if (pts.length >= MAX_DRAWING_POINTS) {
+      // Simplify: keep every other point
+      const simplified: [number, number, number][] = [];
+      for (let i = 0; i < pts.length; i += 2) {
+        simplified.push(pts[i]);
+      }
+      simplified.push(point);
+      drawingPointsRef.current = simplified;
+      setDrawingPoints(simplified);
+    } else {
+      pts.push(point);
+      setDrawingPoints([...pts]);
+    }
+  }, [screenToPage]);
 
   const finishDrawing = useCallback(async () => {
+    drawingRef.current = false;
     setIsDrawing(false);
-    if (drawingPoints.length < 2) { setDrawingPoints([]); return; }
-    if (!currentPage) { setDrawingPoints([]); return; }
+    const pts = drawingPointsRef.current;
+    drawingPointsRef.current = [];
 
-    await addElement('drawing', {
-      points: drawingPoints,
-      stroke_color: drawingTool === 'eraser' ? '#ffffff' : drawingColor,
-      stroke_width: drawingTool === 'eraser' ? drawingSize * 3 : drawingSize,
+    if (pts.length < 2) { setDrawingPoints([]); return; }
+
+    // Build drawing properties
+    const isEraser = drawingTool === 'eraser';
+    const drawingProps = {
+      points: pts,
+      stroke_color: isEraser ? '#ffffff' : drawingColor,
+      stroke_width: isEraser ? drawingSize * 3 : drawingSize,
       opacity: drawingTool === 'highlighter' ? 0.4 : 1,
       tool: drawingTool,
-    });
+    };
+
     setDrawingPoints([]);
-  }, [drawingPoints, currentPage, addElement, drawingColor, drawingSize, drawingTool]);
+    await addElement('drawing', drawingProps);
+  }, [drawingPoints, drawingColor, drawingSize, drawingTool, addElement]);
 
   // ===================================================================
   // RENDER
@@ -474,7 +577,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           {saveStatus === 'saving' && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Enregistrement…</span></span>}
           {saveStatus === 'saved' && <span className="flex items-center gap-1 text-xs text-kin-sage"><Check className="w-3 h-3" /><span className="hidden sm:inline">Enregistré</span></span>}
           {saveStatus === 'error' && <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" />Erreur</span>}
-          {dirty && saveStatus === 'idle' && <span className="text-xs text-muted-foreground">Modifié</span>}
+          {saveStatus === 'offline' && <span className="text-xs text-muted-foreground">Hors ligne</span>}
 
           {/* Undo/Redo */}
           <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-muted">
@@ -497,9 +600,17 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
               {showMoreMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="absolute right-0 top-full mt-1 z-50 w-52 rounded-xl border border-border bg-card shadow-lg p-1">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="absolute right-0 top-full mt-1 z-50 w-56 rounded-xl border border-border bg-card shadow-lg p-1">
                     <button onClick={() => { setShowThumbnails(!showThumbnails); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><Grid3X3 className="w-4 h-4" />Miniatures</button>
                     <button onClick={() => { handleAddPage(); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><Plus className="w-4 h-4" />Ajouter une page</button>
+                    <button onClick={() => { handleDuplicatePage(); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><CopyPlus className="w-4 h-4" />Dupliquer la page</button>
+                    {currentPageIndex > 0 && (
+                      <button onClick={() => { handleMovePage(currentPageIndex, currentPageIndex - 1); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted">↑ Déplacer vers le haut</button>
+                    )}
+                    {currentPageIndex < pages.length - 1 && (
+                      <button onClick={() => { handleMovePage(currentPageIndex, currentPageIndex + 1); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted">↓ Déplacer vers le bas</button>
+                    )}
+                    {pages.length > 1 && <div className="my-1 h-px bg-border" />}
                     {pages.length > 1 && <button onClick={() => { handleDeletePage(); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10"><Trash2 className="w-4 h-4" />Supprimer la page</button>}
                   </motion.div>
                 </>
@@ -527,7 +638,13 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         <AnimatePresence>
           {showThumbnails && (
             <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 130, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="hidden md:block border-r border-border bg-card overflow-hidden flex-shrink-0">
-              <PageThumbnails pages={pages} currentPageIndex={currentPageIndex} elements={elements} onSelectPage={setCurrentPageIndex} onAddPage={handleAddPage} />
+              <PageThumbnails
+                pages={pages}
+                currentPageIndex={currentPageIndex}
+                elements={elements}
+                onSelectPage={setCurrentPageIndex}
+                onAddPage={handleAddPage}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -535,7 +652,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         {/* Canvas area */}
         <div
           className="flex-1 overflow-auto bg-muted/30 relative"
-          style={{ touchAction: activeTool === 'drawing' ? 'none' : undefined }}
+          style={{ touchAction: activeTool === 'drawing' ? 'none' : 'auto' }}
           onPointerDown={activeTool === 'drawing' ? handleDrawPointerDown : undefined}
           onPointerMove={activeTool === 'drawing' ? handleDrawPointerMove : undefined}
           onPointerUp={activeTool === 'drawing' ? finishDrawing : undefined}
@@ -570,6 +687,16 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                   onRotateEnd={handleRotateEnd}
                   onUpdateLocal={handleUpdateLocal}
                   onDelete={() => handleDeleteElement(el.id)}
+                  onUpdateElement={(id, props) => {
+                    setElements((prev) =>
+                      prev.map((el) =>
+                        el.id === id
+                          ? { ...el, properties: { ...el.properties, ...props } as typeof el.properties }
+                          : el
+                      )
+                    );
+                    markDirty();
+                  }}
                 />
               ))}
 
@@ -579,7 +706,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                   <path
                     d={drawingPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')}
                     fill="none"
-                    stroke={drawingTool === 'eraser' ? '#ffffff' : drawingColor}
+                    stroke={drawingTool === 'eraser' ? 'rgba(255,0,0,0.3)' : drawingColor}
                     strokeWidth={drawingTool === 'eraser' ? drawingSize * 3 : drawingSize}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -608,7 +735,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
               <p className="text-xs text-muted-foreground mb-1">Taille: {drawingSize}px</p>
               <input type="range" min={1} max={20} value={drawingSize} onChange={(e) => setDrawingSize(Number(e.target.value))} className="w-full" />
             </div>
-            <button onClick={() => { setActiveTool('select'); setDrawingPoints([]); setIsDrawing(false); }} className="mt-auto px-3 py-2 rounded-lg text-sm bg-muted hover:bg-muted/80">Quitter le dessin</button>
+            <button onClick={() => { setActiveTool('select'); setDrawingPoints([]); drawingRef.current = false; setIsDrawing(false); }} className="mt-auto px-3 py-2 rounded-lg text-sm bg-muted hover:bg-muted/80">Quitter le dessin</button>
           </div>
         )}
       </div>
@@ -628,21 +755,22 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
               if (tool === 'shape') { setShowShapePicker(true); setActiveTool('shape'); }
               else if (tool === 'sticker') { setShowStickerPicker(true); setActiveTool('sticker'); }
               else if (tool === 'image') {
-              setActiveTool('image');
-              // Trigger image upload
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'image/png,image/jpeg,image/webp';
-              input.onchange = async (ev) => {
-                const file = (ev.target as HTMLInputElement).files?.[0];
-                if (!file || !currentPage || !journal) return;
-                try {
-                  const url = await uploadJournalImage(file, journal.id);
-                  addElement('image', { url, alt: file.name, object_fit: 'cover' });
-                } catch { /* silent */ }
-              };
-              input.click();
-            }
+                setActiveTool('image');
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/png,image/jpeg,image/webp';
+                input.onchange = async (ev) => {
+                  const file = (ev.target as HTMLInputElement).files?.[0];
+                  const page = currentPageRef.current;
+                  const j = journal;
+                  if (!file || !page || !j) return;
+                  try {
+                    const url = await uploadJournalImage(file, j.id);
+                    addElement('image', { url, alt: file.name, object_fit: 'cover' });
+                  } catch { /* silent */ }
+                };
+                input.click();
+              }
               else { setActiveTool(tool); }
             }} className={cn('p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center', activeTool === tool ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
               <Icon className="w-5 h-5" />
