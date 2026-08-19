@@ -1,5 +1,5 @@
 // =====================================================================
-// Kininaru Planner — Journal Studio Types
+// Kininaru Planner — Journal Studio Types (Enhanced)
 // =====================================================================
 
 // ---------------------------------------------------------------------
@@ -23,27 +23,31 @@ export interface Journal {
   updated_at: string;
 }
 
-export type CoverType = 
-  | 'minimal' 
-  | 'pastel' 
-  | 'gradient' 
-  | 'paper' 
-  | 'notebook' 
-  | 'floral' 
-  | 'geometric' 
-  | 'dark' 
-  | 'colorful' 
+export type CoverType =
+  | 'minimal'
+  | 'pastel'
+  | 'gradient'
+  | 'paper'
+  | 'notebook'
+  | 'floral'
+  | 'geometric'
+  | 'dark'
+  | 'colorful'
   | 'custom';
 
-export type PaperStyle = 
-  | 'blank' 
-  | 'lined' 
-  | 'dotted' 
-  | 'grid' 
-  | 'cream' 
-  | 'white' 
-  | 'pastel' 
-  | 'dark';
+export type PaperStyle =
+  | 'blank'
+  | 'lined'
+  | 'dotted'
+  | 'grid'
+  | 'cream'
+  | 'white'
+  | 'pastel'
+  | 'dark'
+  | 'kraft'
+  | 'rose'
+  | 'sky'
+  | 'lavender';
 
 // ---------------------------------------------------------------------
 // Journal Page
@@ -85,8 +89,11 @@ export interface JournalElement {
 // ---------------------------------------------------------------------
 // Element Properties
 // ---------------------------------------------------------------------
+export type TextPreset = 'body' | 'title' | 'subtitle' | 'heading' | 'caption' | 'quote' | 'note' | 'handwritten' | 'journal' | 'elegant';
+
 export interface TextProperties {
   content: string;
+  preset?: TextPreset;
   font_family?: string;
   font_size?: number;
   font_weight?: 'normal' | 'bold';
@@ -95,40 +102,78 @@ export interface TextProperties {
   text_align?: 'left' | 'center' | 'right';
   color?: string;
   background_color?: string;
+  background_opacity?: number;
   line_height?: number;
   letter_spacing?: number;
+  padding?: number;
+  border_radius?: number;
 }
 
+export type ShapeFillType = 'color' | 'image';
+
 export interface ShapeProperties {
-  shape_type: 'rectangle' | 'rounded-rectangle' | 'circle' | 'ellipse' | 'line' | 'arrow' | 'triangle' | 'star' | 'heart' | 'speech-bubble';
+  shape_type: ShapeType;
   fill?: string;
+  fill_type?: ShapeFillType;
+  fill_image_url?: string;
   stroke?: string;
   stroke_width?: number;
   points?: [number, number][]; // For line/arrow
 }
+
+export type ShapeType =
+  | 'rectangle'
+  | 'rounded-rectangle'
+  | 'circle'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'triangle'
+  | 'star'
+  | 'heart'
+  | 'speech-bubble'
+  | 'hexagon'
+  | 'diamond'
+  | 'pill'
+  | 'bookmark'
+  | 'tag'
+  | 'ribbon'
+  | 'cloud'
+  | 'flower'
+  | 'sun';
 
 export interface StickerProperties {
   sticker_id: string;
   category: StickerCategory;
 }
 
-export type StickerCategory = 
-  | 'cute' 
-  | 'study' 
-  | 'productivity' 
-  | 'emotions' 
-  | 'nature' 
-  | 'stars' 
-  | 'plants' 
-  | 'food' 
-  | 'travel' 
-  | 'celebration' 
-  | 'minimal';
+export type StickerCategory =
+  | 'cute'
+  | 'kawaii'
+  | 'study'
+  | 'productivity'
+  | 'emotions'
+  | 'nature'
+  | 'stars'
+  | 'plants'
+  | 'food'
+  | 'travel'
+  | 'celebration'
+  | 'minimal'
+  | 'aesthetic'
+  | 'romantic'
+  | 'music'
+  | 'books'
+  | 'seasonal'
+  | 'selfcare';
 
 export interface ImageProperties {
   url: string;
   alt?: string;
   object_fit?: 'cover' | 'contain' | 'fill';
+  border_radius?: number;
+  border_color?: string;
+  border_width?: number;
 }
 
 export interface DrawingProperties {
@@ -224,10 +269,29 @@ export const PAPER_PATTERNS: Record<PaperStyle, string> = {
   lined: 'repeating-linear-gradient(transparent, transparent 31px, #e5e5e5 31px, #e5e5e5 32px)',
   dotted: 'radial-gradient(circle, #d1d1d1 1px, transparent 1px)',
   grid: 'linear-gradient(#e5e5e5 1px, transparent 1px), linear-gradient(90deg, #e5e5e5 1px, transparent 1px)',
-  cream: 'linear-gradient(135deg, #fdf6e3 0%, #f5e6d3 100%)',
-  white: 'linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%)',
-  pastel: 'linear-gradient(135deg, #f0e6ff 0%, #e6f0ff 100%)',
-  dark: 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)',
+  cream: 'linear-gradient(180deg, #fdf6e3 0%, #f5e6d3 100%)',
+  white: 'linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%)',
+  pastel: 'linear-gradient(180deg, #f0e6ff 0%, #e6f0ff 100%)',
+  dark: 'linear-gradient(180deg, #2d3748 0%, #1a202c 100%)',
+  kraft: 'linear-gradient(180deg, #c4a882 0%, #b89b6a 100%)',
+  rose: 'linear-gradient(180deg, #fff0f3 0%, #ffd6e0 100%)',
+  sky: 'linear-gradient(180deg, #f0f9ff 0%, #d4f1ff 100%)',
+  lavender: 'linear-gradient(180deg, #f5f0ff 0%, #e8d9f5 100%)',
+};
+
+export const PAPER_BACKGROUND_COLORS: Record<PaperStyle, string> = {
+  blank: '#ffffff',
+  lined: '#ffffff',
+  dotted: '#ffffff',
+  grid: '#ffffff',
+  cream: '#fdf6e3',
+  white: '#f8f8f8',
+  pastel: '#f0e6ff',
+  dark: '#1a202c',
+  kraft: '#c4a882',
+  rose: '#fff0f3',
+  sky: '#f0f9ff',
+  lavender: '#f5f0ff',
 };
 
 // ---------------------------------------------------------------------
@@ -239,7 +303,7 @@ export interface CoverPreset {
   color: string;
   gradient_from?: string;
   gradient_to?: string;
-  preview: string; // CSS gradient or background
+  preview: string;
 }
 
 export const COVER_PRESETS: CoverPreset[] = [
@@ -256,31 +320,70 @@ export const COVER_PRESETS: CoverPreset[] = [
 ];
 
 // ---------------------------------------------------------------------
-// Fonts
+// Text Presets
+// ---------------------------------------------------------------------
+export interface TextPresetDef {
+  id: TextPreset;
+  name: string;
+  font_family: string;
+  font_size: number;
+  font_weight: 'normal' | 'bold';
+  font_style: 'normal' | 'italic';
+  line_height: number;
+  letter_spacing: number;
+  color: string;
+}
+
+export const TEXT_PRESETS: TextPresetDef[] = [
+  { id: 'title', name: 'Titre', font_family: 'Georgia', font_size: 32, font_weight: 'bold', font_style: 'normal', line_height: 1.2, letter_spacing: -0.5, color: '#1a1a1a' },
+  { id: 'subtitle', name: 'Sous-titre', font_family: 'Georgia', font_size: 24, font_weight: 'normal', font_style: 'normal', line_height: 1.3, letter_spacing: 0, color: '#4a4a4a' },
+  { id: 'heading', name: 'Heading', font_family: 'Inter', font_size: 20, font_weight: 'bold', font_style: 'normal', line_height: 1.3, letter_spacing: 0, color: '#1a1a1a' },
+  { id: 'body', name: 'Corps', font_family: 'Inter', font_size: 16, font_weight: 'normal', font_style: 'normal', line_height: 1.6, letter_spacing: 0, color: '#1a1a1a' },
+  { id: 'caption', name: 'Légende', font_family: 'Inter', font_size: 12, font_weight: 'normal', font_style: 'normal', line_height: 1.4, letter_spacing: 0.2, color: '#7a7a7a' },
+  { id: 'quote', name: 'Citation', font_family: 'Georgia', font_size: 18, font_weight: 'normal', font_style: 'italic', line_height: 1.6, letter_spacing: 0, color: '#4a5568' },
+  { id: 'note', name: 'Note', font_family: 'Courier New', font_size: 14, font_weight: 'normal', font_style: 'normal', line_height: 1.5, letter_spacing: 0, color: '#1a1a1a' },
+  { id: 'handwritten', name: 'Manuscrit', font_family: 'Georgia', font_size: 18, font_weight: 'normal', font_style: 'italic', line_height: 1.7, letter_spacing: 0.5, color: '#2d3748' },
+  { id: 'journal', name: 'Journal', font_family: 'Georgia', font_size: 16, font_weight: 'normal', font_style: 'italic', line_height: 1.8, letter_spacing: 0.2, color: '#4a5568' },
+  { id: 'elegant', name: 'Élégant', font_family: 'Georgia', font_size: 16, font_weight: 'normal', font_style: 'normal', line_height: 1.8, letter_spacing: 1, color: '#2d3748' },
+];
+
+// ---------------------------------------------------------------------
+// Fonts (web-safe + curated)
 // ---------------------------------------------------------------------
 export const FONT_FAMILIES = [
-  { value: 'Inter', label: 'Inter' },
-  { value: 'Georgia', label: 'Georgia' },
-  { value: 'Times New Roman', label: 'Times New Roman' },
-  { value: 'Courier New', label: 'Courier New' },
-  { value: 'Arial', label: 'Arial' },
-  { value: 'Verdana', label: 'Verdana' },
+  { value: 'Inter', label: 'Inter', category: 'sans-serif' },
+  { value: 'Georgia', label: 'Georgia', category: 'serif' },
+  { value: 'Times New Roman', label: 'Times New Roman', category: 'serif' },
+  { value: 'Courier New', label: 'Courier New', category: 'monospace' },
+  { value: 'Arial', label: 'Arial', category: 'sans-serif' },
+  { value: 'Verdana', label: 'Verdana', category: 'sans-serif' },
+  { value: 'Palatino', label: 'Palatino', category: 'serif' },
+  { value: 'Garamond', label: 'Garamond', category: 'serif' },
 ] as const;
 
 // ---------------------------------------------------------------------
 // Shapes
 // ---------------------------------------------------------------------
-export const SHAPES = [
-  { type: 'rectangle' as const, name: 'Rectangle', icon: '⬜' },
-  { type: 'rounded-rectangle' as const, name: 'Rectangle arrondi', icon: '▢' },
-  { type: 'circle' as const, name: 'Cercle', icon: '⭕' },
-  { type: 'ellipse' as const, name: 'Ellipse', icon: '⬭' },
-  { type: 'line' as const, name: 'Ligne', icon: '➖' },
-  { type: 'arrow' as const, name: 'Flèche', icon: '➡️' },
-  { type: 'triangle' as const, name: 'Triangle', icon: '△' },
-  { type: 'star' as const, name: 'Étoile', icon: '⭐' },
-  { type: 'heart' as const, name: 'Cœur', icon: '❤️' },
-  { type: 'speech-bubble' as const, name: 'Bulle', icon: '💬' },
+export const SHAPES: { type: ShapeType; name: string; icon: string }[] = [
+  { type: 'rectangle', name: 'Rectangle', icon: '⬜' },
+  { type: 'rounded-rectangle', name: 'Rectangle arrondi', icon: '▢' },
+  { type: 'circle', name: 'Cercle', icon: '⭕' },
+  { type: 'ellipse', name: 'Ellipse', icon: '⬭' },
+  { type: 'line', name: 'Ligne', icon: '➖' },
+  { type: 'arrow', name: 'Flèche', icon: '➡️' },
+  { type: 'triangle', name: 'Triangle', icon: '△' },
+  { type: 'star', name: 'Étoile', icon: '⭐' },
+  { type: 'heart', name: 'Cœur', icon: '❤️' },
+  { type: 'speech-bubble', name: 'Bulle', icon: '💬' },
+  { type: 'hexagon', name: 'Hexagone', icon: '⬡' },
+  { type: 'diamond', name: 'Losange', icon: '◇' },
+  { type: 'pill', name: 'Pilule', icon: '💊' },
+  { type: 'cloud', name: 'Nuage', icon: '☁️' },
+  { type: 'flower', name: 'Fleur', icon: '🌸' },
+  { type: 'sun', name: 'Soleil', icon: '☀️' },
+  { type: 'bookmark', name: 'Signet', icon: '🔖' },
+  { type: 'tag', name: 'Étiquette', icon: '🏷️' },
+  { type: 'ribbon', name: 'Ruban', icon: '🎀' },
 ];
 
 // ---------------------------------------------------------------------
@@ -288,6 +391,7 @@ export const SHAPES = [
 // ---------------------------------------------------------------------
 export const DEFAULT_TEXT_PROPERTIES: TextProperties = {
   content: 'Double-cliquez pour écrire',
+  preset: 'body',
   font_family: 'Inter',
   font_size: 16,
   font_weight: 'normal',
@@ -295,13 +399,17 @@ export const DEFAULT_TEXT_PROPERTIES: TextProperties = {
   text_decoration: 'none',
   text_align: 'left',
   color: '#1a1a1a',
-  line_height: 1.5,
+  line_height: 1.6,
   letter_spacing: 0,
+  background_opacity: 0,
+  padding: 8,
+  border_radius: 0,
 };
 
 export const DEFAULT_SHAPE_PROPERTIES: ShapeProperties = {
   shape_type: 'rectangle',
   fill: '#E8D5C4',
+  fill_type: 'color',
   stroke: '#1a1a1a',
   stroke_width: 2,
 };
@@ -315,6 +423,9 @@ export const DEFAULT_IMAGE_PROPERTIES: ImageProperties = {
   url: '',
   alt: 'Image',
   object_fit: 'cover',
+  border_radius: 0,
+  border_color: 'transparent',
+  border_width: 0,
 };
 
 export const DEFAULT_DRAWING_PROPERTIES: DrawingProperties = {

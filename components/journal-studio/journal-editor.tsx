@@ -6,7 +6,9 @@ import {
   ArrowLeft, Plus, Trash2, Copy, ZoomIn, ZoomOut, Maximize,
   Type, Square, Smile, Image, Pen, Undo2, Redo2,
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
-  AlertTriangle, CopyPlus, GripVertical,
+  AlertTriangle, CopyPlus, ChevronLeft, ChevronRight,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+  Paintbrush, Palette, Minus, RotateCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,13 +17,15 @@ import {
   createElement, deleteElement,
   batchPersistElements, createJournalPage, deleteJournalPage,
   duplicateJournalPage, reindexJournalPages, uploadJournalImage,
+  updateJournalPage,
 } from '@/lib/journal-studio/supabase';
 import type {
   Journal, JournalPage, JournalElement, ElementType,
-  TextProperties, DrawingProperties,
+  TextProperties, ShapeProperties, ImageProperties, PaperStyle,
 } from '@/lib/journal-studio/types';
 import {
   DEFAULT_TEXT_PROPERTIES, DEFAULT_SHAPE_PROPERTIES, PAPER_PATTERNS,
+  PAPER_BACKGROUND_COLORS, TEXT_PRESETS, FONT_FAMILIES,
 } from '@/lib/journal-studio/types';
 import { StickerPicker } from './sticker-picker';
 import { ShapePicker } from './shape-picker';
@@ -37,6 +41,27 @@ const MAX_DRAWING_POINTS = 600;
 
 type Tool = 'select' | 'text' | 'shape' | 'sticker' | 'image' | 'drawing';
 
+const PAPER_OPTIONS: { value: PaperStyle; label: string }[] = [
+  { value: 'blank', label: 'Blanc' },
+  { value: 'lined', label: 'Ligné' },
+  { value: 'dotted', label: 'Pointillé' },
+  { value: 'grid', label: 'Grillé' },
+  { value: 'cream', label: 'Crème' },
+  { value: 'white', label: 'Blanc cassé' },
+  { value: 'pastel', label: 'Pastel' },
+  { value: 'kraft', label: 'Kraft' },
+  { value: 'rose', label: 'Rose' },
+  { value: 'sky', label: 'Ciel' },
+  { value: 'lavender', label: 'Lavande' },
+  { value: 'dark', label: 'Sombre' },
+];
+
+const INK_COLORS = [
+  '#1a1a1a', '#4a5568', '#718096', '#e53e3e', '#dd6b20',
+  '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c',
+  '#9b2c2c', '#2c5282', '#276749', '#744210', '#553c9a',
+];
+
 export function JournalEditor({ journalId, onBack }: { journalId: string; onBack: () => void }) {
   // ---- Data ----
   const [journal, setJournal] = useState<Journal | null>(null);
@@ -50,6 +75,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [zoom, setZoom] = useState(1);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showPaperPicker, setShowPaperPicker] = useState(false);
 
   // ---- Drawing ----
   const [drawingPoints, setDrawingPoints] = useState<[number, number, number][]>([]);
@@ -141,7 +167,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const page = currentPageRef.current;
       if (!page) { setSaveStatus('error'); return; }
 
-      // Build updates for existing elements (server-created IDs)
       const updates = els
         .filter((el) => el.id && !el.id.startsWith('local-'))
         .map((el) => ({
@@ -158,7 +183,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           },
         }));
 
-      // Real batch persist with actual data
       if (updates.length > 0) {
         await batchPersistElements(
           updates,
@@ -169,8 +193,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (err) {
-      console.error('[Journal] autosave failed:', err);
+    } catch {
       if (!navigator.onLine) {
         setSaveStatus('offline');
       } else {
@@ -188,13 +211,12 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [elements, persistToServer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mark dirty whenever elements change
   const markDirty = useCallback(() => {
     dirtyRef.current = true;
   }, []);
 
   // ===================================================================
-  // HISTORY (undo/redo via element snapshots)
+  // HISTORY (undo/redo)
   // ===================================================================
   const pushUndo = useCallback((snapshot: JournalElement[]) => {
     setUndoStack((prev) => {
@@ -251,14 +273,13 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         setSelectedId(newEl.id);
         setActiveTool('select');
         markDirty();
-      } catch (err) {
-        console.error('[Journal] createElement failed:', err);
+      } catch {
+        // silent
       }
     },
     [pushUndo, markDirty]
   );
 
-  // Local update during drag/resize/rotate — NO network
   const handleUpdateLocal = useCallback((id: string, overrides: Partial<JournalElement>) => {
     setElements((prev) =>
       prev.map((el) => (el.id === id ? { ...el, ...overrides } : el))
@@ -266,28 +287,15 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     markDirty();
   }, [markDirty]);
 
-  // Persist after drag ends
-  const handleDragEnd = useCallback((_id: string, _x: number, _y: number) => {
-    markDirty();
-  }, [markDirty]);
+  const handleDragEnd = useCallback(() => { markDirty(); }, [markDirty]);
+  const handleResizeEnd = useCallback(() => { markDirty(); }, [markDirty]);
+  const handleRotateEnd = useCallback(() => { markDirty(); }, [markDirty]);
 
-  // Persist after resize ends
-  const handleResizeEnd = useCallback((_id: string, _w: number, _h: number) => {
-    markDirty();
-  }, [markDirty]);
-
-  // Persist after rotate ends
-  const handleRotateEnd = useCallback((_id: string, _r: number) => {
-    markDirty();
-  }, [markDirty]);
-
-  // Delete
   const handleDeleteElement = useCallback((id: string) => {
     pushUndo(elementsRef.current);
     setElements((prev) => prev.filter((e) => e.id !== id));
     setSelectedId(null);
     markDirty();
-    // Server delete (fire-and-forget)
     deleteElement(id).catch(() => {});
   }, [pushUndo, markDirty]);
 
@@ -297,7 +305,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const handleCopy = useCallback(() => {
     if (!selectedId) return;
     const el = elements.find((e) => e.id === selectedId);
-    if (el) clipboardRef.current = JSON.parse(JSON.stringify(el)); // deep clone
+    if (el) clipboardRef.current = JSON.parse(JSON.stringify(el));
   }, [elements, selectedId]);
 
   const handlePaste = useCallback(async () => {
@@ -322,8 +330,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       setElements((prev) => [...prev, newEl]);
       setSelectedId(newEl.id);
       markDirty();
-    } catch (err) {
-      console.error('[Journal] paste failed:', err);
+    } catch {
+      // silent
     }
   }, [pushUndo, markDirty]);
 
@@ -333,12 +341,11 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   }, [handleCopy, handlePaste]);
 
   // ===================================================================
-  // CANVAS CLICK — coordinate conversion accounting for flex centering
+  // CANVAS CLICK — coordinate conversion
   // ===================================================================
   const screenToPage = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return null;
-    // Account for flex centering offset within the scrollable container
     const x = (clientX - rect.left) / zoom;
     const y = (clientY - rect.top) / zoom;
     return { x, y };
@@ -369,8 +376,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           try {
             const url = await uploadJournalImage(file, j.id);
             addElement('image', { url, alt: file.name, object_fit: 'cover' });
-          } catch (err) {
-            console.error('[Journal] image upload failed:', err);
+          } catch {
+            // silent
           }
         };
         input.click();
@@ -414,9 +421,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const newPage = await createJournalPage(j.id, pages.length + 1, j.paper_style);
       setPages((prev) => [...prev, newPage]);
       setCurrentPageIndex(pages.length);
-    } catch (err) {
-      console.error('[Journal] addPage failed:', err);
-    }
+    } catch { /* silent */ }
   }, [journal, pages]);
 
   const handleDuplicatePage = useCallback(async () => {
@@ -426,9 +431,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const dup = await duplicateJournalPage(page.id, pages.length + 1);
       setPages((prev) => [...prev, dup]);
       setCurrentPageIndex(pages.length);
-    } catch (err) {
-      console.error('[Journal] duplicatePage failed:', err);
-    }
+    } catch { /* silent */ }
   }, [pages.length]);
 
   const handleDeletePage = useCallback(async () => {
@@ -441,9 +444,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       setPages(newPages);
       reindexJournalPages(page.journal_id).catch(() => {});
       setCurrentPageIndex((prev) => Math.max(0, Math.min(prev, newPages.length - 1)));
-    } catch (err) {
-      console.error('[Journal] deletePage failed:', err);
-    }
+    } catch { /* silent */ }
   }, [pages]);
 
   const handleMovePage = useCallback(async (fromIndex: number, toIndex: number) => {
@@ -459,7 +460,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     } else if (fromIndex > currentPageIndex && toIndex <= currentPageIndex) {
       setCurrentPageIndex((prev) => prev + 1);
     }
-    // Persist new order
     try {
       for (let i = 0; i < newPages.length; i++) {
         if (newPages[i].page_number !== i + 1) {
@@ -470,6 +470,17 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       }
     } catch { /* silent */ }
   }, [pages, currentPageIndex]);
+
+  // Paper change for current page
+  const handlePaperChange = useCallback(async (style: PaperStyle) => {
+    const page = currentPageRef.current;
+    if (!page) return;
+    try {
+      await updateJournalPage(page.id, { paper_style: style });
+      setPages((prev) => prev.map((p) => p.id === page.id ? { ...p, paper_style: style } : p));
+      setShowPaperPicker(false);
+    } catch { /* silent */ }
+  }, []);
 
   // ===================================================================
   // DRAWING — inline on canvas, coordinates relative to page
@@ -488,7 +499,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     drawingPointsRef.current = [point];
     setDrawingPoints([point]);
 
-    // Capture pointer to avoid lost events
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
@@ -496,7 +506,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
   const handleDrawPointerMove = useCallback((e: React.PointerEvent) => {
     if (!drawingRef.current) return;
-    // Throttle: only add point every ~4ms
     const pos = screenToPage(e.clientX, e.clientY);
     if (!pos) return;
     const pts = drawingPointsRef.current;
@@ -504,13 +513,11 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     if (last) {
       const dx = pos.x - last[0];
       const dy = pos.y - last[1];
-      if (dx * dx + dy * dy < 4) return; // skip tiny moves
+      if (dx * dx + dy * dy < 4) return;
     }
     const point: [number, number, number] = [pos.x, pos.y, e.pressure || 0.5];
 
-    // Limit total points for performance
     if (pts.length >= MAX_DRAWING_POINTS) {
-      // Simplify: keep every other point
       const simplified: [number, number, number][] = [];
       for (let i = 0; i < pts.length; i += 2) {
         simplified.push(pts[i]);
@@ -532,11 +539,10 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
     if (pts.length < 2) { setDrawingPoints([]); return; }
 
-    // Build drawing properties
     const isEraser = drawingTool === 'eraser';
     const drawingProps = {
       points: pts,
-      stroke_color: isEraser ? '#ffffff' : drawingColor,
+      stroke_color: isEraser ? 'eraser' : drawingColor,
       stroke_width: isEraser ? drawingSize * 3 : drawingSize,
       opacity: drawingTool === 'highlighter' ? 0.4 : 1,
       tool: drawingTool,
@@ -544,54 +550,73 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
     setDrawingPoints([]);
     await addElement('drawing', drawingProps);
-  }, [drawingPoints, drawingColor, drawingSize, drawingTool, addElement]);
+  }, [drawingColor, drawingSize, drawingTool, addElement]);
+
+  // ===================================================================
+  // SELECTED ELEMENT HELPERS
+  // ===================================================================
+  const selectedElement = elements.find((e) => e.id === selectedId) ?? null;
 
   // ===================================================================
   // RENDER
   // ===================================================================
   if (!journal) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   const paperBg = PAPER_PATTERNS[currentPage?.paper_style as keyof typeof PAPER_PATTERNS] ?? '';
+  const paperColor = PAPER_BACKGROUND_COLORS[currentPage?.paper_style as keyof typeof PAPER_BACKGROUND_COLORS] ?? '#ffffff';
 
   return (
-    <div className="flex flex-col h-full select-none">
-      {/* ---- HEADER ---- */}
-      <div className="flex items-center justify-between p-2 sm:p-3 border-b border-border bg-card">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button onClick={onBack} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground" aria-label="Retour">
+    <div className="flex flex-col h-full select-none bg-background">
+      {/* ====== HEADER BAR ====== */}
+      <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/80 backdrop-blur-sm z-20">
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-smooth" aria-label="Retour à la bibliothèque">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-foreground truncate max-w-[150px] sm:max-w-[300px]">{journal.title}</h1>
-            <p className="text-xs text-muted-foreground">Page {currentPageIndex + 1} / {pages.length}</p>
+            <h1 className="text-sm font-semibold text-foreground truncate max-w-[120px] sm:max-w-[250px]">{journal.title}</h1>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">Page {currentPageIndex + 1}/{pages.length}</p>
+              {saveStatus === 'saving' && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">…</span></span>}
+              {saveStatus === 'saved' && <span className="flex items-center gap-1 text-xs text-kin-sage"><Check className="w-3 h-3" /><span className="hidden sm:inline">Enregistré</span></span>}
+              {saveStatus === 'error' && <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" /></span>}
+              {saveStatus === 'offline' && <span className="text-xs text-muted-foreground">Hors ligne</span>}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* Save status */}
-          {saveStatus === 'saving' && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Enregistrement…</span></span>}
-          {saveStatus === 'saved' && <span className="flex items-center gap-1 text-xs text-kin-sage"><Check className="w-3 h-3" /><span className="hidden sm:inline">Enregistré</span></span>}
-          {saveStatus === 'error' && <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" />Erreur</span>}
-          {saveStatus === 'offline' && <span className="text-xs text-muted-foreground">Hors ligne</span>}
+
+        <div className="flex items-center gap-1">
+          {/* Page navigation arrows */}
+          <div className="hidden sm:flex items-center gap-0.5">
+            <button onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))} disabled={currentPageIndex === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page précédente"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => setCurrentPageIndex((i) => Math.min(pages.length - 1, i + 1))} disabled={currentPageIndex >= pages.length - 1} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page suivante"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+
+          <div className="h-5 w-px bg-border hidden sm:block" />
 
           {/* Undo/Redo */}
-          <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-muted">
-            <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-1.5 rounded-md hover:bg-background disabled:opacity-40" aria-label="Annuler"><Undo2 className="w-4 h-4" /></button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-1.5 rounded-md hover:bg-background disabled:opacity-40" aria-label="Rétablir"><Redo2 className="w-4 h-4" /></button>
+          <div className="flex items-center gap-0.5">
+            <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Annuler"><Undo2 className="w-4 h-4" /></button>
+            <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Rétablir"><Redo2 className="w-4 h-4" /></button>
           </div>
 
+          <div className="h-5 w-px bg-border hidden sm:block" />
+
           {/* Zoom */}
-          <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-muted">
-            <button onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))} className="p-1.5 rounded-md hover:bg-background" aria-label="Zoom arrière"><ZoomOut className="w-4 h-4" /></button>
-            <span className="text-xs text-muted-foreground min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((z) => Math.min(3, z + 0.1))} className="p-1.5 rounded-md hover:bg-background" aria-label="Zoom avant"><ZoomIn className="w-4 h-4" /></button>
-            <button onClick={() => setZoom(1)} className="p-1.5 rounded-md hover:bg-background" aria-label="Taille réelle"><Maximize className="w-4 h-4" /></button>
+          <div className="hidden sm:flex items-center gap-0.5">
+            <button onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))} className="p-1.5 rounded-md hover:bg-muted" aria-label="Zoom arrière"><ZoomOut className="w-4 h-4" /></button>
+            <span className="text-xs text-muted-foreground min-w-[36px] text-center font-medium">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom((z) => Math.min(3, z + 0.1))} className="p-1.5 rounded-md hover:bg-muted" aria-label="Zoom avant"><ZoomIn className="w-4 h-4" /></button>
+            <button onClick={() => setZoom(1)} className="p-1.5 rounded-md hover:bg-muted" aria-label="Taille réelle"><Maximize className="w-4 h-4" /></button>
           </div>
+
+          <div className="h-5 w-px bg-border hidden sm:block" />
 
           {/* More */}
           <div className="relative">
@@ -602,6 +627,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                   <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="absolute right-0 top-full mt-1 z-50 w-56 rounded-xl border border-border bg-card shadow-lg p-1">
                     <button onClick={() => { setShowThumbnails(!showThumbnails); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><Grid3X3 className="w-4 h-4" />Miniatures</button>
+                    <button onClick={() => { setShowPaperPicker(!showPaperPicker); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><Palette className="w-4 h-4" />Changer le papier</button>
+                    <div className="my-1 h-px bg-border" />
                     <button onClick={() => { handleAddPage(); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><Plus className="w-4 h-4" />Ajouter une page</button>
                     <button onClick={() => { handleDuplicatePage(); setShowMoreMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted"><CopyPlus className="w-4 h-4" />Dupliquer la page</button>
                     {currentPageIndex > 0 && (
@@ -618,12 +645,69 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ---- MAIN ---- */}
+      {/* ====== CONTEXTUAL TOOLBAR ====== */}
+      <ContextualToolbar
+        selectedElement={selectedElement}
+        activeTool={activeTool}
+        drawingTool={drawingTool}
+        drawingColor={drawingColor}
+        drawingSize={drawingSize}
+        onUpdateElement={(id, props) => {
+          setElements((prev) =>
+            prev.map((el) =>
+              el.id === id
+                ? { ...el, properties: { ...el.properties, ...props } as typeof el.properties }
+                : el
+            )
+          );
+          markDirty();
+        }}
+        onDrawingToolChange={setDrawingTool}
+        onDrawingColorChange={setDrawingColor}
+        onDrawingSizeChange={setDrawingSize}
+        onExitDrawing={() => { setActiveTool('select'); setDrawingPoints([]); drawingRef.current = false; setIsDrawing(false); }}
+      />
+
+      {/* ====== PAPER PICKER ====== */}
+      <AnimatePresence>
+        {showPaperPicker && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-b border-border bg-card overflow-hidden z-10">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Paintbrush className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Style de papier</span>
+                <button onClick={() => setShowPaperPicker(false)} className="ml-auto text-muted-foreground hover:text-foreground"><Minus className="w-4 h-4" /></button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {PAPER_OPTIONS.map((paper) => (
+                  <button
+                    key={paper.value}
+                    onClick={() => handlePaperChange(paper.value)}
+                    className={cn(
+                      'flex-shrink-0 w-16 h-20 rounded-lg border-2 transition-smooth flex flex-col items-center justify-end p-1',
+                      currentPage?.paper_style === paper.value
+                        ? 'border-primary shadow-sm'
+                        : 'border-border hover:border-primary/50'
+                    )}
+                    style={{
+                      background: PAPER_PATTERNS[paper.value] || PAPER_BACKGROUND_COLORS[paper.value],
+                    }}
+                  >
+                    <span className="text-[9px] font-medium text-foreground/70 bg-white/70 px-1 rounded">{paper.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ====== MAIN AREA ====== */}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop toolbar */}
-        <div className="hidden md:flex flex-col w-14 border-r border-border bg-card p-1.5 gap-0.5">
+        <div className="hidden md:flex flex-col w-14 border-r border-border bg-card/80 p-1.5 gap-0.5">
           <ToolBtn icon={Move} label="Sélect." active={activeTool === 'select'} onClick={() => setActiveTool('select')} />
           <ToolBtn icon={Type} label="Texte" active={activeTool === 'text'} onClick={() => setActiveTool('text')} />
           <ToolBtn icon={Square} label="Forme" active={activeTool === 'shape'} onClick={() => setActiveTool('shape')} />
@@ -649,108 +733,113 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           )}
         </AnimatePresence>
 
-        {/* Canvas area */}
+        {/* ====== CANVAS AREA ====== */}
         <div
-          className="flex-1 overflow-auto bg-muted/30 relative"
-          style={{ touchAction: activeTool === 'drawing' ? 'none' : 'auto' }}
+          className="flex-1 overflow-auto relative"
+          style={{
+            touchAction: activeTool === 'drawing' ? 'none' : 'auto',
+            background: 'linear-gradient(135deg, #f5f5f4 0%, #e7e5e4 100%)',
+          }}
           onPointerDown={activeTool === 'drawing' ? handleDrawPointerDown : undefined}
           onPointerMove={activeTool === 'drawing' ? handleDrawPointerMove : undefined}
           onPointerUp={activeTool === 'drawing' ? finishDrawing : undefined}
         >
-          <div className="flex items-center justify-center min-h-full p-4 sm:p-8">
+          <div className="flex items-center justify-center min-h-full p-4 sm:p-8 gap-4">
+            {/* Book spine effect */}
             <div
-              ref={canvasRef}
-              className="relative bg-white shadow-lg rounded-lg overflow-hidden"
+              className="hidden lg:block flex-shrink-0"
               style={{
-                width: PAGE_W,
-                height: PAGE_H,
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                backgroundImage: paperBg || undefined,
-                backgroundSize: currentPage?.paper_style === 'grid' ? '20px 20px, 20px 20px' : undefined,
-                backgroundColor: currentPage?.background_color ?? undefined,
+                width: 6,
+                height: PAGE_H * Math.min(zoom, 1.5),
+                background: 'linear-gradient(90deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0) 100%)',
+                borderRadius: '0 2px 2px 0',
+                opacity: zoom >= 0.8 ? 1 : 0,
               }}
-              onClick={handleCanvasClick}
-            >
-              {/* Rendered elements */}
-              {elements.map((el) => (
-                <ElementRenderer
-                  key={el.id}
-                  element={el}
-                  isSelected={selectedId === el.id}
-                  zoom={zoom}
-                  onSelect={() => setSelectedId(el.id)}
-                  onDragStart={() => {}}
-                  onDragEnd={handleDragEnd}
-                  onResizeStart={() => {}}
-                  onResizeEnd={handleResizeEnd}
-                  onRotateEnd={handleRotateEnd}
-                  onUpdateLocal={handleUpdateLocal}
-                  onDelete={() => handleDeleteElement(el.id)}
-                  onUpdateElement={(id, props) => {
-                    setElements((prev) =>
-                      prev.map((el) =>
-                        el.id === id
-                          ? { ...el, properties: { ...el.properties, ...props } as typeof el.properties }
-                          : el
-                      )
-                    );
-                    markDirty();
-                  }}
-                />
-              ))}
+            />
 
-              {/* Live drawing preview */}
-              {isDrawing && drawingPoints.length >= 2 && (
-                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${PAGE_W} ${PAGE_H}`}>
-                  <path
-                    d={drawingPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')}
-                    fill="none"
-                    stroke={drawingTool === 'eraser' ? 'rgba(255,0,0,0.3)' : drawingColor}
-                    strokeWidth={drawingTool === 'eraser' ? drawingSize * 3 : drawingSize}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={drawingTool === 'highlighter' ? 0.4 : 1}
+            {/* The page itself */}
+            <div className="relative" style={{ perspective: '1200px' }}>
+              <div
+                ref={canvasRef}
+                className="relative overflow-hidden"
+                style={{
+                  width: PAGE_W,
+                  height: PAGE_H,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  backgroundImage: paperBg || undefined,
+                  backgroundSize: currentPage?.paper_style === 'grid' ? '20px 20px, 20px 20px' : undefined,
+                  backgroundColor: paperColor,
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(0,0,0,0.04)',
+                  borderRadius: '2px 6px 6px 2px',
+                  borderLeft: '3px solid rgba(0,0,0,0.06)',
+                }}
+                onClick={handleCanvasClick}
+              >
+                {/* Rendered elements */}
+                {elements.map((el) => (
+                  <ElementRenderer
+                    key={el.id}
+                    element={el}
+                    isSelected={selectedId === el.id}
+                    zoom={zoom}
+                    onSelect={() => setSelectedId(el.id)}
+                    onDragStart={() => {}}
+                    onDragEnd={handleDragEnd}
+                    onResizeStart={() => {}}
+                    onResizeEnd={handleResizeEnd}
+                    onRotateEnd={handleRotateEnd}
+                    onUpdateLocal={handleUpdateLocal}
+                    onDelete={() => handleDeleteElement(el.id)}
+                    onUpdateElement={(id, props) => {
+                      setElements((prev) =>
+                        prev.map((el) =>
+                          el.id === id
+                            ? { ...el, properties: { ...el.properties, ...props } as typeof el.properties }
+                            : el
+                        )
+                      );
+                      markDirty();
+                    }}
                   />
-                </svg>
-              )}
+                ))}
+
+                {/* Live drawing preview */}
+                {isDrawing && drawingPoints.length >= 2 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${PAGE_W} ${PAGE_H}`}>
+                    <path
+                      d={drawingPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')}
+                      fill="none"
+                      stroke={drawingTool === 'eraser' ? 'rgba(255,0,0,0.3)' : drawingColor}
+                      strokeWidth={drawingTool === 'eraser' ? drawingSize * 3 : drawingSize}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={drawingTool === 'highlighter' ? 0.4 : 1}
+                    />
+                  </svg>
+                )}
+              </div>
+
+              {/* Page number */}
+              <div className="absolute -bottom-6 left-0 right-0 text-center">
+                <span className="text-[10px] text-muted-foreground/60 font-medium">{currentPageIndex + 1}</span>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Drawing toolbar (when drawing mode active) */}
-        {activeTool === 'drawing' && (
-          <div className="hidden md:flex flex-col w-48 border-l border-border bg-card p-3 gap-3">
-            <p className="text-xs font-semibold text-muted-foreground">Outils de dessin</p>
-            {(['pen', 'pencil', 'highlighter', 'eraser'] as const).map((t) => (
-              <button key={t} onClick={() => setDrawingTool(t)} className={cn('px-3 py-2 rounded-lg text-sm text-left transition-smooth', drawingTool === t ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
-                {t === 'pen' ? '✏️ Stylo' : t === 'pencil' ? '🖊️ Crayon' : t === 'highlighter' ? '🖍️ Surligneur' : '🧹 Gomme'}
-              </button>
-            ))}
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Couleur</p>
-              <input type="color" value={drawingColor} onChange={(e) => setDrawingColor(e.target.value)} className="w-full h-8 rounded-lg cursor-pointer" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Taille: {drawingSize}px</p>
-              <input type="range" min={1} max={20} value={drawingSize} onChange={(e) => setDrawingSize(Number(e.target.value))} className="w-full" />
-            </div>
-            <button onClick={() => { setActiveTool('select'); setDrawingPoints([]); drawingRef.current = false; setIsDrawing(false); }} className="mt-auto px-3 py-2 rounded-lg text-sm bg-muted hover:bg-muted/80">Quitter le dessin</button>
-          </div>
-        )}
       </div>
 
-      {/* ---- MOBILE BOTTOM BAR ---- */}
-      <div className="md:hidden flex items-center justify-between px-2 py-1.5 border-t border-border bg-card">
+      {/* ====== MOBILE BOTTOM BAR ====== */}
+      <div className="md:hidden flex items-center justify-between px-2 py-1.5 border-t border-border bg-card/90 backdrop-blur-sm">
         <div className="flex items-center gap-0.5 overflow-x-auto">
           {([
-            { tool: 'select' as Tool, icon: Move },
-            { tool: 'text' as Tool, icon: Type },
-            { tool: 'shape' as Tool, icon: Square },
-            { tool: 'sticker' as Tool, icon: Smile },
-            { tool: 'image' as Tool, icon: Image },
-            { tool: 'drawing' as Tool, icon: Pen },
-          ]).map(({ tool, icon: Icon }) => (
+            { tool: 'select' as Tool, icon: Move, label: 'Sélect.' },
+            { tool: 'text' as Tool, icon: Type, label: 'Texte' },
+            { tool: 'shape' as Tool, icon: Square, label: 'Forme' },
+            { tool: 'sticker' as Tool, icon: Smile, label: 'Sticker' },
+            { tool: 'image' as Tool, icon: Image, label: 'Image' },
+            { tool: 'drawing' as Tool, icon: Pen, label: 'Dessin' },
+          ]).map(({ tool, icon: Icon, label }) => (
             <button key={tool} onClick={() => {
               if (tool === 'shape') { setShowShapePicker(true); setActiveTool('shape'); }
               else if (tool === 'sticker') { setShowStickerPicker(true); setActiveTool('sticker'); }
@@ -772,18 +861,19 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                 input.click();
               }
               else { setActiveTool(tool); }
-            }} className={cn('p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center', activeTool === tool ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
+            }} className={cn('p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex flex-col items-center justify-center gap-0.5', activeTool === tool ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')} aria-label={label}>
               <Icon className="w-5 h-5" />
+              <span className="text-[8px] font-medium">{label}</span>
             </button>
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-40"><Undo2 className="w-4 h-4" /></button>
-          <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-40"><Redo2 className="w-4 h-4" /></button>
+          <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Undo2 className="w-4 h-4" /></button>
+          <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Redo2 className="w-4 h-4" /></button>
         </div>
       </div>
 
-      {/* ---- PICKERS ---- */}
+      {/* ====== PICKERS ====== */}
       <AnimatePresence>
         {showStickerPicker && (
           <StickerPicker onSelect={(s) => { addElement('sticker', { sticker_id: s.id, category: s.category }); setShowStickerPicker(false); }} onClose={() => setShowStickerPicker(false)} />
@@ -796,7 +886,275 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   );
 }
 
-// ---- Small toolbar button ----
+// ===================================================================
+// CONTEXTUAL TOOLBAR — changes based on selected element / tool
+// ===================================================================
+function ContextualToolbar({
+  selectedElement,
+  activeTool,
+  drawingTool,
+  drawingColor,
+  drawingSize,
+  onUpdateElement,
+  onDrawingToolChange,
+  onDrawingColorChange,
+  onDrawingSizeChange,
+  onExitDrawing,
+}: {
+  selectedElement: JournalElement | null;
+  activeTool: Tool;
+  drawingTool: string;
+  drawingColor: string;
+  drawingSize: number;
+  onUpdateElement: (id: string, props: Record<string, unknown>) => void;
+  onDrawingToolChange: (tool: 'pen' | 'pencil' | 'highlighter' | 'eraser') => void;
+  onDrawingColorChange: (color: string) => void;
+  onDrawingSizeChange: (size: number) => void;
+  onExitDrawing: () => void;
+}) {
+  // Drawing toolbar
+  if (activeTool === 'drawing') {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-border bg-card/80 overflow-x-auto">
+        {(['pen', 'pencil', 'highlighter', 'eraser'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => onDrawingToolChange(t)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-smooth',
+              drawingTool === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {t === 'pen' ? '✏️ Stylo' : t === 'pencil' ? '🖊️ Crayon' : t === 'highlighter' ? '🖍️ Surligneur' : '🧹 Gomme'}
+          </button>
+        ))}
+        <div className="h-5 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          {INK_COLORS.slice(0, 8).map((c) => (
+            <button key={c} onClick={() => onDrawingColorChange(c)} className={cn('w-5 h-5 rounded-full border-2 transition-smooth', drawingColor === c ? 'border-primary scale-110' : 'border-transparent hover:scale-110')} style={{ backgroundColor: c }} aria-label={`Couleur ${c}`} />
+          ))}
+        </div>
+        <div className="h-5 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">{drawingSize}px</span>
+          <input type="range" min={1} max={20} value={drawingSize} onChange={(e) => onDrawingSizeChange(Number(e.target.value))} className="w-20" />
+        </div>
+        <button onClick={onExitDrawing} className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-muted hover:bg-muted/80 text-muted-foreground">Quitter</button>
+      </div>
+    );
+  }
+
+  // Text contextual toolbar
+  if (selectedElement?.element_type === 'text') {
+    const props = selectedElement.properties as TextProperties;
+    const update = (updates: Record<string, unknown>) => onUpdateElement(selectedElement.id, updates);
+
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card/80 overflow-x-auto">
+        {/* Text presets */}
+        <select
+          value={props.preset || 'body'}
+          onChange={(e) => {
+            const preset = TEXT_PRESETS.find((p) => p.id === e.target.value);
+            if (preset) {
+              update({
+                preset: preset.id,
+                font_family: preset.font_family,
+                font_size: preset.font_size,
+                font_weight: preset.font_weight,
+                font_style: preset.font_style,
+                line_height: preset.line_height,
+                letter_spacing: preset.letter_spacing,
+              });
+            }
+          }}
+          className="px-2 py-1 rounded-lg border border-border bg-background text-xs min-w-[100px]"
+          aria-label="Style de texte"
+        >
+          {TEXT_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Font */}
+        <select
+          value={props.font_family || 'Inter'}
+          onChange={(e) => update({ font_family: e.target.value })}
+          className="px-2 py-1 rounded-lg border border-border bg-background text-xs min-w-[80px]"
+          aria-label="Police"
+        >
+          {FONT_FAMILIES.map((f) => (
+            <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+
+        {/* Size */}
+        <input
+          type="number"
+          value={props.font_size || 16}
+          onChange={(e) => update({ font_size: Number(e.target.value) })}
+          className="w-14 px-2 py-1 rounded-lg border border-border bg-background text-xs text-center"
+          min={8}
+          max={120}
+          aria-label="Taille"
+        />
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Bold / Italic / Underline */}
+        <button onClick={() => update({ font_weight: props.font_weight === 'bold' ? 'normal' : 'bold' })} className={cn('p-1.5 rounded-md transition-smooth', props.font_weight === 'bold' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Gras"><Bold className="w-4 h-4" /></button>
+        <button onClick={() => update({ font_style: props.font_style === 'italic' ? 'normal' : 'italic' })} className={cn('p-1.5 rounded-md transition-smooth', props.font_style === 'italic' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Italique"><Italic className="w-4 h-4" /></button>
+        <button onClick={() => update({ text_decoration: props.text_decoration === 'underline' ? 'none' : 'underline' })} className={cn('p-1.5 rounded-md transition-smooth', props.text_decoration === 'underline' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Souligné"><Underline className="w-4 h-4" /></button>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Alignment */}
+        <button onClick={() => update({ text_align: 'left' })} className={cn('p-1.5 rounded-md transition-smooth', props.text_align === 'left' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Aligner à gauche"><AlignLeft className="w-4 h-4" /></button>
+        <button onClick={() => update({ text_align: 'center' })} className={cn('p-1.5 rounded-md transition-smooth', props.text_align === 'center' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Centrer"><AlignCenter className="w-4 h-4" /></button>
+        <button onClick={() => update({ text_align: 'right' })} className={cn('p-1.5 rounded-md transition-smooth', props.text_align === 'right' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground')} aria-label="Aligner à droite"><AlignRight className="w-4 h-4" /></button>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Text color */}
+        <label className="flex items-center gap-1 cursor-pointer" aria-label="Couleur du texte">
+          <div className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: props.color || '#1a1a1a' }} />
+          <input type="color" value={props.color || '#1a1a1a'} onChange={(e) => update({ color: e.target.value })} className="sr-only" />
+        </label>
+
+        {/* Background color */}
+        <label className="flex items-center gap-1 cursor-pointer" aria-label="Couleur de fond">
+          <div className="w-5 h-5 rounded border border-border" style={{ backgroundColor: props.background_color || '#ffffff' }}>
+            <span className="block w-full h-full rounded" style={{ background: props.background_color ? undefined : 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50%/8px 8px' }} />
+          </div>
+          <input type="color" value={props.background_color || '#ffffff'} onChange={(e) => update({ background_color: e.target.value, background_opacity: 1 })} className="sr-only" />
+        </label>
+      </div>
+    );
+  }
+
+  // Shape contextual toolbar
+  if (selectedElement?.element_type === 'shape') {
+    const props = selectedElement.properties as ShapeProperties;
+    const update = (updates: Record<string, unknown>) => onUpdateElement(selectedElement.id, updates);
+
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card/80 overflow-x-auto">
+        <span className="text-xs font-medium text-muted-foreground">Forme</span>
+        <div className="h-5 w-px bg-border" />
+
+        {/* Fill color */}
+        <label className="flex items-center gap-1 cursor-pointer" aria-label="Remplissage">
+          <span className="text-[10px] text-muted-foreground">Fond</span>
+          <div className="w-5 h-5 rounded border border-border" style={{ backgroundColor: props.fill || '#E8D5C4' }} />
+          <input type="color" value={props.fill || '#E8D5C4'} onChange={(e) => update({ fill: e.target.value })} className="sr-only" />
+        </label>
+
+        {/* Stroke color */}
+        <label className="flex items-center gap-1 cursor-pointer" aria-label="Contour">
+          <span className="text-[10px] text-muted-foreground">Contour</span>
+          <div className="w-5 h-5 rounded border border-border" style={{ backgroundColor: props.stroke || '#1a1a1a' }} />
+          <input type="color" value={props.stroke || '#1a1a1a'} onChange={(e) => update({ stroke: e.target.value })} className="sr-only" />
+        </label>
+
+        {/* Stroke width */}
+        <div className="flex items-center gap-1">
+          <Minus className="w-3 h-3 text-muted-foreground" />
+          <input
+            type="range"
+            min={0}
+            max={10}
+            value={props.stroke_width ?? 2}
+            onChange={(e) => update({ stroke_width: Number(e.target.value) })}
+            className="w-16"
+            aria-label="Épaisseur du contour"
+          />
+        </div>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Rotation */}
+        <div className="flex items-center gap-1">
+          <RotateCw className="w-3 h-3 text-muted-foreground" />
+          <input
+            type="number"
+            value={Math.round(selectedElement.rotation)}
+            onChange={(e) => onUpdateElement(selectedElement.id, { rotation: Number(e.target.value) })}
+            className="w-14 px-1.5 py-0.5 rounded border border-border bg-background text-xs text-center"
+            aria-label="Rotation"
+          />
+          <span className="text-[10px] text-muted-foreground">°</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Image contextual toolbar
+  if (selectedElement?.element_type === 'image') {
+    const props = selectedElement.properties as ImageProperties;
+    const update = (updates: Record<string, unknown>) => onUpdateElement(selectedElement.id, updates);
+
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card/80 overflow-x-auto">
+        <span className="text-xs font-medium text-muted-foreground">Image</span>
+        <div className="h-5 w-px bg-border" />
+
+        {/* Object fit */}
+        {(['contain', 'cover', 'fill'] as const).map((fit) => (
+          <button
+            key={fit}
+            onClick={() => update({ object_fit: fit })}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-xs font-medium transition-smooth',
+              props.object_fit === fit ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {fit === 'contain' ? 'Contain' : fit === 'cover' ? 'Cover' : 'Fill'}
+          </button>
+        ))}
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Rotation */}
+        <div className="flex items-center gap-1">
+          <RotateCw className="w-3 h-3 text-muted-foreground" />
+          <input
+            type="number"
+            value={Math.round(selectedElement.rotation)}
+            onChange={(e) => onUpdateElement(selectedElement.id, { rotation: Number(e.target.value) })}
+            className="w-14 px-1.5 py-0.5 rounded border border-border bg-background text-xs text-center"
+            aria-label="Rotation"
+          />
+          <span className="text-[10px] text-muted-foreground">°</span>
+        </div>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Border radius */}
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">Rayon</span>
+          <input
+            type="range"
+            min={0}
+            max={50}
+            value={props.border_radius ?? 0}
+            onChange={(e) => update({ border_radius: Number(e.target.value) })}
+            className="w-16"
+            aria-label="Rayon de bordure"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // No contextual toolbar needed
+  return null;
+}
+
+// ===================================================================
+// TOOL BUTTON
+// ===================================================================
 function ToolBtn({ icon: Icon, label, active, onClick }: { icon: React.ElementType; label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} className={cn('flex flex-col items-center gap-0.5 p-1.5 rounded-xl text-xs transition-smooth', active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')} title={label} aria-label={label}>
