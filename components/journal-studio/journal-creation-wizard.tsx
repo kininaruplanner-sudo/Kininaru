@@ -24,6 +24,7 @@ import {
 import type { Journal, CoverType, PaperStyle } from '@/lib/journal-studio/types';
 import { COVER_PRESETS, PAPER_PATTERNS, PAPER_BACKGROUND_COLORS } from '@/lib/journal-studio/types';
 import { devLog } from '@/lib/journal-studio/sync/indexed-db';
+import { JOURNAL_TEMPLATES, getTemplateById, type JournalTemplate } from '@/lib/journal-studio/templates';
 
 interface JournalCreationWizardProps {
   onComplete: (journal: Journal) => void;
@@ -31,6 +32,7 @@ interface JournalCreationWizardProps {
 }
 
 const STEPS = [
+  { id: 'template', label: 'Modèle', icon: FileText },
   { id: 'title', label: 'Titre', icon: BookOpen },
   { id: 'cover', label: 'Couverture', icon: Palette },
   { id: 'paper', label: 'Papier', icon: FileText },
@@ -65,6 +67,7 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<JournalTemplate | null>(null);
   const [coverType, setCoverType] = useState<CoverType>('minimal');
   const [coverColor, setCoverColor] = useState('#E8D5C4');
   const [coverGradientFrom, setCoverGradientFrom] = useState<string | undefined>();
@@ -76,6 +79,15 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<File | null>(null);
+
+  const applyTemplate = (template: JournalTemplate) => {
+    setSelectedTemplate(template);
+    setCoverType(template.cover_type);
+    setCoverColor(template.cover_color);
+    setCoverGradientFrom(template.cover_gradient_from);
+    setCoverGradientTo(template.cover_gradient_to);
+    setPaperStyle(template.paper_style);
+  };
 
   const canProceed = () => {
     switch (step) {

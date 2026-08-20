@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Trash2, Copy, ZoomIn, ZoomOut, Maximize,
   Type, Square, Smile, Image, Pen, Undo2, Redo2,
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
-  AlertTriangle, CopyPlus, ChevronLeft, ChevronRight, Search,
+  AlertTriangle, CopyPlus, ChevronLeft, ChevronRight, Search, Star,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Paintbrush, Palette, Minus, RotateCw, CloudOff, Cloud,
 } from 'lucide-react';
@@ -605,6 +605,21 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     }
   }, []);
 
+  // ---- Favorites ----
+  const [favoritePages, setFavoritePages] = useState<Set<number>>(new Set());
+
+  const toggleFavorite = useCallback((pageIndex: number) => {
+    setFavoritePages((prev) => {
+      const next = new Set(prev);
+      if (next.has(pageIndex)) {
+        next.delete(pageIndex);
+      } else {
+        next.add(pageIndex);
+      }
+      return next;
+    });
+  }, []);
+
   // ---- Context menu ----
   const handleContextMenuAction = useCallback((action: string, id: string) => {
     switch (action) {
@@ -962,7 +977,16 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-foreground truncate max-w-[120px] sm:max-w-[250px]">{journal.title}</h1>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">Page {currentPageIndex + 1}/{pages.length}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground">Page {currentPageIndex + 1}/{pages.length}</p>
+                <button
+                  onClick={() => toggleFavorite(currentPageIndex)}
+                  className="p-0.5 hover:scale-110 transition-transform"
+                  aria-label={favoritePages.has(currentPageIndex) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                >
+                  <Star className={cn('w-3.5 h-3.5', favoritePages.has(currentPageIndex) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground')} />
+                </button>
+              </div>
               {getSaveStatusDisplay()}
             </div>
           </div>
