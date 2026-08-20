@@ -16,7 +16,8 @@ interface ElementRendererProps {
   element: JournalElement;
   isSelected: boolean;
   zoom: number;
-  onSelect: () => void;
+  onSelect: (e?: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   onDragStart: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onResizeStart: (id: string) => void;
@@ -32,6 +33,7 @@ export function ElementRenderer({
   isSelected,
   zoom,
   onSelect,
+  onContextMenu,
   onDragStart,
   onDragEnd,
   onResizeStart,
@@ -57,7 +59,7 @@ export function ElementRenderer({
       if ((e.target as HTMLElement).dataset.handle) return;
       e.stopPropagation();
       e.preventDefault();
-      onSelect();
+      onSelect(e as unknown as React.MouseEvent);
 
       setIsDragging(true);
       onDragStart(element.id);
@@ -188,6 +190,7 @@ export function ElementRenderer({
       }}
       onPointerDown={handlePointerDown}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={(e) => { if (onContextMenu) { e.preventDefault(); e.stopPropagation(); onContextMenu(e); } }}
     >
       {renderInner(element, isEditing, setIsEditing, onUpdateElement)}
 

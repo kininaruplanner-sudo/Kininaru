@@ -40,6 +40,7 @@ import { StickerPicker } from './sticker-picker';
 import { ShapePicker } from './shape-picker';
 import { ElementRenderer } from './element-renderer';
 import { PageThumbnails } from './page-thumbnails';
+import { ContextMenu } from './context-menu';
 
 // ---- Constants ----
 const PAGE_W = 595;
@@ -79,7 +80,9 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
   // ---- UI State ----
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [contextMenu, setContextMenu] = useState<{ elementId: string; x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -490,31 +493,103 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     }
     dragSnapshotRef.current = null;
     propsSnapshotRef.current = null;
-  }, [markDirty]);
-
-  const handleDeleteElement = useCallback(async (id: string) => {
+  }, [markDirty]);  const handleDeleteElement = useCallback(async (id: string) => {
     const el = elementsRef.current.find((e) => e.id === id);
     if (!el) return;
-
     const command = deleteElementCommand(
       el,
       (deletedEl) => setElements((prev) => [...prev, deletedEl]),
       (eid) => setElements((prev) => prev.filter((e) => e.id !== eid))
     );
-
     setSelectedId(null);
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     await executeCommand(command);
     markDirty();
   }, [markDirty]);
 
+  // ---- Lock / Unlock ----
+  const handleToggleLock = useCallback((id: string) => {
+    setElements((prev) => prev.map((el) => el.id === id ? { ...el, is_locked: !(el.is_locked ?? false) } : el));
+    markDirty();
+  }, [markDirty]);
+
+  // ---- Layer management ----
+  const handleBringForward = useCallback((id: string) => {
+    setElements((prev) => {
+      const sorted = [...prev].sort((a, b) => a.z_index - b.z_index);
+      const idx = sorted.findIndex((e) => e.id === id);
+      if (idx < 0 || idx >= sorted.length - 1) return prev;
+      const targetZ = sorted[idx + 1].z_index;
+      sorted[idx] = { ...sorted[idx], z_index: targetZ };
+      sorted[idx + 1] = { ...sorted[idx + 1], z_index: targetZ - 1 };
+      return sorted;
+    });
+    markDirty();
+  }, [markDirty]);
+
+  const handleSendBackward = useCallback((id: string) => {
+    setElements((prev) => {
+      const sorted = [...prev].sort((a, b) => a.z_index - b.z_index);
+      const idx = sorted.findIndex((e) => e.id === id);
+      if (idx <= 0) return prev;
+      const targetZ = sorted[idx - 1].z_index;
+      sorted[idx] = { ...sorted[idx], z_index: targetZ };
+      sorted[idx - 1] = { ...sorted[idx - 1], z_index: targetZ + 1 };
+      return sorted;
+    });
+    markDirty();
+  }, [markDirty]);
+
+  const handleBringToFront = useCallback((id: string) => {
+    const maxZ = Math.max(...elementsRef.current.map((e) => e.z_index));
+    setElements((prev) => prev.map((el) => el.id === id ? { ...el, z_index: maxZ + 1 } : el));
+    markDirty();
+  }, [markDirty]);
+
+  const handleSendToBack = useCallback((id: string) => {
+    const minZ = Math.min(...elementsRef.current.map((e) => e.z_index));
+    setElements((prev) => prev.map((el) => el.id === id ? { ...el, z_index: minZ - 1 } : el));
+    markDirty();
+  }, [markDirty]);
+
+  // ---- Multi-select toggle ----
+  const handleToggleSelect = useCallback((id: string, e: React.MouseEvent) => {
+    if (e.shiftKey || e.metaKey) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+      setSelectedId(null);
+    } else {
+      setSelectedId(id);
+      setSelectedIds(new Set());
+    }
+  }, []);
+
+  // ---- Context menu ----
+  const handleContextMenuAction = useCallback((action: string, id: string) => {
+    switch (action) {
+      case 'lock': handleToggleLock(id); break;
+      case 'forward': handleBringForward(id); break;
+      case 'backward': handleSendBackward(id); break;
+      case 'front': handleBringToFront(id); break;
+      case 'back': handleSendToBack(id); break;
+    }
+  }, [handleToggleLock, handleBringForward, handleSendBackward, handleBringToFront, handleSendToBack]);
+
   // ===================================================================
   // COPY / PASTE / DUPLICATE
   // ===================================================================
+  const copyElementById = useCallback((id: string) => {
+    const el = elements.find((e) => e.id === id);
+    if (el) clipboardRef.current = JSON.parse(JSON.stringify(el));
+  }, [elements]);
+
   const handleCopy = useCallback(() => {
     if (!selectedId) return;
-    const el = elements.find((e) => e.id === selectedId);
-    if (el) clipboardRef.current = JSON.parse(JSON.stringify(el));
-  }, [elements, selectedId]);
+    copyElementById(selectedId);
+  }, [copyElementById, selectedId]);
 
   const handlePaste = useCallback(async () => {
     const src = clipboardRef.current;
@@ -1023,13 +1098,10 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                 onClick={handleCanvasClick}
               >
                 {/* Rendered elements */}
-                {elements.map((el) => (
-                  <ElementRenderer
-                    key={el.id}
-                    element={el}
-                    isSelected={selectedId === el.id}
-                    zoom={zoom}
-                    onSelect={() => setSelectedId(el.id)}
+                {elements.map((el) => (                  <ElementRenderer
+                    key={el.id} element={el} isSelected={selectedId === el.id || selectedIds.has(el.id)} zoom={zoom}
+                    onSelect={(e) => handleToggleSelect(el.id, e as React.MouseEvent)}
+                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ elementId: el.id, x: e.clientX, y: e.clientY }); }}
                     onDragStart={snapshotElement}
                     onDragEnd={handleDragEnd}
                     onResizeStart={snapshotElement}
@@ -1118,6 +1190,28 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           <button onClick={handleRedo} disabled={!historyState.canRedo} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Redo2 className="w-4 h-4" /></button>
         </div>
       </div>
+
+      {/* ====== CONTEXT MENU ====== */}
+      {contextMenu && (
+        <ContextMenu
+          element={elements.find(el => el.id === contextMenu.elementId) ?? null}
+          elements={elements}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onDuplicate={(id) => { copyElementById(id); handlePaste(); setContextMenu(null); }}
+          onCopy={(id) => { copyElementById(id); setContextMenu(null); }}
+          onDelete={(id) => { handleDeleteElement(id); setContextMenu(null); }}
+          onLock={(id, locked) => {
+            setElements(prev => prev.map(el => el.id === id ? { ...el, is_locked: locked } : el));
+            setContextMenu(null);
+          }}
+          onBringForward={(id) => { handleBringForward(id); setContextMenu(null); }}
+          onSendBackward={(id) => { handleSendBackward(id); setContextMenu(null); }}
+          onBringToFront={(id) => { handleBringToFront(id); setContextMenu(null); }}
+          onSendToBack={(id) => { handleSendToBack(id); setContextMenu(null); }}
+        />
+      )}
 
       {/* ====== PICKERS ====== */}
       <AnimatePresence>

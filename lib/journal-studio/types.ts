@@ -81,6 +81,7 @@ export interface JournalElement {
   rotation: number;
   z_index: number;
   opacity: number;
+  is_locked?: boolean;
   properties: TextProperties | ShapeProperties | StickerProperties | ImageProperties | DrawingProperties;
   created_at: string;
   updated_at: string;
@@ -480,6 +481,7 @@ export interface JournalElementRow {
   rotation: number;
   z_index: number;
   opacity: number;
+  is_locked: boolean | null;
   properties: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -513,6 +515,7 @@ export function rowToElement(row: JournalElementRow): JournalElement {
   return {
     ...row,
     element_type: row.element_type as ElementType,
+    is_locked: row.is_locked ?? false,
     properties: row.properties as unknown as TextProperties | ShapeProperties | StickerProperties | ImageProperties | DrawingProperties,
   };
 }

@@ -47,6 +47,7 @@ create table if not exists public.journal_elements (
   rotation double precision not null default 0,
   z_index integer not null default 0,
   opacity double precision not null default 1,
+  is_locked boolean not null default false,
   properties jsonb not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
