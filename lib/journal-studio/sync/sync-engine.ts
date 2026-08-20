@@ -22,7 +22,7 @@ type StatusListener = (status: SyncStatus) => void;
 
 let syncInProgress = false;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
-let statusListeners: Set<StatusListener> = new Set();
+const statusListeners: Set<StatusListener> = new Set();
 let currentStatus: SyncStatus = 'idle';
 
 // ---------------------------------------------------------------------

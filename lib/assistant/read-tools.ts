@@ -288,7 +288,6 @@ registerTool(
     const todayKey = format(new Date(), 'yyyy-MM-dd')
     const startOfDay = `${todayKey}T00:00:00`
     const now = new Date().toISOString()
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
     const [
       { data: tasksDone },

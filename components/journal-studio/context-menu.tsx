@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Copy, Trash2, Lock, Unlock, ArrowUp, ArrowDown,
-  ChevronsUp, ChevronsDown, CopyPlus, GripVertical,
+  ChevronsUp, ChevronsDown, CopyPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { JournalElement } from '@/lib/journal-studio/types';
@@ -122,7 +122,7 @@ export function ContextMenu({
  * Hook to handle right-click on canvas elements.
  */
 export function useContextMenu(
-  onContextMenuAction: (action: string, elementId: string) => void
+  _onContextMenuAction?: (action: string, elementId: string) => void
 ) {
   const handleContextMenu = useCallback((e: React.MouseEvent, elementId: string) => {
     e.preventDefault();

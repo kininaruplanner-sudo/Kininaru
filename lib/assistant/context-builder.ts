@@ -14,7 +14,7 @@
 
 import { format } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { selectRelevantMemories, formatMemoriesForContext } from './memory-selector'
+import { formatMemoriesForContext } from './memory-selector'
 import { buildTemporalContext, selectNextAction } from './planning'
 import { retrieveRelevantMemories, formatRetrievedMemories } from './memory'
 import type { Memory, MemoryQuery } from './memory'
@@ -317,7 +317,7 @@ export async function buildEnrichedContext(
 /* Next Action Computation                                             */
 /* ------------------------------------------------------------------ */
 
-function computeNextAction(data: ContextData, now: Date): NextAction | null {
+function _computeNextAction(data: ContextData, now: Date): NextAction | null {
   const hour = now.getHours()
 
   // 1. Overdue tasks — highest priority

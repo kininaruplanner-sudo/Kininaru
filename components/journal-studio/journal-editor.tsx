@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Plus, Trash2, Copy, ZoomIn, ZoomOut, Maximize,
+  ArrowLeft, Plus, Trash2, ZoomIn, ZoomOut, Maximize,
   Type, Square, Smile, Image, Pen, Undo2, Redo2,
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
   AlertTriangle, CopyPlus, ChevronLeft, ChevronRight, Search, Star,
@@ -15,7 +15,7 @@ import {
   getJournal, getJournalPages, getPageElements,
   batchPersistElements, createJournalPage, deleteJournalPage,
   duplicateJournalPage, reorderJournalPages, uploadJournalImage,
-  updateJournalPage, createElement, deleteElement,
+  updateJournalPage,
 } from '@/lib/journal-studio/supabase';
 import type {
   Journal, JournalPage, JournalElement, ElementType,
@@ -37,7 +37,7 @@ import {
   createElementCommand, deleteElementCommand, updateElementCommand, compoundCommand,
 } from '@/lib/journal-studio/history';
 import { StickerPicker } from './sticker-picker';
-import { QuickBlocksPanel, QUICK_BLOCKS, type QuickBlock } from './quick-blocks';
+import { QuickBlocksPanel, type QuickBlock } from './quick-blocks';
 import { JournalSearch } from './journal-search';
 import { ShapePicker } from './shape-picker';
 import { ElementRenderer } from './element-renderer';
@@ -79,7 +79,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [pages, setPages] = useState<JournalPage[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [elements, setElements] = useState<JournalElement[]>([]);
-  const [pagesElements, setPagesElements] = useState<Map<string, JournalElement[]>>(new Map());
+  const [pagesElements] = useState<Map<string, JournalElement[]>>(new Map());
 
   // ---- UI State ----
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -113,17 +113,21 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elementsRef = useRef(elements);
-  elementsRef.current = elements;
   const currentPageRef = useRef<JournalPage | null>(null);
   const currentPageIndexRef = useRef(0);
-  currentPageIndexRef.current = currentPageIndex;
   const isFlushingRef = useRef(false);
 
   // ---- Clipboard ----
   const clipboardRef = useRef<JournalElement | null>(null);
 
   const currentPage = pages[currentPageIndex] || null;
-  currentPageRef.current = currentPage;
+
+  // Sync refs in effect to avoid ref-during-render lint errors
+  useEffect(() => {
+    elementsRef.current = elements;
+    currentPageIndexRef.current = currentPageIndex;
+    currentPageRef.current = currentPage;
+  });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // ---- Position snapshots for undo tracking ----
@@ -619,17 +623,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       return next;
     });
   }, []);
-
-  // ---- Context menu ----
-  const handleContextMenuAction = useCallback((action: string, id: string) => {
-    switch (action) {
-      case 'lock': handleToggleLock(id); break;
-      case 'forward': handleBringForward(id); break;
-      case 'backward': handleSendBackward(id); break;
-      case 'front': handleBringToFront(id); break;
-      case 'back': handleSendToBack(id); break;
-    }
-  }, [handleToggleLock, handleBringForward, handleSendBackward, handleBringToFront, handleSendToBack]);
 
   // ===================================================================
   // COPY / PASTE / DUPLICATE

@@ -130,7 +130,7 @@ export function routeIntent(message: string): Intent {
 
   // Detect planning intent (boost if multiple categories triggered)
   const triggeredCategories = Object.entries(scores)
-    .filter(([_, score]) => score > 0)
+    .filter(([, score]) => score > 0)
     .sort((a, b) => b[1] - a[1])
 
   const hasPlanningKeywords = PLANNING_KEYWORDS.some(p => p.test(normalizedMessage))
@@ -156,7 +156,7 @@ export function routeIntent(message: string): Intent {
   const primaryCategory = sorted[0][0] as IntentCategory
   const secondaryIntents = sorted
     .slice(1, 4)
-    .filter(([_, score]) => score > 0.3 && score >= topScore * 0.5)
+    .filter(([, score]) => score > 0.3 && score >= topScore * 0.5)
     .map(([cat]) => cat as IntentCategory)
 
   // Check if planning is needed

@@ -22,9 +22,9 @@ import {
   updateJournal,
 } from '@/lib/journal-studio/supabase';
 import type { Journal, CoverType, PaperStyle } from '@/lib/journal-studio/types';
-import { COVER_PRESETS, PAPER_PATTERNS, PAPER_BACKGROUND_COLORS } from '@/lib/journal-studio/types';
+import { COVER_PRESETS } from '@/lib/journal-studio/types';
 import { devLog } from '@/lib/journal-studio/sync/indexed-db';
-import { JOURNAL_TEMPLATES, getTemplateById, type JournalTemplate } from '@/lib/journal-studio/templates';
+import { type JournalTemplate } from '@/lib/journal-studio/templates';
 
 interface JournalCreationWizardProps {
   onComplete: (journal: Journal) => void;
@@ -67,7 +67,7 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState<JournalTemplate | null>(null);
+  const [, setSelectedTemplate] = useState<JournalTemplate | null>(null);
   const [coverType, setCoverType] = useState<CoverType>('minimal');
   const [coverColor, setCoverColor] = useState('#E8D5C4');
   const [coverGradientFrom, setCoverGradientFrom] = useState<string | undefined>();
@@ -79,15 +79,6 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<File | null>(null);
-
-  const applyTemplate = (template: JournalTemplate) => {
-    setSelectedTemplate(template);
-    setCoverType(template.cover_type);
-    setCoverColor(template.cover_color);
-    setCoverGradientFrom(template.cover_gradient_from);
-    setCoverGradientTo(template.cover_gradient_to);
-    setPaperStyle(template.paper_style);
-  };
 
   const canProceed = () => {
     switch (step) {
@@ -167,14 +158,6 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
     return { background: `linear-gradient(135deg, ${coverColor} 0%, ${coverColor}dd 100%)` };
   };
 
-  const getPaperStyle = (): React.CSSProperties => {
-    const s = PAPER_STYLES.find((p) => p.value === paperStyle);
-    return {
-      backgroundColor: s?.bg ?? '#ffffff',
-      backgroundImage: s?.preview || undefined,
-      backgroundSize: paperStyle === 'grid' ? '20px 20px, 20px 20px' : undefined,
-    };
-  };
 
   return (
     <div className="flex flex-col h-full bg-background">

@@ -59,7 +59,6 @@ export function processFeedback(
 
   // Update preferences based on feedback
   if (context.duration) {
-    const durationKey = `focus_duration_${context.duration}`
     updatePreference(
       'focus_duration',
       context.duration,
@@ -90,7 +89,7 @@ export function processFeedback(
 /**
  * Gets feedback statistics for a suggestion type.
  */
-export function getFeedbackStats(suggestionType: string): {
+export function getFeedbackStats(_suggestionType: string): {
   accepted: number
   rejected: number
   completed: number

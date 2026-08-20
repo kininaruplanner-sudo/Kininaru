@@ -14,7 +14,7 @@
  *   Next Action (single, clear)
  */
 
-import type { ContextData, TaskInfo, HabitInfo, GoalInfo } from '../context-builder'
+import type { ContextData, GoalInfo } from '../context-builder'
 import type { TemporalContext } from './temporal-context'
 import { scorePreferenceFit, scoreHistoricalSuccess } from '../adaptation/adaptive-score'
 import { isAdaptationEnabled } from '../adaptation/preferences'
@@ -82,7 +82,7 @@ const WEIGHTS = {
 /* Scoring Functions                                                   */
 /* ------------------------------------------------------------------ */
 
-function scoreUrgency(candidate: NextActionCandidate, temporal: TemporalContext): number {
+function scoreUrgency(candidate: NextActionCandidate, _temporal: TemporalContext): number {
   let score = 0
 
   // Overdue tasks get highest urgency

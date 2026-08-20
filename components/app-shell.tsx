@@ -40,6 +40,9 @@ export function AppShell({ displayName, children }: AppShellProps) {
 
   return (
     <div className="kin-surface-tint flex h-screen overflow-hidden">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg">
+        Aller au contenu principal
+      </a>
       {/* Connection pill (hors ligne / synchronisation) — app-wide, calm. */}
       <ConnectionStatus />
       <Sidebar
@@ -72,7 +75,7 @@ export function AppShell({ displayName, children }: AppShellProps) {
 
         {/* Bottom padding clears the fixed mobile nav bar (incl. the AI
             composer and the end of every page) without affecting desktop. */}
-        <main className="flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+        <main id="main-content" className="flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

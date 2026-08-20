@@ -45,8 +45,8 @@ export function ElementRenderer({
   onUpdateElement,
 }: ElementRendererProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
+  const [_isResizing, setIsResizing] = useState(false);
+  const [_isRotating, setIsRotating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const dragStart = useRef({ x: 0, y: 0, elX: 0, elY: 0 });

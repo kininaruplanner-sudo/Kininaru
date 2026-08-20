@@ -96,7 +96,7 @@ function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
 // ---------------------------------------------------------------------
 
 export async function addToQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retries' | 'synced'>): Promise<SyncQueueItem> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue, 'readwrite');
 
   const entry: SyncQueueItem = {
@@ -112,7 +112,7 @@ export async function addToQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 
 }
 
 export async function getPendingItems(): Promise<SyncQueueItem[]> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue);
   const all = await promisifyRequest(store.getAll());
   return all.filter((item) => !item.synced);
@@ -124,7 +124,7 @@ export async function getPendingItemsForResource(resource: SyncResource, resourc
 }
 
 export async function markSynced(id: string): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue, 'readwrite');
   const item = await promisifyRequest(store.get(id));
   if (item) {
@@ -134,7 +134,7 @@ export async function markSynced(id: string): Promise<void> {
 }
 
 export async function removeSyncedItems(): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue, 'readwrite');
   const all = await promisifyRequest(store.getAll());
   const syncedItems = all.filter((item) => item.synced);
@@ -145,7 +145,7 @@ export async function removeSyncedItems(): Promise<void> {
 }
 
 export async function incrementRetry(id: string): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue, 'readwrite');
   const item = await promisifyRequest(store.get(id));
   if (item) {
@@ -155,7 +155,7 @@ export async function incrementRetry(id: string): Promise<void> {
 }
 
 export async function clearQueue(): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.queue, 'readwrite');
   await promisifyRequest(store.clear());
 }
@@ -165,27 +165,27 @@ export async function clearQueue(): Promise<void> {
 // ---------------------------------------------------------------------
 
 export async function cachePage(page: PageCache): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.pages, 'readwrite');
   await promisifyRequest(store.put(page));
 }
 
 export async function getCachedPage(pageId: string): Promise<PageCache | null> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.pages);
   const result = await promisifyRequest(store.get(pageId));
   return result || null;
 }
 
 export async function getCachedPagesForJournal(journalId: string): Promise<PageCache[]> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.pages);
   const index = store.index('journalId');
   return promisifyRequest(index.getAll(journalId));
 }
 
 export async function removeCachedPage(pageId: string): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.pages, 'readwrite');
   await promisifyRequest(store.delete(pageId));
 }
@@ -195,7 +195,7 @@ export async function removeCachedPage(pageId: string): Promise<void> {
 // ---------------------------------------------------------------------
 
 export async function cacheElements(pageId: string, elements: Record<string, unknown>[]): Promise<void> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.elements, 'readwrite');
 
   // First remove old elements for this page
@@ -212,15 +212,16 @@ export async function cacheElements(pageId: string, elements: Record<string, unk
 }
 
 export async function getCachedElements(pageId: string): Promise<Record<string, unknown>[]> {
-  const db = await openDB();
+  await openDB();
   const store = transaction(STORES.elements);
   const index = store.index('pageId');
   return promisifyRequest(index.getAll(pageId));
 }
 
 export async function clearAllCache(): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction([STORES.pages, STORES.elements], 'readwrite');
+  await openDB();
+  if (!dbInstance) throw new Error('IndexedDB not initialized');
+  const tx = dbInstance.transaction([STORES.pages, STORES.elements], 'readwrite');
   await Promise.all([
     promisifyRequest(tx.objectStore(STORES.pages).clear()),
     promisifyRequest(tx.objectStore(STORES.elements).clear()),

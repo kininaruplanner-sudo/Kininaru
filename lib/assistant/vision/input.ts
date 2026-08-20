@@ -192,7 +192,7 @@ export function createVisionInput(
 
       updateState('selected')
       cbs.onImageSelected?.(currentImage)
-    } catch (err) {
+    } catch {
       updateState('error')
       cbs.onError?.('Erreur lors du traitement de l\'image.')
     }

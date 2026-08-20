@@ -136,9 +136,6 @@ export async function POST(req: Request) {
     )
   }
 
-  // Content-type validation (best-effort)
-  const contentType = '' // we don't have access to res here, but the content check below is sufficient
-
   if (!rawText.includes('BEGIN:VCALENDAR')) {
     return Response.json(
       { error: "Ce flux ne contient pas de calendrier ICS valide" },

@@ -18,7 +18,7 @@ interface DrawingCanvasProps {
 
 type Tool = 'pen' | 'pencil' | 'highlighter' | 'eraser';
 
-export function DrawingCanvas({ pageId, color, size, onComplete, onCancel }: DrawingCanvasProps) {
+export function DrawingCanvas({ pageId: _pageId, color, size, onComplete, onCancel }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Tool>('pen');
   const [isDrawing, setIsDrawing] = useState(false);

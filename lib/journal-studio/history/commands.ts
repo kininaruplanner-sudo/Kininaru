@@ -205,7 +205,7 @@ export function updateElementCommand(
 // ===================================================================
 export function compoundCommand(
   commands: JournalCommand[],
-  label?: string
+  _label?: string
 ): JournalCommand {
   return {
     id: crypto.randomUUID(),

@@ -21,7 +21,6 @@ import type {
 import {
   PRIORITY_CONFIGS,
   TYPE_PRIORITY_MAP,
-  CHANNEL_DEFAULTS,
   DEFAULT_NOTIFICATION_CONFIG,
 } from './types'
 import {
@@ -30,7 +29,6 @@ import {
   isInCooldown,
   getTimeSinceLastNotification,
   isInQuietHours,
-  getTodayCount,
 } from './history'
 import type { Opportunity } from '../proactivity'
 
@@ -136,7 +134,7 @@ export function shouldNotify(
 /**
  * Quick fingerprint without creating a full notification object.
  */
-function createQuickFingerprint(
+function _createQuickFingerprint(
   type: NotificationType,
   metadata?: Record<string, string>
 ): string {

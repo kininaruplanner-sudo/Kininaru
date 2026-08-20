@@ -23,12 +23,10 @@ import { DEFAULT_NOTIFICATION_CONFIG } from './types'
 import { detectOpportunities } from '../proactivity'
 import {
   shouldNotify,
-  opportunityToNotification,
   evaluateOpportunities,
 } from './planner'
 import {
   recordNotificationShown,
-  isDailyLimitReached,
   getTodayCount,
   getNotificationStats,
 } from './history'

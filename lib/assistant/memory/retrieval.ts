@@ -30,7 +30,6 @@ import type {
   MemoryQuery,
   MemoryRelevanceScore,
   MemoryImportance,
-  MemoryCategory,
 } from './types'
 import {
   RECENT_MEMORY_MS,
@@ -194,8 +193,6 @@ function scoreContextMatch(memory: Memory): number {
 
   const now = new Date()
   const hour = now.getHours()
-  const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
-
   // Schedule-related memories are more relevant during planning hours
   if (memory.category === 'schedule' && (hour < 10 || hour > 16)) {
     score += 3

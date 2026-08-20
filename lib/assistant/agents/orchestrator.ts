@@ -42,7 +42,7 @@ import { getTool, type ToolDefinition } from '../tools'
 export function buildPlan(
   intent: Intent,
   contextData: Record<string, unknown>,
-  config: RouterConfig = DEFAULT_ROUTER_CONFIG
+  _config: RouterConfig = DEFAULT_ROUTER_CONFIG
 ): StructuredPlan {
   const capabilities = resolveCapabilities(intent.category, intent.secondaryIntents)
   const steps: PlanStep[] = []
@@ -330,9 +330,9 @@ export async function executePlan(
   plan: StructuredPlan,
   supabase: SupabaseClient,
   userId: string,
-  config: RouterConfig = DEFAULT_ROUTER_CONFIG
+  _config: RouterConfig = DEFAULT_ROUTER_CONFIG
 ): Promise<AgentExecutionResult> {
-  const budget = createBudget(config)
+  const budget = createBudget(_config)
   const stepResults: AgentStepResult[] = []
   const errors: string[] = []
   const startTime = Date.now()
@@ -496,7 +496,7 @@ export function formatExecutionForUI(result: AgentExecutionResult): string {
     '',
   ]
 
-  result.steps.forEach((step, idx) => {
+  result.steps.forEach((step) => {
     const icon =
       step.status === 'completed' ? '✓' :
       step.status === 'failed' ? '✗' :
