@@ -176,6 +176,7 @@ export function Sidebar({
                     key={href}
                     href={href}
                     title={collapsed ? label : undefined}
+                    aria-current={active ? 'page' : undefined}
                     className={cn(
                       'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group',
                       active

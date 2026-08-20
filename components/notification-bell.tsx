@@ -92,6 +92,8 @@ export function NotificationBell() {
           open && 'bg-muted text-foreground'
         )}
         aria-label={t('notif.title')}
+        aria-expanded={open}
+        aria-haspopup="true"
         title={t('notif.title')}
       >
         <Bell className="w-4 h-4 shrink-0" />

@@ -41,6 +41,7 @@ export function MobileNav() {
                 key="assistant"
                 onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-smooth"
+                aria-label="Ouvrir l'assistant"
               >
                 <Icon className="w-4.5 h-4.5" />
                 {tab.label}
