@@ -4,7 +4,7 @@
 // Each template defines cover, paper, palette, and optional starter elements.
 // All elements use standard JournalElement types — no parallel rendering system.
 
-import type { PaperStyle, CoverType, TextPreset, ShapeType } from './types';
+import type { PaperStyle, CoverType } from './types';
 
 export interface JournalTemplate {
   id: string;

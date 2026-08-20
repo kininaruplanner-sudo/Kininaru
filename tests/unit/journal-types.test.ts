@@ -11,7 +11,6 @@ import type {
   Journal,
   TextProperties,
   ShapeProperties,
-  ImageProperties,
   StickerProperties,
   DrawingProperties,
 } from '../../lib/journal-studio/types'

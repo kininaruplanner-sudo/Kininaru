@@ -466,6 +466,7 @@ function StickerInner({ element }: { element: JournalElement }) {
 // ===================================================================
 function ImageInner({ element }: { element: JournalElement }) {
   const props = element.properties as ImageProperties;
+  const { src, onError } = useSignedUrl(props.url ?? null);
 
   if (!props.url) {
     return (
@@ -474,8 +475,6 @@ function ImageInner({ element }: { element: JournalElement }) {
       </div>
     );
   }
-
-  const { src, onError } = useSignedUrl(props.url);
 
   return (
     <img
