@@ -199,3 +199,30 @@ export function updateElementCommand(
     },
   };
 }
+
+// ===================================================================
+// COMPOUND COMMAND — groups multiple commands as one undo step
+// ===================================================================
+export function compoundCommand(
+  commands: JournalCommand[],
+  label?: string
+): JournalCommand {
+  return {
+    id: crypto.randomUUID(),
+    type: 'UPDATE_ELEMENT' as JournalCommand['type'],
+    pageId: commands[0]?.pageId ?? '',
+    timestamp: Date.now(),
+    execute: async () => {
+      for (const cmd of commands) await cmd.execute();
+      devLog('HISTORY', `Execute COMPOUND (${commands.length} ops)`);
+    },
+    undo: async () => {
+      for (const cmd of [...commands].reverse()) await cmd.undo();
+      devLog('HISTORY', `Undo COMPOUND (${commands.length} ops)`);
+    },
+    redo: async () => {
+      for (const cmd of commands) await cmd.redo();
+      devLog('HISTORY', `Redo COMPOUND (${commands.length} ops)`);
+    },
+  };
+}

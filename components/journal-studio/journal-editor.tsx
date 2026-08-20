@@ -34,7 +34,7 @@ import {
 import {
   executeCommand, undo as historyUndo, redo as historyRedo,
   onHistoryChange, getHistorySnapshot, resetHistory,
-  createElementCommand, deleteElementCommand, updateElementCommand,
+  createElementCommand, deleteElementCommand, updateElementCommand, compoundCommand,
 } from '@/lib/journal-studio/history';
 import { StickerPicker } from './sticker-picker';
 import { ShapePicker } from './shape-picker';
@@ -124,6 +124,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   // ---- Position snapshots for undo tracking ----
   const dragSnapshotRef = useRef<{ x: number; y: number; width: number; height: number; rotation: number; z_index: number; opacity: number } | null>(null);
   const propsSnapshotRef = useRef<Record<string, unknown> | null>(null);
+  const multiDragSnapshotRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   // ===================================================================
   // INIT: IndexedDB + Sync + History listener
@@ -428,13 +429,46 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       };
       propsSnapshotRef.current = el.properties as unknown as Record<string, unknown>;
     }
-  }, []);
+    // Snapshot all selected elements for multi-select undo
+    const snaps = new Map<string, { x: number; y: number }>();
+    for (const sid of selectedIds) {
+      const sEl = elementsRef.current.find((e) => e.id === sid);
+      if (sEl) snaps.set(sid, { x: sEl.x, y: sEl.y });
+    }
+    if (snaps.size > 1) {
+      snaps.set(id, { x: el?.x ?? 0, y: el?.y ?? 0 });
+    }
+    multiDragSnapshotRef.current = snaps;
+  }, [selectedIds]);
 
   const handleDragEnd = useCallback((id: string) => {
     markDirty();
-    // Create undo command for position change
     const el = elementsRef.current.find((e) => e.id === id);
-    if (el && dragSnapshotRef.current) {
+    
+    // Multi-select: create compound undo for all selected elements that moved
+    const multiSnapshots = multiDragSnapshotRef.current;
+    if (multiSnapshots.size > 1) {
+      const commands: ReturnType<typeof updateElementCommand>[] = [];
+      for (const [eid, prevPos] of multiSnapshots) {
+        const e = elementsRef.current.find((el) => el.id === eid);
+        if (e) {
+          commands.push(updateElementCommand(
+            e.page_id, eid,
+            e.properties as unknown as Record<string, unknown>, e.properties as unknown as Record<string, unknown>,
+            { ...prevPos, width: e.width, height: e.height, rotation: e.rotation, z_index: e.z_index, opacity: e.opacity },
+            { x: e.x, y: e.y, width: e.width, height: e.height, rotation: e.rotation, z_index: e.z_index, opacity: e.opacity },
+            (eid2, updates) => {
+              setElements((p) => p.map((el2) => el2.id === eid2 ? { ...el2, ...updates } : el2));
+            }
+          ));
+        }
+      }
+      if (commands.length > 0) {
+        executeCommand(compoundCommand(commands)).catch(() => {});
+      }
+      multiDragSnapshotRef.current = new Map();
+    } else if (el && dragSnapshotRef.current) {
+      // Single element drag
       const prev = dragSnapshotRef.current;
       const prevProps = propsSnapshotRef.current ?? el.properties as unknown as Record<string, unknown>;
       const cmd = updateElementCommand(
@@ -446,7 +480,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           setElements((p) => p.map((e) => e.id === eid ? { ...e, ...updates } : e));
         }
       );
-      // Don't execute (already applied locally), just push to history
       executeCommand(cmd).catch(() => {});
     }
     dragSnapshotRef.current = null;

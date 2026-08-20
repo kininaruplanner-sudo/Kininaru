@@ -2,6 +2,7 @@ export {
   createElementCommand,
   deleteElementCommand,
   updateElementCommand,
+  compoundCommand,
   type JournalCommand,
 } from './commands';
 
