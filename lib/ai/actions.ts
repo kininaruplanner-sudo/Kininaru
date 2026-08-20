@@ -258,11 +258,19 @@ export function validateAiAction(raw: unknown): { action?: AiAction; error?: str
     case 'update_task': {
       const taskId = typeof data.task_id === 'string' && UUID_RE.test(data.task_id) ? data.task_id : null
       if (!taskId) return { error: 'Identifiant de tâche invalide' }
-      const title = cleanTitle(data.title)
+      // For updates, all fields are optional. cleanTitle returns null for
+      // invalid (non-string) values but undefined means "not provided".
+      const title = data.title !== undefined && data.title !== null
+        ? cleanTitle(data.title)
+        : undefined
       if (title === null) return { error: 'Titre invalide' }
-      const priority = cleanPriority(data.priority)
+      const priority = data.priority !== undefined && data.priority !== null
+        ? cleanPriority(data.priority)
+        : undefined
       if (priority === null) return { error: 'Priorité invalide' }
-      const due_date = cleanDate(data.due_date)
+      const due_date = data.due_date !== undefined && data.due_date !== null && data.due_date !== ''
+        ? cleanDate(data.due_date)
+        : undefined
       if (due_date === null) return { error: 'Date invalide (format AAAA-MM-JJ)' }
       const validStatuses = ['todo', 'in_progress', 'done']
       const status = data.status !== undefined && data.status !== null

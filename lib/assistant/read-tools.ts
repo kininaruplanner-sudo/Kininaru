@@ -357,3 +357,40 @@ registerTool(
     }
   }
 )
+
+
+/* ------------------------------------------------------------------ */
+/* get_memories                                                        */
+/* ------------------------------------------------------------------ */
+
+registerTool(
+  {
+    name: 'get_memories',
+    description: 'Récupère les souvenirs enregistrés de l\'utilisateur. Utile pour se souvenir de ses préférences et objectifs.',
+    category: 'read',
+    requiresConfirmation: false,
+    params: [
+      { name: 'limit', type: 'number', required: false, description: 'Nombre max de souvenirs (défaut: 10)' },
+    ],
+  },
+  async (ctx: ToolContext, params: Record<string, unknown>): Promise<ToolResult> => {
+    const limit = typeof params.limit === 'number' ? Math.min(params.limit, 50) : 10
+
+    const { data: memories } = await ctx.supabase
+      .from('ai_memories')
+      .select('id, content, category')
+      .eq('user_id', ctx.userId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    const list = memories ?? []
+
+    return {
+      ok: true,
+      data: { memories: list },
+      summary: list.length > 0
+        ? `${list.length} souvenir${list.length > 1 ? 's' : ''} enregistré${list.length > 1 ? 's' : ''}`
+        : 'Aucun souvenir enregistré',
+    }
+  }
+)

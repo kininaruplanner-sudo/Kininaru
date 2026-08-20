@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { useSignedUrl } from '@/lib/journal-studio/hooks/use-signed-url';
 import { cn } from '@/lib/utils';
 import type {
   JournalElement,
@@ -474,9 +475,11 @@ function ImageInner({ element }: { element: JournalElement }) {
     );
   }
 
+  const { src, onError } = useSignedUrl(props.url);
+
   return (
     <img
-      src={props.url}
+      src={src}
       alt={props.alt ?? ''}
       className="w-full h-full pointer-events-none"
       style={{
@@ -485,6 +488,7 @@ function ImageInner({ element }: { element: JournalElement }) {
         border: props.border_width ? `${props.border_width}px solid ${props.border_color ?? 'transparent'}` : undefined,
       }}
       draggable={false}
+      onError={onError}
     />
   );
 }

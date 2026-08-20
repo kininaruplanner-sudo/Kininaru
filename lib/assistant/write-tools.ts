@@ -203,3 +203,38 @@ registerTool(
     }
   }
 )
+
+
+/* ------------------------------------------------------------------ */
+/* delete_memory                                                       */
+/* ------------------------------------------------------------------ */
+
+registerTool(
+  {
+    name: 'delete_memory',
+    description: 'Supprime un souvenir de l\'utilisateur. Utile quand une information n\'est plus pertinente.',
+    category: 'sensitive',
+    requiresConfirmation: true,
+    confirmationLabel: 'Supprimer le souvenir',
+    canUndo: false,
+    params: [
+      { name: 'memory_id', type: 'string', required: true, description: 'ID du souvenir à supprimer' },
+    ],
+  },
+  async (ctx: ToolContext, params: Record<string, unknown>): Promise<ToolResult> => {
+    const memoryId = params.memory_id as string
+    const { error } = await ctx.supabase
+      .from('ai_memories')
+      .delete()
+      .eq('id', memoryId)
+      .eq('user_id', ctx.userId)
+
+    if (error) throw error
+
+    return {
+      ok: true,
+      data: { id: memoryId },
+      summary: 'Souvenir supprimé',
+    }
+  }
+)
