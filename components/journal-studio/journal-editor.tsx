@@ -989,6 +989,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         onDrawingColorChange={setDrawingColor}
         onDrawingSizeChange={setDrawingSize}
         onExitDrawing={() => { setActiveTool('select'); setDrawingPoints([]); drawingRef.current = false; setIsDrawing(false); }}
+        uploadImage={uploadJournalImage}
+        journalId={journalId}
       />
 
       {/* ====== PAPER PICKER ====== */}
@@ -1240,6 +1242,8 @@ function ContextualToolbar({
   onDrawingColorChange,
   onDrawingSizeChange,
   onExitDrawing,
+  uploadImage,
+  journalId,
 }: {
   selectedElement: JournalElement | null;
   activeTool: Tool;
@@ -1251,6 +1255,8 @@ function ContextualToolbar({
   onDrawingColorChange: (color: string) => void;
   onDrawingSizeChange: (size: number) => void;
   onExitDrawing: () => void;
+  uploadImage: (file: File, journalId: string) => Promise<string>;
+  journalId: string;
 }) {
   // Drawing toolbar
   if (activeTool === 'drawing') {
@@ -1370,6 +1376,18 @@ function ContextualToolbar({
           </div>
           <input type="color" value={props.background_color || '#ffffff'} onChange={(e) => update({ background_color: e.target.value, background_opacity: 1 })} className="sr-only" />
         </label>
+
+        {/* Background opacity */}
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">Opacité</span>
+          <input type="range" min={0} max={1} step={0.1} value={props.background_opacity ?? 0} onChange={(e) => update({ background_opacity: Number(e.target.value) })} className="w-14" aria-label="Opacité du fond" />
+        </div>
+
+        {/* Padding */}
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">Marge</span>
+          <input type="range" min={0} max={40} value={props.padding ?? 8} onChange={(e) => update({ padding: Number(e.target.value) })} className="w-14" aria-label="Marge interne" />
+        </div>
       </div>
     );
   }
@@ -1411,6 +1429,27 @@ function ContextualToolbar({
             aria-label="Épaisseur du contour"
           />
         </div>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Fill type: color or image */}
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => update({ fill_type: 'color' })} className={cn('px-2 py-1 rounded-lg text-[10px] font-medium transition-smooth', (props.fill_type || 'color') === 'color' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>Couleur</button>
+          <button onClick={() => update({ fill_type: 'image' })} className={cn('px-2 py-1 rounded-lg text-[10px] font-medium transition-smooth', props.fill_type === 'image' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>Image</button>
+        </div>
+        {props.fill_type === 'image' && (
+          <label className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted text-[10px] font-medium cursor-pointer hover:bg-muted/80">
+            <Image className="w-3 h-3" /> Choisir
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const url = await uploadImage(file, journalId);
+                update({ fill_image_url: url, fill_type: 'image' });
+              } catch { /* silent */ }
+            }} />
+          </label>
+        )}
 
         <div className="h-5 w-px bg-border" />
 
