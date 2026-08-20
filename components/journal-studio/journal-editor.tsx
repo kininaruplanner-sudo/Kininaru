@@ -594,6 +594,14 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
+      // Ctrl/Cmd+S = force flush
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        flushCurrentPage();
+        persistToServer();
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedId) { e.preventDefault(); handleDeleteElement(selectedId); }
       }
@@ -607,7 +615,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedId, handleDeleteElement, handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate]);
+  }, [selectedId, handleDeleteElement, handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate, flushCurrentPage, persistToServer]);
 
   // ===================================================================
   // PAGE OPERATIONS
