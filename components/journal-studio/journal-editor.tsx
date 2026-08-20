@@ -8,16 +8,14 @@ import {
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
   AlertTriangle, CopyPlus, ChevronLeft, ChevronRight,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  Paintbrush, Palette, Minus, RotateCw,
+  Paintbrush, Palette, Minus, RotateCw, CloudOff, Cloud,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   getJournal, getJournalPages, getPageElements,
-  createElement, deleteElement,
   batchPersistElements, createJournalPage, deleteJournalPage,
-  duplicateJournalPage, reindexJournalPages, uploadJournalImage,
-  updateJournalPage,
+  duplicateJournalPage, reorderJournalPages, uploadJournalImage,
+  updateJournalPage, createElement, deleteElement,
 } from '@/lib/journal-studio/supabase';
 import type {
   Journal, JournalPage, JournalElement, ElementType,
@@ -27,6 +25,17 @@ import {
   DEFAULT_TEXT_PROPERTIES, DEFAULT_SHAPE_PROPERTIES, PAPER_PATTERNS,
   PAPER_BACKGROUND_COLORS, TEXT_PRESETS, FONT_FAMILIES,
 } from '@/lib/journal-studio/types';
+import {
+  initIndexedDB, addToQueue, devLog, cacheElements, getCachedElements,
+} from '@/lib/journal-studio/sync/indexed-db';
+import {
+  triggerSync, onSyncStatusChange, type SyncStatus,
+} from '@/lib/journal-studio/sync/sync-engine';
+import {
+  executeCommand, undo as historyUndo, redo as historyRedo,
+  onHistoryChange, getHistorySnapshot, resetHistory,
+  createElementCommand, deleteElementCommand, updateElementCommand,
+} from '@/lib/journal-studio/history';
 import { StickerPicker } from './sticker-picker';
 import { ShapePicker } from './shape-picker';
 import { ElementRenderer } from './element-renderer';
@@ -35,7 +44,6 @@ import { PageThumbnails } from './page-thumbnails';
 // ---- Constants ----
 const PAGE_W = 595;
 const PAGE_H = 842;
-const MAX_HISTORY = 60;
 const AUTOSAVE_DEBOUNCE = 2500;
 const MAX_DRAWING_POINTS = 600;
 
@@ -88,17 +96,20 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
 
-  // ---- Undo/Redo ----
-  const [undoStack, setUndoStack] = useState<JournalElement[][]>([]);
-  const [redoStack, setRedoStack] = useState<JournalElement[][]>([]);
+  // ---- Undo/Redo (from history manager) ----
+  const [historyState, setHistoryState] = useState(getHistorySnapshot());
 
   // ---- Dirty tracking & autosave ----
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elementsRef = useRef(elements);
   elementsRef.current = elements;
   const currentPageRef = useRef<JournalPage | null>(null);
+  const currentPageIndexRef = useRef(0);
+  currentPageIndexRef.current = currentPageIndex;
+  const isFlushingRef = useRef(false);
 
   // ---- Clipboard ----
   const clipboardRef = useRef<JournalElement | null>(null);
@@ -106,6 +117,20 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const currentPage = pages[currentPageIndex] || null;
   currentPageRef.current = currentPage;
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // ---- Position snapshots for undo tracking ----
+  const dragSnapshotRef = useRef<{ x: number; y: number; width: number; height: number; rotation: number; z_index: number; opacity: number } | null>(null);
+  const propsSnapshotRef = useRef<Record<string, unknown> | null>(null);
+
+  // ===================================================================
+  // INIT: IndexedDB + Sync + History listener
+  // ===================================================================
+  useEffect(() => {
+    initIndexedDB().catch(() => {});
+    const unsubSync = onSyncStatusChange(setSyncStatus);
+    const unsubHistory = onHistoryChange(() => setHistoryState(getHistorySnapshot()));
+    return () => { unsubSync(); unsubHistory(); };
+  }, []);
 
   // ===================================================================
   // LOAD
@@ -126,8 +151,9 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           const els = await getPageElements(p[0].id);
           if (cancelled) return;
           setElements(els);
-          setUndoStack([]);
-          setRedoStack([]);
+          resetHistory();
+          // Cache in IndexedDB
+          cacheElements(p[0].id, els as unknown as Record<string, unknown>[]).catch(() => {});
         }
       } catch {
         if (!cancelled) onBack();
@@ -136,37 +162,23 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     return () => { cancelled = true; };
   }, [journalId, onBack]);
 
-  // Load elements on page change
-  const loadPage = useCallback(async (idx: number) => {
-    if (!pages[idx]) return;
-    try {
-      const els = await getPageElements(pages[idx].id);
-      setElements(els);
-      setSelectedId(null);
-      setUndoStack([]);
-      setRedoStack([]);
-      dirtyRef.current = false;
-      setSaveStatus('idle');
-    } catch { /* silent */ }
-  }, [pages]);
-
-  useEffect(() => {
-    loadPage(currentPageIndex);
-  }, [currentPageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ===================================================================
-  // AUTOSAVE — real batch persist
+  // FLUSH: Save current page elements before switching
   // ===================================================================
-  const persistToServer = useCallback(async () => {
+  const flushCurrentPage = useCallback(async () => {
+    if (isFlushingRef.current) return;
     if (!dirtyRef.current) return;
-    dirtyRef.current = false;
-    setSaveStatus('saving');
+
+    isFlushingRef.current = true;
+    const page = currentPageRef.current;
+    const els = elementsRef.current;
+
+    if (!page) {
+      isFlushingRef.current = false;
+      return;
+    }
 
     try {
-      const els = elementsRef.current;
-      const page = currentPageRef.current;
-      if (!page) { setSaveStatus('error'); return; }
-
       const updates = els
         .filter((el) => el.id && !el.id.startsWith('local-'))
         .map((el) => ({
@@ -184,18 +196,131 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         }));
 
       if (updates.length > 0) {
-        await batchPersistElements(
-          updates,
-          { page_id: page.id, elements: [] },
-          []
-        );
+        await batchPersistElements(updates, { page_id: page.id, elements: [] }, []);
+        dirtyRef.current = false;
+        devLog('FLUSH', `Flushed ${updates.length} elements for page ${page.id}`);
       }
+
+      // Also cache locally
+      cacheElements(page.id, els as unknown as Record<string, unknown>[]).catch(() => {});
+    } catch (err) {
+      devLog('FLUSH', 'Flush failed, queuing to IndexedDB', err);
+      // Queue to IndexedDB for later sync
+      await addToQueue({
+        resource: 'element',
+        operation: 'UPDATE',
+        resourceId: page.id,
+        parentId: page.journal_id,
+        payload: { elements: els },
+      });
+      triggerSync();
+    } finally {
+      isFlushingRef.current = false;
+    }
+  }, []);
+
+  // ===================================================================
+  // PAGE CHANGE: Flush current, then load new page
+  // ===================================================================
+  const loadPage = useCallback(async (idx: number) => {
+    if (!pages[idx]) return;
+
+    // Flush current page first
+    await flushCurrentPage();
+
+    try {
+      // Try cache first
+      const cached = await getCachedElements(pages[idx].id);
+      if (cached && cached.length > 0) {
+        setElements(cached as unknown as JournalElement[]);
+      } else {
+        const els = await getPageElements(pages[idx].id);
+        setElements(els);
+        cacheElements(pages[idx].id, els as unknown as Record<string, unknown>[]).catch(() => {});
+      }
+      setSelectedId(null);
+      resetHistory();
+      dirtyRef.current = false;
+      setSaveStatus('idle');
+    } catch (err) {
+      devLog('PAGE', `Failed to load page ${pages[idx].id}`, err);
+      // Try cache on network failure
+      try {
+        const cached = await getCachedElements(pages[idx].id);
+        if (cached) {
+          setElements(cached as unknown as JournalElement[]);
+          setSaveStatus('offline');
+        }
+      } catch { /* silent */ }
+    }
+  }, [pages, flushCurrentPage]);
+
+  // Navigate to a page
+  const navigateToPage = useCallback(async (idx: number) => {
+    if (idx === currentPageIndexRef.current) return;
+    if (idx < 0 || idx >= pages.length) return;
+    setCurrentPageIndex(idx);
+    await loadPage(idx);
+  }, [pages, loadPage]);
+
+  // ===================================================================
+  // AUTOSAVE — debounced batch persist
+  // ===================================================================
+  const persistToServer = useCallback(async () => {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    setSaveStatus('saving');
+
+    const page = currentPageRef.current;
+    const els = elementsRef.current;
+    if (!page) { setSaveStatus('error'); return; }
+
+    try {
+      const updates = els
+        .filter((el) => el.id && !el.id.startsWith('local-'))
+        .map((el) => ({
+          id: el.id,
+          updates: {
+            x: Math.round(el.x * 100) / 100,
+            y: Math.round(el.y * 100) / 100,
+            width: Math.round(el.width * 100) / 100,
+            height: Math.round(el.height * 100) / 100,
+            rotation: Math.round(el.rotation * 100) / 100,
+            z_index: el.z_index,
+            opacity: Math.round(el.opacity * 100) / 100,
+            properties: el.properties as unknown as Record<string, unknown>,
+          },
+        }));
+
+      if (updates.length > 0) {
+        await batchPersistElements(updates, { page_id: page.id, elements: [] }, []);
+      }
+
+      // Cache locally
+      cacheElements(page.id, els as unknown as Record<string, unknown>[]).catch(() => {});
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch {
       if (!navigator.onLine) {
         setSaveStatus('offline');
+        // Queue for later sync
+        for (const el of els) {
+          if (el.id && !el.id.startsWith('local-')) {
+            await addToQueue({
+              resource: 'element',
+              operation: 'UPDATE',
+              resourceId: el.id,
+              parentId: page.id,
+              payload: {
+                x: el.x, y: el.y, width: el.width, height: el.height,
+                rotation: el.rotation, z_index: el.z_index, opacity: el.opacity,
+                properties: el.properties,
+              },
+            });
+          }
+        }
+        triggerSync();
       } else {
         setSaveStatus('error');
       }
@@ -209,47 +334,25 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(persistToServer, AUTOSAVE_DEBOUNCE);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [elements, persistToServer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [elements, persistToServer]);
 
   const markDirty = useCallback(() => {
     dirtyRef.current = true;
   }, []);
 
   // ===================================================================
-  // HISTORY (undo/redo)
+  // HISTORY (undo/redo) — via Command pattern
   // ===================================================================
-  const pushUndo = useCallback((snapshot: JournalElement[]) => {
-    setUndoStack((prev) => {
-      const next = [...prev, snapshot];
-      return next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next;
-    });
-    setRedoStack([]);
+  const handleUndo = useCallback(async () => {
+    await historyUndo();
   }, []);
 
-  const handleUndo = useCallback(() => {
-    setUndoStack((prev) => {
-      if (prev.length === 0) return prev;
-      const snapshot = prev[prev.length - 1];
-      setRedoStack((r) => [...r, elementsRef.current]);
-      setElements(snapshot);
-      markDirty();
-      return prev.slice(0, -1);
-    });
-  }, [markDirty]);
-
-  const handleRedo = useCallback(() => {
-    setRedoStack((prev) => {
-      if (prev.length === 0) return prev;
-      const snapshot = prev[prev.length - 1];
-      setUndoStack((u) => [...u, elementsRef.current]);
-      setElements(snapshot);
-      markDirty();
-      return prev.slice(0, -1);
-    });
-  }, [markDirty]);
+  const handleRedo = useCallback(async () => {
+    await historyRedo();
+  }, []);
 
   // ===================================================================
-  // ELEMENT OPERATIONS (all local-first)
+  // ELEMENT OPERATIONS (local-first with Command pattern)
   // ===================================================================
   const addElement = useCallback(
     async (type: ElementType, properties: Record<string, unknown>, x?: number, y?: number) => {
@@ -257,27 +360,52 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       if (!page) return;
 
       try {
-        const newEl = await createElement({
+        // Create optimistically with a temporary ID
+        const tempId = `local-${crypto.randomUUID()}`;
+        const newEl: JournalElement = {
+          id: tempId,
           page_id: page.id,
+          user_id: '',
           element_type: type,
           x: x ?? 100,
           y: y ?? 100,
           width: type === 'text' ? 200 : type === 'sticker' ? 80 : 120,
           height: type === 'text' ? 100 : type === 'sticker' ? 80 : 120,
+          rotation: 0,
           z_index: elementsRef.current.length,
-          properties,
-        });
+          opacity: 1,
+          properties: properties as unknown as JournalElement['properties'],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-        pushUndo(elementsRef.current);
-        setElements((prev) => [...prev, newEl]);
+        // Execute creates the element in Supabase
+        const command = createElementCommand(
+          newEl,
+          (el) => {
+            // Replace temp with real element
+            setElements((prev) => {
+              const idx = prev.findIndex((p) => p.id === tempId);
+              if (idx >= 0) {
+                const copy = [...prev];
+                copy[idx] = el;
+                return copy;
+              }
+              return [...prev, el];
+            });
+          },
+          (id) => setElements((prev) => prev.filter((e) => e.id !== id))
+        );
+
+        await executeCommand(command);
         setSelectedId(newEl.id);
         setActiveTool('select');
         markDirty();
-      } catch {
-        // silent
+      } catch (err) {
+        devLog('ELEMENT', 'Failed to create element', err);
       }
     },
-    [pushUndo, markDirty]
+    [markDirty]
   );
 
   const handleUpdateLocal = useCallback((id: string, overrides: Partial<JournalElement>) => {
@@ -287,17 +415,97 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     markDirty();
   }, [markDirty]);
 
-  const handleDragEnd = useCallback(() => { markDirty(); }, [markDirty]);
-  const handleResizeEnd = useCallback(() => { markDirty(); }, [markDirty]);
-  const handleRotateEnd = useCallback(() => { markDirty(); }, [markDirty]);
+  // Snapshot element state before drag/resize/rotate for undo
+  const snapshotElement = useCallback((id: string) => {
+    const el = elementsRef.current.find((e) => e.id === id);
+    if (el) {
+      dragSnapshotRef.current = {
+        x: el.x, y: el.y, width: el.width, height: el.height,
+        rotation: el.rotation, z_index: el.z_index, opacity: el.opacity,
+      };
+      propsSnapshotRef.current = el.properties as unknown as Record<string, unknown>;
+    }
+  }, []);
 
-  const handleDeleteElement = useCallback((id: string) => {
-    pushUndo(elementsRef.current);
-    setElements((prev) => prev.filter((e) => e.id !== id));
-    setSelectedId(null);
+  const handleDragEnd = useCallback((id: string) => {
     markDirty();
-    deleteElement(id).catch(() => {});
-  }, [pushUndo, markDirty]);
+    // Create undo command for position change
+    const el = elementsRef.current.find((e) => e.id === id);
+    if (el && dragSnapshotRef.current) {
+      const prev = dragSnapshotRef.current;
+      const prevProps = propsSnapshotRef.current ?? el.properties as unknown as Record<string, unknown>;
+      const cmd = updateElementCommand(
+        el.page_id, id,
+        prevProps, el.properties as unknown as Record<string, unknown>,
+        prev,
+        { x: el.x, y: el.y, width: el.width, height: el.height, rotation: el.rotation, z_index: el.z_index, opacity: el.opacity },
+        (eid, updates) => {
+          setElements((p) => p.map((e) => e.id === eid ? { ...e, ...updates } : e));
+        }
+      );
+      // Don't execute (already applied locally), just push to history
+      executeCommand(cmd).catch(() => {});
+    }
+    dragSnapshotRef.current = null;
+    propsSnapshotRef.current = null;
+  }, [markDirty]);
+
+  const handleResizeEnd = useCallback((id: string) => {
+    markDirty();
+    const el = elementsRef.current.find((e) => e.id === id);
+    if (el && dragSnapshotRef.current) {
+      const prev = dragSnapshotRef.current;
+      const prevProps = propsSnapshotRef.current ?? el.properties as unknown as Record<string, unknown>;
+      const cmd = updateElementCommand(
+        el.page_id, id,
+        prevProps, el.properties as unknown as Record<string, unknown>,
+        prev,
+        { x: el.x, y: el.y, width: el.width, height: el.height, rotation: el.rotation, z_index: el.z_index, opacity: el.opacity },
+        (eid, updates) => {
+          setElements((p) => p.map((e) => e.id === eid ? { ...e, ...updates } : e));
+        }
+      );
+      executeCommand(cmd).catch(() => {});
+    }
+    dragSnapshotRef.current = null;
+    propsSnapshotRef.current = null;
+  }, [markDirty]);
+
+  const handleRotateEnd = useCallback((id: string) => {
+    markDirty();
+    const el = elementsRef.current.find((e) => e.id === id);
+    if (el && dragSnapshotRef.current) {
+      const prev = dragSnapshotRef.current;
+      const prevProps = propsSnapshotRef.current ?? el.properties as unknown as Record<string, unknown>;
+      const cmd = updateElementCommand(
+        el.page_id, id,
+        prevProps, el.properties as unknown as Record<string, unknown>,
+        prev,
+        { x: el.x, y: el.y, width: el.width, height: el.height, rotation: el.rotation, z_index: el.z_index, opacity: el.opacity },
+        (eid, updates) => {
+          setElements((p) => p.map((e) => e.id === eid ? { ...e, ...updates } : e));
+        }
+      );
+      executeCommand(cmd).catch(() => {});
+    }
+    dragSnapshotRef.current = null;
+    propsSnapshotRef.current = null;
+  }, [markDirty]);
+
+  const handleDeleteElement = useCallback(async (id: string) => {
+    const el = elementsRef.current.find((e) => e.id === id);
+    if (!el) return;
+
+    const command = deleteElementCommand(
+      el,
+      (deletedEl) => setElements((prev) => [...prev, deletedEl]),
+      (eid) => setElements((prev) => prev.filter((e) => e.id !== eid))
+    );
+
+    setSelectedId(null);
+    await executeCommand(command);
+    markDirty();
+  }, [markDirty]);
 
   // ===================================================================
   // COPY / PASTE / DUPLICATE
@@ -314,26 +522,16 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     if (!src || !page) return;
 
     try {
-      const newEl = await createElement({
-        page_id: page.id,
-        element_type: src.element_type,
-        x: src.x + 20,
-        y: src.y + 20,
-        width: src.width,
-        height: src.height,
-        rotation: src.rotation,
-        z_index: elementsRef.current.length,
-        opacity: src.opacity,
-        properties: JSON.parse(JSON.stringify(src.properties)) as Record<string, unknown>,
-      });
-      pushUndo(elementsRef.current);
-      setElements((prev) => [...prev, newEl]);
-      setSelectedId(newEl.id);
-      markDirty();
+      await addElement(
+        src.element_type,
+        JSON.parse(JSON.stringify(src.properties)) as Record<string, unknown>,
+        src.x + 20,
+        src.y + 20
+      );
     } catch {
       // silent
     }
-  }, [pushUndo, markDirty]);
+  }, [addElement]);
 
   const handleDuplicate = useCallback(async () => {
     handleCopy();
@@ -376,8 +574,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           try {
             const url = await uploadJournalImage(file, j.id);
             addElement('image', { url, alt: file.name, object_fit: 'cover' });
-          } catch {
-            // silent
+          } catch (err) {
+            devLog('IMAGE', 'Upload failed', err);
           }
         };
         input.click();
@@ -418,41 +616,61 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     const j = journal;
     if (!j) return;
     try {
+      // Flush current page first
+      await flushCurrentPage();
+
       const newPage = await createJournalPage(j.id, pages.length + 1, j.paper_style);
       setPages((prev) => [...prev, newPage]);
-      setCurrentPageIndex(pages.length);
-    } catch { /* silent */ }
-  }, [journal, pages]);
+      await loadPage(pages.length); // Navigate to the new page
+    } catch (err) {
+      devLog('PAGE', 'Failed to add page', err);
+    }
+  }, [journal, pages, flushCurrentPage, loadPage]);
 
   const handleDuplicatePage = useCallback(async () => {
     const page = currentPageRef.current;
     if (!page) return;
     try {
+      // Flush current page first
+      await flushCurrentPage();
+
       const dup = await duplicateJournalPage(page.id, pages.length + 1);
       setPages((prev) => [...prev, dup]);
-      setCurrentPageIndex(pages.length);
-    } catch { /* silent */ }
-  }, [pages.length]);
+      await loadPage(pages.length); // Navigate to the new page
+    } catch (err) {
+      devLog('PAGE', 'Failed to duplicate page', err);
+    }
+  }, [pages, flushCurrentPage, loadPage]);
 
   const handleDeletePage = useCallback(async () => {
     const page = currentPageRef.current;
     if (!page || pages.length <= 1) return;
     if (!window.confirm('Supprimer cette page ?')) return;
+
     try {
       await deleteJournalPage(page.id);
       const newPages = pages.filter((p) => p.id !== page.id);
       setPages(newPages);
-      reindexJournalPages(page.journal_id).catch(() => {});
-      setCurrentPageIndex((prev) => Math.max(0, Math.min(prev, newPages.length - 1)));
-    } catch { /* silent */ }
-  }, [pages]);
+      const newIndex = Math.max(0, Math.min(currentPageIndex, newPages.length - 1));
+      setCurrentPageIndex(newIndex);
+      await loadPage(newIndex);
+    } catch (err) {
+      devLog('PAGE', 'Failed to delete page', err);
+    }
+  }, [pages, currentPageIndex, loadPage]);
 
   const handleMovePage = useCallback(async (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= pages.length) return;
+
+    // Flush current page
+    await flushCurrentPage();
+
     const newPages = [...pages];
     const [moved] = newPages.splice(fromIndex, 1);
     newPages.splice(toIndex, 0, moved);
     setPages(newPages);
+
+    // Update current index
     if (currentPageIndex === fromIndex) {
       setCurrentPageIndex(toIndex);
     } else if (fromIndex < currentPageIndex && toIndex >= currentPageIndex) {
@@ -460,16 +678,15 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     } else if (fromIndex > currentPageIndex && toIndex <= currentPageIndex) {
       setCurrentPageIndex((prev) => prev + 1);
     }
+
+    // Atomic reorder via Supabase
     try {
-      for (let i = 0; i < newPages.length; i++) {
-        if (newPages[i].page_number !== i + 1) {
-          const { createClient } = await import('@/lib/supabase/client');
-          const supabase = createClient();
-          await supabase.from('journal_pages').update({ page_number: i + 1 }).eq('id', newPages[i].id);
-        }
-      }
-    } catch { /* silent */ }
-  }, [pages, currentPageIndex]);
+      const pageIds = newPages.map((p) => p.id);
+      await reorderJournalPages(pages[0].journal_id, pageIds);
+    } catch (err) {
+      devLog('PAGE', 'Failed to reorder pages', err);
+    }
+  }, [pages, currentPageIndex, flushCurrentPage]);
 
   // Paper change for current page
   const handlePaperChange = useCallback(async (style: PaperStyle) => {
@@ -479,7 +696,9 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       await updateJournalPage(page.id, { paper_style: style });
       setPages((prev) => prev.map((p) => p.id === page.id ? { ...p, paper_style: style } : p));
       setShowPaperPicker(false);
-    } catch { /* silent */ }
+    } catch (err) {
+      devLog('PAGE', 'Failed to update paper', err);
+    }
   }, []);
 
   // ===================================================================
@@ -558,6 +777,28 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const selectedElement = elements.find((e) => e.id === selectedId) ?? null;
 
   // ===================================================================
+  // SAVE STATUS DISPLAY
+  // ===================================================================
+  const getSaveStatusDisplay = () => {
+    if (syncStatus === 'offline' || saveStatus === 'offline') {
+      return <span className="flex items-center gap-1 text-xs text-muted-foreground"><CloudOff className="w-3 h-3" />Hors ligne</span>;
+    }
+    if (syncStatus === 'syncing' || saveStatus === 'saving') {
+      return <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">…</span></span>;
+    }
+    if (syncStatus === 'synced' || saveStatus === 'saved') {
+      return <span className="flex items-center gap-1 text-xs text-kin-sage"><Check className="w-3 h-3" /><span className="hidden sm:inline">Enregistré</span></span>;
+    }
+    if (saveStatus === 'error') {
+      return <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" /></span>;
+    }
+    if (syncStatus === 'pending') {
+      return <span className="flex items-center gap-1 text-xs text-muted-foreground"><Cloud className="w-3 h-3" /><span className="hidden sm:inline">En attente</span></span>;
+    }
+    return null;
+  };
+
+  // ===================================================================
   // RENDER
   // ===================================================================
   if (!journal) {
@@ -576,17 +817,14 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       {/* ====== HEADER BAR ====== */}
       <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/80 backdrop-blur-sm z-20">
         <div className="flex items-center gap-2">
-          <button onClick={onBack} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-smooth" aria-label="Retour à la bibliothèque">
+          <button onClick={async () => { await flushCurrentPage(); onBack(); }} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-smooth" aria-label="Retour à la bibliothèque">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-foreground truncate max-w-[120px] sm:max-w-[250px]">{journal.title}</h1>
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">Page {currentPageIndex + 1}/{pages.length}</p>
-              {saveStatus === 'saving' && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">…</span></span>}
-              {saveStatus === 'saved' && <span className="flex items-center gap-1 text-xs text-kin-sage"><Check className="w-3 h-3" /><span className="hidden sm:inline">Enregistré</span></span>}
-              {saveStatus === 'error' && <span className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="w-3 h-3" /></span>}
-              {saveStatus === 'offline' && <span className="text-xs text-muted-foreground">Hors ligne</span>}
+              {getSaveStatusDisplay()}
             </div>
           </div>
         </div>
@@ -594,16 +832,16 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         <div className="flex items-center gap-1">
           {/* Page navigation arrows */}
           <div className="hidden sm:flex items-center gap-0.5">
-            <button onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))} disabled={currentPageIndex === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page précédente"><ChevronLeft className="w-4 h-4" /></button>
-            <button onClick={() => setCurrentPageIndex((i) => Math.min(pages.length - 1, i + 1))} disabled={currentPageIndex >= pages.length - 1} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page suivante"><ChevronRight className="w-4 h-4" /></button>
+            <button onClick={() => navigateToPage(currentPageIndex - 1)} disabled={currentPageIndex === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page précédente"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => navigateToPage(currentPageIndex + 1)} disabled={currentPageIndex >= pages.length - 1} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Page suivante"><ChevronRight className="w-4 h-4" /></button>
           </div>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
           {/* Undo/Redo */}
           <div className="flex items-center gap-0.5">
-            <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Annuler"><Undo2 className="w-4 h-4" /></button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Rétablir"><Redo2 className="w-4 h-4" /></button>
+            <button onClick={handleUndo} disabled={!historyState.canUndo} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Annuler"><Undo2 className="w-4 h-4" /></button>
+            <button onClick={handleRedo} disabled={!historyState.canRedo} className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30" aria-label="Rétablir"><Redo2 className="w-4 h-4" /></button>
           </div>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
@@ -726,7 +964,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                 pages={pages}
                 currentPageIndex={currentPageIndex}
                 elements={elements}
-                onSelectPage={setCurrentPageIndex}
+                onSelectPage={(idx) => navigateToPage(idx)}
                 onAddPage={handleAddPage}
               />
             </motion.div>
@@ -784,9 +1022,9 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
                     isSelected={selectedId === el.id}
                     zoom={zoom}
                     onSelect={() => setSelectedId(el.id)}
-                    onDragStart={() => {}}
+                    onDragStart={snapshotElement}
                     onDragEnd={handleDragEnd}
-                    onResizeStart={() => {}}
+                    onResizeStart={snapshotElement}
                     onResizeEnd={handleResizeEnd}
                     onRotateEnd={handleRotateEnd}
                     onUpdateLocal={handleUpdateLocal}
@@ -868,8 +1106,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={handleUndo} disabled={undoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Undo2 className="w-4 h-4" /></button>
-          <button onClick={handleRedo} disabled={redoStack.length === 0} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Redo2 className="w-4 h-4" /></button>
+          <button onClick={handleUndo} disabled={!historyState.canUndo} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Undo2 className="w-4 h-4" /></button>
+          <button onClick={handleRedo} disabled={!historyState.canRedo} className="p-2 rounded-lg hover:bg-muted disabled:opacity-30"><Redo2 className="w-4 h-4" /></button>
         </div>
       </div>
 

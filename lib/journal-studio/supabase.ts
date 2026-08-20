@@ -1,5 +1,5 @@
 // =====================================================================
-// Kininaru Planner — Journal Studio Supabase Helpers (Hardened)
+// Kininaru Planner — Journal Studio Supabase Helpers (Hardened v2)
 // =====================================================================
 
 import { createClient } from '@/lib/supabase/client';
@@ -18,6 +18,7 @@ import {
   rowToPage,
   rowToElement,
 } from './types';
+import { devLog } from './sync/indexed-db';
 
 function getClient() {
   return createClient();
@@ -85,6 +86,7 @@ export async function createJournal(journal: {
     .single();
 
   if (error) throw error;
+  devLog('SUPABASE', `Created journal ${data.id}`);
   return rowToJournal(data as JournalRow);
 }
 
@@ -117,8 +119,11 @@ export async function updateJournal(
 
 export async function deleteJournal(id: string): Promise<void> {
   const supabase = getClient();
+  // First delete all storage files for this journal
+  await cleanupJournalStorage(id);
   const { error } = await supabase.from('journals').delete().eq('id', id);
   if (error) throw error;
+  devLog('SUPABASE', `Deleted journal ${id}`);
 }
 
 // ---------------------------------------------------------------------
@@ -153,7 +158,7 @@ export async function duplicateJournal(journalId: string): Promise<Journal> {
     if (srcElements.length > 0) {
       const insertPayload = srcElements.map((el) => ({
         page_id: newPage.id,
-        user_id: srcPage.user_id,
+        user_id: el.user_id,
         element_type: el.element_type,
         x: el.x,
         y: el.y,
@@ -170,6 +175,7 @@ export async function duplicateJournal(journalId: string): Promise<Journal> {
     }
   }
 
+  devLog('SUPABASE', `Duplicated journal ${journalId} → ${newJournal.id}`);
   return newJournal;
 }
 
@@ -221,6 +227,7 @@ export async function createJournalPage(journalId: string, pageNumber: number, p
     .single();
 
   if (error) throw error;
+  devLog('SUPABASE', `Created page ${pageNumber} in journal ${journalId}`);
   return rowToPage(data as JournalPageRow);
 }
 
@@ -242,27 +249,81 @@ export async function updateJournalPage(
 
 export async function deleteJournalPage(id: string): Promise<void> {
   const supabase = getClient();
+  // Delete all elements on this page first (for storage cleanup)
+  const elements = await getPageElements(id);
+  for (const el of elements) {
+    if (el.element_type === 'image') {
+      const props = el.properties as { url?: string };
+      if (props.url) {
+        await cleanupStorageFile(props.url).catch(() => {});
+      }
+    }
+  }
   const { error } = await supabase.from('journal_pages').delete().eq('id', id);
   if (error) throw error;
+  devLog('SUPABASE', `Deleted page ${id}`);
 }
 
-// Reindex page numbers after deletion to avoid gaps
+/**
+ * Atomic reindex page numbers using temporary offsets to avoid unique constraint violations.
+ * Strategy: move all pages to temporary negative numbers, then reassign proper numbers.
+ */
 export async function reindexJournalPages(journalId: string): Promise<void> {
   const supabase = getClient();
   const pages = await getJournalPages(journalId);
 
-  const updates = pages.map((p, i) => ({
-    id: p.id,
-    page_number: i + 1,
-  }));
+  if (pages.length === 0) return;
 
-  for (const u of updates) {
+  // Step 1: Move all pages to temporary negative numbers
+  for (let i = 0; i < pages.length; i++) {
+    const tempNumber = -(i + 1000); // Negative to avoid collisions
     const { error } = await supabase
       .from('journal_pages')
-      .update({ page_number: u.page_number })
-      .eq('id', u.id);
+      .update({ page_number: tempNumber })
+      .eq('id', pages[i].id);
     if (error) throw error;
   }
+
+  // Step 2: Reassign proper numbers
+  for (let i = 0; i < pages.length; i++) {
+    const { error } = await supabase
+      .from('journal_pages')
+      .update({ page_number: i + 1 })
+      .eq('id', pages[i].id);
+    if (error) throw error;
+  }
+
+  devLog('SUPABASE', `Reindexed ${pages.length} pages for journal ${journalId}`);
+}
+
+// ---------------------------------------------------------------------
+// Page Reorder (atomic swap via temporary negative)
+// ---------------------------------------------------------------------
+export async function reorderJournalPages(
+  journalId: string,
+  pageIds: string[]
+): Promise<void> {
+  const supabase = getClient();
+
+  // Step 1: Assign temporary negatives
+  for (let i = 0; i < pageIds.length; i++) {
+    const { error } = await supabase
+      .from('journal_pages')
+      .update({ page_number: -(i + 1000) })
+      .eq('id', pageIds[i]);
+    if (error) throw error;
+  }
+
+  // Step 2: Assign final numbers
+  for (let i = 0; i < pageIds.length; i++) {
+    const { error } = await supabase
+      .from('journal_pages')
+      .update({ page_number: i + 1 })
+      .eq('id', pageIds[i]);
+    if (error) throw error;
+  }
+
+  devLog('SUPABASE', `Reordered ${pageIds.length} pages`);
 }
 
 // Duplicate a page with all its elements
@@ -293,6 +354,7 @@ export async function duplicateJournalPage(pageId: string, newPageNumber: number
     if (error) throw error;
   }
 
+  devLog('SUPABASE', `Duplicated page ${pageId}`);
   return newPage;
 }
 
@@ -382,6 +444,17 @@ export async function updateElement(
 }
 
 export async function deleteElement(id: string): Promise<void> {
+  // Cleanup storage if it's an image element
+  try {
+    const el = await getElement(id);
+    if (el?.element_type === 'image') {
+      const props = el.properties as { url?: string };
+      if (props.url) {
+        await cleanupStorageFile(props.url).catch(() => {});
+      }
+    }
+  } catch { /* best effort cleanup */ }
+
   const supabase = getClient();
   const { error } = await supabase.from('journal_elements').delete().eq('id', id);
   if (error) throw error;
@@ -416,6 +489,10 @@ export type ElementInsert = {
   properties: Record<string, unknown>;
 };
 
+/**
+ * Batch persist all element changes in a single logical operation.
+ * Deletes → Updates → Inserts (order matters for consistency).
+ */
 export async function batchPersistElements(
   updates: ElementUpdate[],
   inserts: { page_id: string; elements: Omit<ElementInsert, 'page_id' | 'user_id'>[] },
@@ -427,14 +504,32 @@ export async function batchPersistElements(
 
   // Deletes first
   if (deletes.length > 0) {
+    // Cleanup storage for image elements
+    for (const id of deletes) {
+      try {
+        const el = await getElement(id);
+        if (el?.element_type === 'image') {
+          const props = el.properties as { url?: string };
+          if (props.url) {
+            await cleanupStorageFile(props.url).catch(() => {});
+          }
+        }
+      } catch { /* best effort */ }
+    }
     const { error } = await supabase.from('journal_elements').delete().in('id', deletes);
     if (error) throw error;
+    devLog('SUPABASE', `Batch deleted ${deletes.length} elements`);
   }
 
-  // Updates — use RPC or sequential (Supabase doesn't support bulk update natively)
-  for (const { id, updates: u } of updates) {
-    const { error } = await supabase.from('journal_elements').update(u).eq('id', id);
-    if (error) throw error;
+  // Updates — use Promise.all for parallel execution
+  if (updates.length > 0) {
+    const updatePromises = updates.map(({ id, updates: u }) =>
+      supabase.from('journal_elements').update(u).eq('id', id)
+    );
+    const results = await Promise.all(updatePromises);
+    const firstError = results.find((r) => r.error);
+    if (firstError?.error) throw firstError.error;
+    devLog('SUPABASE', `Batch updated ${updates.length} elements`);
   }
 
   // Inserts
@@ -446,11 +541,25 @@ export async function batchPersistElements(
     }));
     const { error } = await supabase.from('journal_elements').insert(payload);
     if (error) throw error;
+    devLog('SUPABASE', `Batch inserted ${inserts.elements.length} elements`);
+  }
+
+  // Touch journal updated_at via page's journal
+  if (updates.length > 0 || deletes.length > 0 || inserts.elements.length > 0) {
+    try {
+      const page = await getJournalPage(inserts.page_id);
+      if (page) {
+        await supabase
+          .from('journals')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', page.journal_id);
+      }
+    } catch { /* best effort */ }
   }
 }
 
 // ---------------------------------------------------------------------
-// Image Upload
+// Image Upload (private bucket with signed URLs)
 // ---------------------------------------------------------------------
 
 export async function uploadJournalImage(file: File, journalId: string): Promise<string> {
@@ -458,16 +567,18 @@ export async function uploadJournalImage(file: File, journalId: string): Promise
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  // Validate
+  // Validate MIME type
   const allowed = ['image/png', 'image/jpeg', 'image/webp'];
   if (!allowed.includes(file.type)) {
     throw new Error('Format non supporté. Utilise PNG, JPEG ou WebP.');
   }
+
+  // Validate size (max 10MB)
   if (file.size > 10 * 1024 * 1024) {
     throw new Error('L\'image ne doit pas dépasser 10 Mo.');
   }
 
-  const ext = file.name.split('.').pop() ?? 'png';
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
   const path = `${user.id}/${journalId}/${crypto.randomUUID()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
@@ -476,11 +587,104 @@ export async function uploadJournalImage(file: File, journalId: string): Promise
 
   if (uploadError) throw uploadError;
 
+  // Try signed URL first (private bucket)
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('journal-images')
+    .createSignedUrl(path, 60 * 60 * 24 * 7); // 7 days
+
+  if (!signedError && signedData?.signedUrl) {
+    devLog('SUPABASE', `Uploaded image ${path} (signed URL)`);
+    return signedData.signedUrl;
+  }
+
+  // Fallback to public URL if bucket is public
   const { data: urlData } = supabase.storage
     .from('journal-images')
     .getPublicUrl(path);
 
+  devLog('SUPABASE', `Uploaded image ${path} (public URL fallback)`);
   return urlData.publicUrl;
+}
+
+/**
+ * Refresh a signed URL if it's expired or about to expire.
+ */
+export async function refreshSignedUrl(url: string): Promise<string> {
+  // If it's not a signed URL, return as-is
+  if (!url.includes('token=')) return url;
+
+  try {
+    const supabase = getClient();
+    // Extract the path from the signed URL
+    const urlObj = new URL(url);
+    const pathMatch = urlObj.pathname.match(/\/object\/sign\/journal-images\/(.+)/);
+    if (!pathMatch) return url;
+
+    const path = decodeURIComponent(pathMatch[1]);
+    const { data, error } = await supabase.storage
+      .from('journal-images')
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
+
+    if (error || !data?.signedUrl) return url;
+    return data.signedUrl;
+  } catch {
+    return url;
+  }
+}
+
+// ---------------------------------------------------------------------
+// Storage Cleanup
+// ---------------------------------------------------------------------
+
+async function cleanupStorageFile(url: string): Promise<void> {
+  try {
+    const supabase = getClient();
+
+    // Try to extract path from signed URL
+    if (url.includes('token=')) {
+      const urlObj = new URL(url);
+      const pathMatch = urlObj.pathname.match(/\/object\/sign\/journal-images\/(.+)/);
+      if (pathMatch) {
+        const path = decodeURIComponent(pathMatch[1]);
+        await supabase.storage.from('journal-images').remove([path]);
+        return;
+      }
+    }
+
+    // Try to extract path from public URL
+    const publicMatch = url.match(/\/object\/public\/journal-images\/(.+)/);
+    if (publicMatch) {
+      const path = decodeURIComponent(publicMatch[1]);
+      await supabase.storage.from('journal-images').remove([path]);
+    }
+  } catch (err) {
+    devLog('SUPABASE', 'Storage cleanup failed (non-critical)', err);
+  }
+}
+
+/**
+ * Clean up all storage files for a journal.
+ * Called before journal deletion.
+ */
+async function cleanupJournalStorage(journalId: string): Promise<void> {
+  try {
+    const supabase = getClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const path = `${user.id}/${journalId}`;
+    const { data: files } = await supabase.storage
+      .from('journal-images')
+      .list(path);
+
+    if (files && files.length > 0) {
+      const filePaths = files.map((f) => `${path}/${f.name}`);
+      await supabase.storage.from('journal-images').remove(filePaths);
+      devLog('SUPABASE', `Cleaned ${filePaths.length} storage files for journal ${journalId}`);
+    }
+  } catch (err) {
+    devLog('SUPABASE', 'Journal storage cleanup failed (non-critical)', err);
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -492,10 +696,69 @@ export async function initializeJournalPages(
   pageCount: number,
   paperStyle: PaperStyle
 ): Promise<JournalPage[]> {
-  const pages: JournalPage[] = [];
-  for (let i = 1; i <= pageCount; i++) {
-    const page = await createJournalPage(journalId, i, paperStyle);
-    pages.push(page);
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Batch insert all pages at once instead of one-by-one
+  const pages = Array.from({ length: pageCount }, (_, i) => ({
+    journal_id: journalId,
+    user_id: user.id,
+    page_number: i + 1,
+    paper_style: paperStyle,
+  }));
+
+  const { data, error } = await supabase
+    .from('journal_pages')
+    .insert(pages)
+    .select();
+
+  if (error) throw error;
+
+  devLog('SUPABASE', `Created ${pageCount} pages for journal ${journalId}`);
+  return (data as JournalPageRow[]).map(rowToPage);
+}
+
+// ---------------------------------------------------------------------
+// Cover Upload (dedicated)
+// ---------------------------------------------------------------------
+
+export async function uploadJournalCover(file: File, journalId: string): Promise<string> {
+  const supabase = getClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    throw new Error('Format non supporté. Utilise PNG, JPEG ou WebP.');
   }
-  return pages;
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('La couverture ne doit pas dépasser 5 Mo.');
+  }
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${user.id}/${journalId}/cover/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('journal-images')
+    .upload(path, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  // Try signed URL first
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('journal-images')
+    .createSignedUrl(path, 60 * 60 * 24 * 30); // 30 days for covers
+
+  if (!signedError && signedData?.signedUrl) {
+    return signedData.signedUrl;
+  }
+
+  // Fallback
+  const { data: urlData } = supabase.storage
+    .from('journal-images')
+    .getPublicUrl(path);
+
+  return urlData.publicUrl;
 }

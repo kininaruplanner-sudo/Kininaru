@@ -184,3 +184,21 @@ create trigger journal_pages_updated_at before update on public.journal_pages
 drop trigger if exists journal_elements_updated_at on public.journal_elements;
 create trigger journal_elements_updated_at before update on public.journal_elements
   for each row execute function public.set_updated_at();
+
+-- Trigger: when elements change, update the parent journal's updated_at
+create or replace function public.touch_journal_on_element_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update public.journals set updated_at = now() where id = (
+    select j.id from public.journal_pages p
+    join public.journals j on j.id = p.journal_id
+    where p.id = coalesce(NEW.page_id, OLD.page_id)
+  );
+  return null;
+end;
+$$;
+
+drop trigger if exists on_element_change_touch_journal on public.journal_elements;
+create trigger on_element_change_touch_journal
+  after insert or update or delete on public.journal_elements
+  for each row execute function public.touch_journal_on_element_change();

@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 import {
   createJournal,
   initializeJournalPages,
+  uploadJournalCover,
+  updateJournal,
 } from '@/lib/journal-studio/supabase';
 import type { Journal, CoverType, PaperStyle } from '@/lib/journal-studio/types';
 import { COVER_PRESETS, PAPER_PATTERNS, PAPER_BACKGROUND_COLORS } from '@/lib/journal-studio/types';
@@ -91,16 +93,17 @@ export function JournalCreationWizard({
     if (step > 0) setStep(step - 1);
   };
 
+  const coverFileRef = useRef<File | null>(null);
+
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const url = ev.target?.result as string;
-      setCoverImageUrl(url);
-      setCoverType('custom');
-    };
-    reader.readAsDataURL(file);
+    // Store the file reference, not base64
+    coverFileRef.current = file;
+    // Create a local preview URL (not stored in DB)
+    const previewUrl = URL.createObjectURL(file);
+    setCoverImageUrl(previewUrl);
+    setCoverType('custom');
   };
 
   const handleCreate = async () => {
@@ -116,14 +119,22 @@ export function JournalCreationWizard({
         cover_color: coverColor,
         cover_gradient_from: preset?.gradient_from,
         cover_gradient_to: preset?.gradient_to,
-        cover_image_url: coverImageUrl ?? undefined,
         paper_style: paperStyle,
       });
 
       await initializeJournalPages(journal.id, effectivePageCount, paperStyle);
 
-      // If custom cover image was used, we need to re-create with the uploaded URL
-      // (in real app, upload to Supabase storage first)
+      // Upload cover image to storage if user selected one
+      if (coverFileRef.current && journal.id) {
+        try {
+          const coverUrl = await uploadJournalCover(coverFileRef.current, journal.id);
+          await updateJournal(journal.id, { cover_image_url: coverUrl });
+          journal.cover_image_url = coverUrl;
+        } catch {
+          // Cover upload failed, journal still created without image
+        }
+      }
+
       onComplete(journal);
     } catch {
       setError('Impossible de créer le journal. Réessaie.');

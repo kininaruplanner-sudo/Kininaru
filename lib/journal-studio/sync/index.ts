@@ -1,0 +1,32 @@
+export {
+  initIndexedDB,
+  addToQueue,
+  getPendingItems,
+  getPendingItemsForResource,
+  markSynced,
+  removeSyncedItems,
+  incrementRetry,
+  clearQueue,
+  cachePage,
+  getCachedPage,
+  getCachedPagesForJournal,
+  removeCachedPage,
+  cacheElements,
+  getCachedElements,
+  clearAllCache,
+  devLog,
+  type SyncQueueItem,
+  type SyncOperation,
+  type SyncResource,
+  type PageCache,
+} from './indexed-db';
+
+export {
+  triggerSync,
+  triggerSyncImmediate,
+  startSyncOnReconnect,
+  stopSync,
+  onSyncStatusChange,
+  getSyncStatus,
+  type SyncStatus,
+} from './sync-engine';
