@@ -8,16 +8,20 @@ export async function GET(request: NextRequest) {
   // to the public landing page).
   const next = searchParams.get('next') ?? '/dashboard'
 
+  // Security: only allow internal relative paths (starting with /).
+  // Never follow absolute URLs (https://evil.com) to prevent open redirect.
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
       // After a password-recovery email the session is already established;
       // send the user straight to the reset-password form.
-      if (next === '/auth/reset-password') {
+      if (safeNext === '/auth/reset-password') {
         return NextResponse.redirect(`${origin}/auth/reset-password`)
       }
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${origin}${safeNext}`)
     }
   }
 

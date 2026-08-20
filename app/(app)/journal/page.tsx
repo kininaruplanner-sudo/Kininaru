@@ -1,9 +1,5 @@
 // =====================================================================
-// /journal — Journal Studio (replaces the old daily journal entry view)
-//
-// The old journal (journal_entries table, JournalClient component) is
-// still available at /journal/daily for backward compatibility.
-// The primary /journal route now shows the Journal Studio Library.
+// /journal — Journal Studio Library → Editor
 // =====================================================================
 
 'use client';

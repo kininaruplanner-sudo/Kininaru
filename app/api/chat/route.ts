@@ -1,7 +1,7 @@
 import { createGroq } from '@ai-sdk/groq';
 import { streamText, type ModelMessage } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { buildSystemPrompt, buildUserContext } from '@/lib/ai/prompts';
+import { buildSystemPrompt } from '@/lib/ai/prompts';
 import { buildEnrichedContext } from '@/lib/assistant/context-builder';
 import { getProactiveSuggestion, formatOpportunityForContext } from '@/lib/assistant/proactivity';
 import { isRateLimited } from '@/lib/ai/rate-limit';
@@ -48,9 +48,15 @@ export async function POST(req: Request) {
     // `actionsEnabled` lets callers opt out of the action protocol (e.g. the
     // dashboard insight card is advice-only). Defaults to true for the chat.
     const actionsEnabled = body.actionsEnabled !== false;
-    // `memoryEnabled` mirrors the Settings → Mémoire master switch: when the
-    // user turns it OFF, saved memories are never injected as context.
-    const memoryEnabled = body.memoryEnabled !== false;
+    // Server-side memory check: verify against the user's profile, never
+    // trust the client flag alone. If the profile says memory is off, it's off.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('memory_enabled')
+      .eq('id', user.id)
+      .single();
+    const serverMemoryEnabled = profile?.memory_enabled !== false;
+    const memoryEnabled = serverMemoryEnabled && body.memoryEnabled !== false;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: 'Messages manquants' }, { status: 400 });
@@ -91,9 +97,16 @@ export async function POST(req: Request) {
               return Response.json({ error: 'Message invalide' }, { status: 400 });
             }
           } else if (part.type === 'image') {
-            // Validate image data URL
+            // Validate image data URL with size limit (5 MB)
             if (typeof part.image !== 'string' || !part.image.startsWith('data:image/')) {
               return Response.json({ error: 'Image invalide' }, { status: 400 });
+            }
+            // Estimate decoded size: base64 inflates ~33%, so compare raw length
+            const base64Data = part.image.split(',')[1] ?? '';
+            const estimatedBytes = Math.floor(base64Data.length * 0.75);
+            const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+            if (estimatedBytes > MAX_IMAGE_BYTES) {
+              return Response.json({ error: 'Image trop volumineuse (5 Mo maximum)' }, { status: 413 });
             }
           } else {
             return Response.json({ error: 'Type de contenu non supporté' }, { status: 400 });
@@ -113,13 +126,8 @@ export async function POST(req: Request) {
       userMessage: latestUserMessage,
     });
 
-    // Also build the legacy context for backward compatibility
-    const legacyContext = await buildUserContext(supabase, user.id, {
-      includeMemory: memoryEnabled,
-    });
-
-    // Combine contexts: enriched context takes priority, legacy fills gaps
-    const contextText = enrichedContext.text || legacyContext.text
+    // Use enriched context exclusively — it's a superset of the legacy builder
+    const contextText = enrichedContext.text
 
     // Inject next action suggestion into the context
     const nextActionHint = enrichedContext.nextAction
