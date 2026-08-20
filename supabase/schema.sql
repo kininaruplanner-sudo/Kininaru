@@ -27,6 +27,7 @@ create table public.profiles (
   display_name text,
   xp integer not null default 0,
   level integer not null default 1,
+  memory_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -183,7 +184,17 @@ declare
   v_current_streak integer := 0;
   v_best_streak integer := 0;
   v_cursor date := current_date;
+  v_owner uuid;
 begin
+  -- Security: verify the habit belongs to the authenticated user
+  select user_id into v_owner from public.habits where id = p_habit_id;
+  if v_owner is null then
+    raise exception 'Habitude introuvable';
+  end if;
+  if v_owner != auth.uid() then
+    raise exception 'Accès refusé';
+  end if;
+
   -- Compte les jours consécutifs (en remontant depuis aujourd'hui ou hier)
   if not exists (select 1 from public.habit_logs where habit_id = p_habit_id and logged_date = current_date) then
     v_cursor := current_date - 1;

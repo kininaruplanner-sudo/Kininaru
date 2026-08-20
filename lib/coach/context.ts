@@ -155,9 +155,8 @@ export async function buildCoachContext(
   ])
 
   const sessions = (focusWeek ?? []) as { duration_minutes: number; created_at: string }[]
-  const todayKeyUtc = now.toISOString().split('T')[0]
   const focusMinutesToday = sessions
-    .filter((s) => s.created_at?.startsWith(todayKeyUtc))
+    .filter((s) => s.created_at?.startsWith(todayKey))
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
 
   const priorityList = (priorityTasks ?? []) as { id: string; title: string }[]

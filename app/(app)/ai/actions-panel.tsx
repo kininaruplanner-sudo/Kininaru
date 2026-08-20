@@ -39,6 +39,9 @@ const META: Record<AiAction['action'], { label: string; icon: React.ElementType 
   create_event: { label: 'Créer un événement', icon: CalendarDays },
   create_family_task: { label: 'Tâche familiale', icon: Users },
   create_memory: { label: 'Mémoriser', icon: Bookmark },
+  complete_task: { label: 'Terminer une tâche', icon: CheckSquare },
+  update_task: { label: 'Modifier une tâche', icon: Pencil },
+  start_focus: { label: 'Enregistrer un focus', icon: Sparkles },
 }
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -85,6 +88,18 @@ function actionSummary(a: AiAction): string[] {
       return [`« ${a.data.title} »`, 'Dans votre espace famille']
     case 'create_memory':
       return [`« ${a.data.content} »`, CATEGORY_LABELS[a.data.category ?? 'fact'] ?? a.data.category]
+    case 'complete_task':
+      return [`Tâche ${a.data.task_id.slice(0, 8)}…`, 'Marquer comme terminée']
+    case 'update_task': {
+      const lines = [`Tâche ${a.data.task_id.slice(0, 8)}…`]
+      if (a.data.title) lines.push(`Nouveau titre : « ${a.data.title} »`)
+      if (a.data.priority) lines.push(`Priorité : ${PRIORITY_LABELS[a.data.priority] ?? a.data.priority}`)
+      if (a.data.due_date) lines.push(`Échéance : ${a.data.due_date}`)
+      if (a.data.status) lines.push(`Statut : ${a.data.status}`)
+      return lines
+    }
+    case 'start_focus':
+      return [`${a.data.duration_minutes} minutes de focus`]
   }
 }
 
@@ -119,6 +134,18 @@ function toDraft(a: AiAction): Record<string, string> {
       return { title: a.data.title }
     case 'create_memory':
       return { content: a.data.content, category: a.data.category ?? 'fact' }
+    case 'complete_task':
+      return { task_id: a.data.task_id }
+    case 'update_task':
+      return {
+        task_id: a.data.task_id,
+        title: a.data.title ?? '',
+        priority: a.data.priority ?? '',
+        due_date: a.data.due_date ?? '',
+        status: a.data.status ?? '',
+      }
+    case 'start_focus':
+      return { duration_minutes: String(a.data.duration_minutes) }
   }
 }
 
@@ -330,6 +357,38 @@ export function ActionsPanel({ actions, onDismiss, onEdit }: Props) {
           ? (draft.category as 'fact' | 'goal' | 'preference' | 'habit' | 'other')
           : undefined
         return { action: 'create_memory', data: { content, category: category ?? 'fact' } }
+      }
+      case 'complete_task': {
+        const task_id = draft.task_id?.trim()
+        if (!task_id) {
+          setDraftError('Identifiant de tâche requis.')
+          return null
+        }
+        return { action: 'complete_task', data: { task_id } }
+      }
+      case 'update_task': {
+        const task_id = draft.task_id?.trim()
+        if (!task_id) {
+          setDraftError('Identifiant de tâche requis.')
+          return null
+        }
+        const title = draft.title?.trim() || undefined
+        const priority = ['low', 'medium', 'high', 'urgent'].includes(draft.priority ?? '')
+          ? (draft.priority as 'low' | 'medium' | 'high' | 'urgent')
+          : undefined
+        const due_date = draft.due_date?.trim() || undefined
+        const status = ['todo', 'in_progress', 'done'].includes(draft.status ?? '')
+          ? (draft.status as 'todo' | 'in_progress' | 'done')
+          : undefined
+        return { action: 'update_task', data: { task_id, title, priority, due_date, status } }
+      }
+      case 'start_focus': {
+        const duration = Number(draft.duration_minutes)
+        if (!duration || duration < 1 || duration > 480) {
+          setDraftError('Durée invalide (1 à 480 minutes).')
+          return null
+        }
+        return { action: 'start_focus', data: { duration_minutes: Math.round(duration) } }
       }
     }
   }

@@ -117,7 +117,6 @@ export async function buildEnrichedContext(
 ): Promise<EnrichedContext> {
   const now = new Date()
   const todayKey = format(now, 'yyyy-MM-dd')
-  const todayKeyUtc = now.toISOString().split('T')[0]
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const tomorrow = format(new Date(now.getTime() + 86_400_000), 'yyyy-MM-dd')
 
@@ -224,7 +223,7 @@ export async function buildEnrichedContext(
   // Compute focus minutes
   const focusSessions = (focusWeek ?? []) as { duration_minutes: number; created_at: string }[]
   const focusTodayMinutes = focusSessions
-    .filter(s => s.created_at?.startsWith(todayKeyUtc))
+    .filter(s => s.created_at?.startsWith(todayKey))
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
   const focusWeekMinutes = focusSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
 

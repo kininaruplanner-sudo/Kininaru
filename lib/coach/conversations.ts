@@ -43,9 +43,11 @@ export async function listConversations(): Promise<CoachConversation[]> {
 export async function createConversation(title: string): Promise<CoachConversation | null> {
   try {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
     const { data, error } = await supabase
       .from('coach_conversations')
-      .insert({ title })
+      .insert({ title, user_id: user.id })
       .select('id, title, created_at, updated_at')
       .single()
     if (error) return null
@@ -119,9 +121,11 @@ export async function appendMessage(
   if (!content.trim()) return false
   try {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
     const { error } = await supabase
       .from('coach_messages')
-      .insert({ conversation_id: conversationId, role, content })
+      .insert({ conversation_id: conversationId, role, content, user_id: user.id })
     return !error
   } catch {
     return false

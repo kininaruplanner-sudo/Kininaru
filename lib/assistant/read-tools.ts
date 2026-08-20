@@ -185,7 +185,7 @@ registerTool(
     params: [],
   },
   async (ctx: ToolContext): Promise<ToolResult> => {
-    const todayKeyUtc = new Date().toISOString().split('T')[0]
+    const todayKey = format(new Date(), 'yyyy-MM-dd')
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
     const { data: sessions } = await ctx.supabase
@@ -197,7 +197,7 @@ registerTool(
       .limit(50)
 
     const allSessions = sessions ?? []
-    const todaySessions = allSessions.filter(s => s.created_at?.startsWith(todayKeyUtc))
+    const todaySessions = allSessions.filter(s => s.created_at?.startsWith(todayKey))
     const todayMinutes = todaySessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0)
     const weekMinutes = allSessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0)
 

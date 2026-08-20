@@ -128,9 +128,8 @@ export async function buildUserContext(
     (sum, s) => sum + (s.duration_minutes || 0),
     0
   )
-  const todayKeyUtc = new Date().toISOString().split('T')[0]
   const focusTodayMinutes = (focusWeek ?? [])
-    .filter((s) => s.created_at?.startsWith(todayKeyUtc))
+    .filter((s) => s.created_at?.startsWith(todayKey))
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
 
   const normalizedFamilies = (families ?? []).map(

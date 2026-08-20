@@ -55,6 +55,12 @@ export type AiAction =
       action: 'create_memory'
       data: { content: string; category?: MemoryCategory }
     }
+  | { action: 'complete_task'; data: { task_id: string } }
+  | {
+      action: 'update_task'
+      data: { task_id: string; title?: string; priority?: TaskPriority; due_date?: string; status?: 'todo' | 'in_progress' | 'done' }
+    }
+  | { action: 'start_focus'; data: { duration_minutes: number } }
 
 export type AiActionResult = {
   action: AiAction['action']
@@ -243,6 +249,32 @@ export function validateAiAction(raw: unknown): { action?: AiAction; error?: str
           : undefined
       if (category === null) return { error: 'Catégorie de mémoire invalide' }
       return { action: { action: 'create_memory', data: { content, category } } }
+    }
+    case 'complete_task': {
+      const taskId = typeof data.task_id === 'string' && UUID_RE.test(data.task_id) ? data.task_id : null
+      if (!taskId) return { error: 'Identifiant de tâche invalide' }
+      return { action: { action: 'complete_task', data: { task_id: taskId } } }
+    }
+    case 'update_task': {
+      const taskId = typeof data.task_id === 'string' && UUID_RE.test(data.task_id) ? data.task_id : null
+      if (!taskId) return { error: 'Identifiant de tâche invalide' }
+      const title = cleanTitle(data.title)
+      if (title === null) return { error: 'Titre invalide' }
+      const priority = cleanPriority(data.priority)
+      if (priority === null) return { error: 'Priorité invalide' }
+      const due_date = cleanDate(data.due_date)
+      if (due_date === null) return { error: 'Date invalide (format AAAA-MM-JJ)' }
+      const validStatuses = ['todo', 'in_progress', 'done']
+      const status = data.status !== undefined && data.status !== null
+        ? validStatuses.includes(data.status as string) ? (data.status as 'todo' | 'in_progress' | 'done') : null
+        : undefined
+      if (status === null) return { error: 'Statut invalide' }
+      return { action: { action: 'update_task', data: { task_id: taskId, title: title ?? undefined, priority: priority ?? undefined, due_date: due_date ?? undefined, status } } }
+    }
+    case 'start_focus': {
+      const duration = typeof data.duration_minutes === 'number' && !Number.isNaN(data.duration_minutes) ? data.duration_minutes : null
+      if (duration === null || duration < 1 || duration > 480) return { error: 'Durée invalide (1 à 480 minutes)' }
+      return { action: { action: 'start_focus', data: { duration_minutes: Math.round(duration) } } }
     }
     default:
       return { error: 'Action inconnue' }
@@ -493,6 +525,15 @@ export async function executeAiAction(
         }
       }
       case 'create_memory': {
+        // Server-side memory privacy: check if the user has disabled memory
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('memory_enabled')
+          .eq('id', userId)
+          .single()
+        if (profile && profile.memory_enabled === false) {
+          return { action: action.action, ok: false, message: 'La mémoire est désactivée dans vos paramètres.' }
+        }
         const { data, error } = await supabase
           .from('ai_memories')
           .insert({
@@ -508,6 +549,85 @@ export async function executeAiAction(
           ok: true,
           message: 'Mémoire enregistrée',
           title: action.data.content,
+          id: data?.id,
+        }
+      }
+      case 'complete_task': {
+        const { data: task, error: fetchErr } = await supabase
+          .from('tasks')
+          .select('id, title, status')
+          .eq('id', action.data.task_id)
+          .eq('user_id', userId)
+          .single()
+        if (fetchErr || !task) {
+          return { action: action.action, ok: false, message: 'Tâche introuvable' }
+        }
+        if (task.status === 'done') {
+          return { action: action.action, ok: false, message: 'Cette tâche est déjà terminée' }
+        }
+        const { error: updateErr } = await supabase
+          .from('tasks')
+          .update({ status: 'done', completed_at: new Date().toISOString() })
+          .eq('id', action.data.task_id)
+          .eq('user_id', userId)
+        if (updateErr) throw updateErr
+        return {
+          action: action.action,
+          ok: true,
+          message: `Tâche « ${task.title} » marquée comme terminée`,
+          title: task.title,
+          id: task.id,
+        }
+      }
+      case 'update_task': {
+        const { data: existing, error: fetchErr } = await supabase
+          .from('tasks')
+          .select('id, title')
+          .eq('id', action.data.task_id)
+          .eq('user_id', userId)
+          .single()
+        if (fetchErr || !existing) {
+          return { action: action.action, ok: false, message: 'Tâche introuvable' }
+        }
+        const updates: Record<string, unknown> = {}
+        if (action.data.title) updates.title = action.data.title
+        if (action.data.priority) updates.priority = action.data.priority
+        if (action.data.due_date) updates.due_date = action.data.due_date
+        if (action.data.status) {
+          updates.status = action.data.status
+          if (action.data.status === 'done') updates.completed_at = new Date().toISOString()
+        }
+        if (Object.keys(updates).length === 0) {
+          return { action: action.action, ok: false, message: 'Aucune modification spécifiée' }
+        }
+        const { error: updateErr } = await supabase
+          .from('tasks')
+          .update(updates)
+          .eq('id', action.data.task_id)
+          .eq('user_id', userId)
+        if (updateErr) throw updateErr
+        return {
+          action: action.action,
+          ok: true,
+          message: `Tâche « ${existing.title} » mise à jour`,
+          title: existing.title,
+          id: existing.id,
+        }
+      }
+      case 'start_focus': {
+        const { data, error } = await supabase
+          .from('focus_sessions')
+          .insert({
+            user_id: userId,
+            duration_minutes: action.data.duration_minutes,
+          })
+          .select('id')
+          .single()
+        if (error) throw error
+        return {
+          action: action.action,
+          ok: true,
+          message: `Session de focus de ${action.data.duration_minutes} minutes enregistrée`,
           id: data?.id,
         }
       }
