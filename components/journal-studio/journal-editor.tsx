@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Trash2, Copy, ZoomIn, ZoomOut, Maximize,
   Type, Square, Smile, Image, Pen, Undo2, Redo2,
   Check, Loader2, MoreVertical, Grid3X3, Move, Layers,
-  AlertTriangle, CopyPlus, ChevronLeft, ChevronRight,
+  AlertTriangle, CopyPlus, ChevronLeft, ChevronRight, Search,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Paintbrush, Palette, Minus, RotateCw, CloudOff, Cloud,
 } from 'lucide-react';
@@ -37,6 +37,8 @@ import {
   createElementCommand, deleteElementCommand, updateElementCommand, compoundCommand,
 } from '@/lib/journal-studio/history';
 import { StickerPicker } from './sticker-picker';
+import { QuickBlocksPanel, QUICK_BLOCKS, type QuickBlock } from './quick-blocks';
+import { JournalSearch } from './journal-search';
 import { ShapePicker } from './shape-picker';
 import { ElementRenderer } from './element-renderer';
 import { PageThumbnails } from './page-thumbnails';
@@ -77,6 +79,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [pages, setPages] = useState<JournalPage[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [elements, setElements] = useState<JournalElement[]>([]);
+  const [pagesElements, setPagesElements] = useState<Map<string, JournalElement[]>>(new Map());
 
   // ---- UI State ----
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -98,6 +101,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   // ---- Pickers ----
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [showQuickBlocks, setShowQuickBlocks] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   // ---- Undo/Redo (from history manager) ----
   const [historyState, setHistoryState] = useState(getHistorySnapshot());
@@ -703,6 +708,10 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
       // Ctrl/Cmd+S = force flush
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         flushCurrentPage();
@@ -865,6 +874,20 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
       setDrawingPoints([...pts]);
     }
   }, [screenToPage]);
+
+  // ---- Quick Blocks ----
+  const handleAddQuickBlock = useCallback(async (block: QuickBlock) => {
+    const page = currentPageRef.current;
+    if (!page) return;
+    // Center on page
+    const x = Math.max(20, (PAGE_W - 400) / 2);
+    const y = Math.max(20, 100 + Math.random() * 100);
+    try {
+      await addElement(block.type as 'text' | 'shape', block.properties, x, y);
+    } catch {
+      // silent
+    }
+  }, [addElement]);
 
   const finishDrawing = useCallback(async () => {
     drawingRef.current = false;
@@ -1071,6 +1094,8 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           <ToolBtn icon={Image} label="Image" active={activeTool === 'image'} onClick={() => setActiveTool('image')} />
           <ToolBtn icon={Pen} label="Dessin" active={activeTool === 'drawing'} onClick={() => setActiveTool(activeTool === 'drawing' ? 'select' : 'drawing')} />
           <div className="flex-1" />
+          <ToolBtn icon={Search} label="Chercher" active={showSearch} onClick={() => { setShowSearch(!showSearch); setShowQuickBlocks(false); }} />
+          <ToolBtn icon={Plus} label="Blocs" active={showQuickBlocks} onClick={() => { setShowQuickBlocks(!showQuickBlocks); setShowSearch(false); }} />
           <ToolBtn icon={Layers} label="Pages" active={showThumbnails} onClick={() => setShowThumbnails(!showThumbnails)} />
         </div>
 
@@ -1247,6 +1272,32 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           onSendToBack={(id) => { handleSendToBack(id); setContextMenu(null); }}
         />
       )}
+
+      {/* ====== SEARCH ====== */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-b border-border bg-card overflow-hidden z-10">
+            <JournalSearch
+              pages={pages}
+              pagesElements={pagesElements}
+              onGoToPage={(idx) => navigateToPage(idx)}
+              onClose={() => setShowSearch(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ====== QUICK BLOCKS ====== */}
+      <AnimatePresence>
+        {showQuickBlocks && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-b border-border bg-card overflow-hidden z-10">
+            <QuickBlocksPanel
+              onAddBlock={handleAddQuickBlock}
+              onClose={() => setShowQuickBlocks(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ====== PICKERS ====== */}
       <AnimatePresence>
