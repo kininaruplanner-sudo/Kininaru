@@ -75,7 +75,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden px-4">
       <Link href="/" className="fixed top-4 left-4 text-xs text-muted-foreground hover:text-foreground transition-smooth z-10">
         ← Retourner à l’accueil
       </Link>
