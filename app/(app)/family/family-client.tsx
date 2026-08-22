@@ -242,7 +242,7 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
 
   const addTask = async () => {
     if (!selected || !taskTitle.trim()) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('family_tasks')
       .insert({
         family_id: selected.id,
@@ -252,6 +252,10 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
       })
       .select()
       .single()
+    if (error) {
+      setError('Impossible d\'ajouter la tâche. Réessayez.')
+      return
+    }
     if (data) {
       setTaskState((prev) => [data, ...prev])
       setTaskTitle('')

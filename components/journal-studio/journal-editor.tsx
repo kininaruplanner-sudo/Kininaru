@@ -167,6 +167,32 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
           resetHistory();
           // Cache in IndexedDB
           cacheElements(p[0].id, els as unknown as Record<string, unknown>[]).catch(() => {});
+
+          // Writing-first: if the page has no text elements, create one
+          // centered on the page and set it as the active element so the
+          // user can start writing immediately.
+          const hasText = els.some((e) => e.element_type === 'text');
+          if (!hasText && els.length === 0) {
+            const tempId = `local-${crypto.randomUUID()}`;
+            const autoText: JournalElement = {
+              id: tempId,
+              page_id: p[0].id,
+              user_id: '',
+              element_type: 'text',
+              x: (PAGE_W - 200) / 2,
+              y: PAGE_H / 2 - 50,
+              width: 300,
+              height: 100,
+              rotation: 0,
+              z_index: 0,
+              opacity: 1,
+              properties: { ...DEFAULT_TEXT_PROPERTIES, content: '' } as unknown as JournalElement['properties'],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setElements([autoText]);
+            setSelectedId(tempId);
+          }
         }
       } catch {
         if (!cancelled) onBack();
