@@ -17,6 +17,7 @@ interface ElementRendererProps {
   element: JournalElement;
   isSelected: boolean;
   zoom: number;
+  autoEdit?: boolean;
   onSelect: (e?: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onDragStart: (id: string) => void;
@@ -33,6 +34,7 @@ export function ElementRenderer({
   element,
   isSelected,
   zoom,
+  autoEdit,
   onSelect,
   onContextMenu,
   onDragStart,
@@ -53,6 +55,8 @@ export function ElementRenderer({
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const rotateStart = useRef({ centerX: 0, centerY: 0, startAngle: 0, startRotation: 0 });
 
+  const elementRef = useRef<HTMLDivElement>(null);
+
   // ---- DRAG (local-first, no network during move) ----
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -60,6 +64,14 @@ export function ElementRenderer({
       if ((e.target as HTMLElement).dataset.handle) return;
       e.stopPropagation();
       e.preventDefault();
+
+      // Writing-first: single-click on a selected text element enters edit mode
+      // immediately. Double-click still works as a fallback.
+      if (isSelected && element.element_type === 'text') {
+        setIsEditing(true);
+        return;
+      }
+
       onSelect(e as unknown as React.MouseEvent);
 
       setIsDragging(true);
@@ -87,7 +99,7 @@ export function ElementRenderer({
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [element, isEditing, zoom, onSelect, onDragStart, onDragEnd, onUpdateLocal]
+    [element, isEditing, isSelected, zoom, onSelect, onDragStart, onDragEnd, onUpdateLocal]
   );
 
   // ---- RESIZE (local-first) ----
@@ -163,15 +175,32 @@ export function ElementRenderer({
     if (element.element_type === 'text') setIsEditing(true);
   }, [element]);
 
+  // Auto-enter edit mode when requested (e.g., new text element just created)
+  useEffect(() => {
+    if (autoEdit && element.element_type === 'text' && !isEditing) {
+      setIsEditing(true);
+    }
+  }, [autoEdit, element.element_type]);
+
+  // Auto-dismiss editing when clicking outside: use a pointerdown handler on
+  // the window that excludes clicks inside THIS element.
   useEffect(() => {
     if (!isEditing) return;
-    const handler = () => setIsEditing(false);
-    const timer = setTimeout(() => window.addEventListener('pointerdown', handler), 150);
+    const handler = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      // Only dismiss if clicking outside this element
+      const clickedElement = target.closest('[data-element]');
+      if (clickedElement !== elementRef.current) {
+        setIsEditing(false);
+      }
+    };
+    const timer = setTimeout(() => window.addEventListener('pointerdown', handler), 200);
     return () => { clearTimeout(timer); window.removeEventListener('pointerdown', handler); };
   }, [isEditing]);
 
   return (
     <div
+      ref={elementRef}
       data-element
       className={cn(
         'absolute',

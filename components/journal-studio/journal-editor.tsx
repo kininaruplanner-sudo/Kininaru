@@ -103,6 +103,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showQuickBlocks, setShowQuickBlocks] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [autoEditId, setAutoEditId] = useState<string | null>(null);
 
   // ---- Undo/Redo (from history manager) ----
   const [historyState, setHistoryState] = useState(getHistorySnapshot());
@@ -192,6 +193,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
             };
             setElements([autoText]);
             setSelectedId(tempId);
+            setAutoEditId(tempId);
           }
         }
       } catch {
@@ -200,6 +202,13 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     })();
     return () => { cancelled = true; };
   }, [journalId, onBack]);
+
+  // Clear autoEditId when selection changes (consumed by the element)
+  useEffect(() => {
+    if (autoEditId && selectedId !== autoEditId) {
+      setAutoEditId(null);
+    }
+  }, [selectedId, autoEditId]);
 
   // ===================================================================
   // FLUSH: Save current page elements before switching
@@ -438,6 +447,10 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
 
         await executeCommand(command);
         setSelectedId(newEl.id);
+        // Writing-first: auto-enter edit mode for text elements
+        if (type === 'text') {
+          setAutoEditId(newEl.id);
+        }
         setActiveTool('select');
         markDirty();
       } catch (err) {
@@ -1196,7 +1209,7 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
               >
                 {/* Rendered elements */}
                 {elements.map((el) => (                  <ElementRenderer
-                    key={el.id} element={el} isSelected={selectedId === el.id || selectedIds.has(el.id)} zoom={zoom}
+                    key={el.id} element={el} isSelected={selectedId === el.id || selectedIds.has(el.id)} zoom={zoom} autoEdit={autoEditId === el.id}
                     onSelect={(e) => handleToggleSelect(el.id, e as React.MouseEvent)}
                     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ elementId: el.id, x: e.clientX, y: e.clientY }); }}
                     onDragStart={snapshotElement}
