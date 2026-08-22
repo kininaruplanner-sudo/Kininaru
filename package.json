@@ -11,7 +11,8 @@
     "test:ai": "node --experimental-strip-types scripts/ai-e2e-test.ts",
     "test:ai:live": "node --experimental-strip-types scripts/ai-e2e-test.ts --live",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "npx playwright test"
   },
   "dependencies": {
     "@ai-sdk/groq": "^4.0.13",
@@ -33,6 +34,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24",
     "@types/react": "^19",
