@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, CheckCircle2, ArrowLeft } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { getAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -35,7 +36,7 @@ export default function ForgotPasswordPage() {
       if (resetError) throw resetError
       setSent(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.sendReset'))
+      setError(getAuthErrorMessage(err, t('auth.sendReset')))
     } finally {
       setLoading(false)
     }

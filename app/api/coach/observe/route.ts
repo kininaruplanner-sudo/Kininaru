@@ -6,6 +6,7 @@ import {
   type Observation,
   type CoachStyle,
 } from '@/lib/coach/rules'
+import { isRateLimited } from '@/lib/ai/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -20,24 +21,7 @@ export const runtime = 'nodejs'
  * in-app notifications (the `notifications` table, RLS-protected).
  */
 
-// Lightweight in-memory rate limiter (same pattern as /api/chat): an
-// authenticated user can open the coach window a reasonable number of times.
-const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 40
-const rateBuckets = new Map<string, number[]>()
-
-function isRateLimited(userId: string): boolean {
-  const now = Date.now()
-  const cutoff = now - RATE_LIMIT_WINDOW_MS
-  const timestamps = (rateBuckets.get(userId) ?? []).filter((t) => t > cutoff)
-  if (timestamps.length >= RATE_LIMIT_MAX) {
-    rateBuckets.set(userId, timestamps)
-    return true
-  }
-  timestamps.push(now)
-  rateBuckets.set(userId, timestamps)
-  return false
-}
 
 export async function POST(req: Request) {
   try {
@@ -49,7 +33,7 @@ export async function POST(req: Request) {
     if (!user) {
       return Response.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    if (isRateLimited(user.id)) {
+    if (await isRateLimited('coach-observe', user.id, RATE_LIMIT_MAX)) {
       return Response.json({ error: 'Trop de requêtes. Réessaie dans un instant.' }, { status: 429 })
     }
 

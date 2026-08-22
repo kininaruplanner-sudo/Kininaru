@@ -5,7 +5,7 @@
  * These are mock-based tests that verify the logic flow without a real Supabase instance.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 // ── Memory privacy server-side check ──
 

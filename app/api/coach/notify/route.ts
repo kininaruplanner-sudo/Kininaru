@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isRateLimited } from '@/lib/ai/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -13,23 +14,7 @@ export const runtime = 'nodejs'
 
 const MAX_TITLE = 120
 const MAX_BODY = 500
-
-const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 30
-const rateBuckets = new Map<string, number[]>()
-
-function isRateLimited(userId: string): boolean {
-  const now = Date.now()
-  const cutoff = now - RATE_LIMIT_WINDOW_MS
-  const timestamps = (rateBuckets.get(userId) ?? []).filter((t) => t > cutoff)
-  if (timestamps.length >= RATE_LIMIT_MAX) {
-    rateBuckets.set(userId, timestamps)
-    return true
-  }
-  timestamps.push(now)
-  rateBuckets.set(userId, timestamps)
-  return false
-}
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +25,7 @@ export async function POST(req: Request) {
     if (!user) {
       return Response.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    if (isRateLimited(user.id)) {
+    if (await isRateLimited('coach-notify', user.id, RATE_LIMIT_MAX)) {
       return Response.json({ error: 'Trop de requêtes. Réessaie dans un instant.' }, { status: 429 })
     }
 

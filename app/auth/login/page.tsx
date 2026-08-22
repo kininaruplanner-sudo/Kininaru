@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { useI18n } from '@/lib/i18n'
 import { KinLogo } from '@/components/kin-logo'
 import AuthConfigRequired from '@/components/auth-config-required'
+import { getAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -42,7 +43,7 @@ export default function LoginPage() {
       router.push('/dashboard')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.signIn'))
+      setError(getAuthErrorMessage(err, t('auth.signIn')))
     } finally {
       setLoading(false)
     }
@@ -60,7 +61,7 @@ export default function LoginPage() {
       })
       if (error) throw error
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.googleFailed'))
+      setError(getAuthErrorMessage(err, t('auth.googleFailed')))
       setGoogleLoading(false)
     }
   }

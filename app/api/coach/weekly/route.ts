@@ -2,6 +2,7 @@ import { createGroq } from '@ai-sdk/groq'
 import { generateText } from 'ai'
 import { format, subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
+import { isRateLimited } from '@/lib/ai/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -19,22 +20,7 @@ export const runtime = 'nodejs'
  * feature never breaks without the key.
  */
 
-const WINDOW_MS = 60_000
-const MAX_PER_MINUTE = 3
-const buckets = new Map<string, number[]>()
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now()
-  const cutoff = now - WINDOW_MS
-  const timestamps = (buckets.get(key) ?? []).filter((t) => t > cutoff)
-  if (timestamps.length >= MAX_PER_MINUTE) {
-    buckets.set(key, timestamps)
-    return true
-  }
-  timestamps.push(now)
-  buckets.set(key, timestamps)
-  return false
-}
+const RATE_LIMIT_MAX = 3
 
 export async function POST() {
   try {
@@ -45,7 +31,7 @@ export async function POST() {
     if (!user) {
       return Response.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    if (isRateLimited(user.id)) {
+    if (await isRateLimited('coach-weekly', user.id, RATE_LIMIT_MAX)) {
       return Response.json({ error: 'Trop de requêtes. Réessaie dans un instant.' }, { status: 429 })
     }
 

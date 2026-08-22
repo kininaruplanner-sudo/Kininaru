@@ -121,9 +121,9 @@ export async function POST(req: Request) {
 
     if (!res.ok) throw new Error(`Flux ICS inaccessible (${res.status})`)
     rawText = await res.text()
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Erreur réseau"
-    return Response.json({ error: `Impossible de lire le flux : ${message}` }, { status: 502 })
+  } catch {
+    // Never expose DNS/network details to the client.
+    return Response.json({ error: "Impossible de lire le flux calendrier" }, { status: 502 })
   } finally {
     clearTimeout(t)
   }

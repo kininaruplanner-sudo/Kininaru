@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { useI18n } from '@/lib/i18n'
 import { KinLogo } from '@/components/kin-logo'
 import AuthConfigRequired from '@/components/auth-config-required'
+import { getAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function SignUpPage() {
   const [displayName, setDisplayName] = useState('')
@@ -39,7 +40,7 @@ export default function SignUpPage() {
       })
       if (error) throw error
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.googleFailed'))
+      setError(getAuthErrorMessage(err, t('auth.googleFailed')))
       setGoogleLoading(false)
     }
   }
@@ -67,7 +68,7 @@ export default function SignUpPage() {
 
       router.push('/auth/sign-up-success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.createAccount'))
+      setError(getAuthErrorMessage(err, t('auth.createAccount')))
     } finally {
       setLoading(false)
     }

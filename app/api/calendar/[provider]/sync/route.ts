@@ -9,6 +9,7 @@ import {
 } from '@/lib/calendar/oauth'
 import { parseIcs } from '@/lib/calendar/ics'
 import { localToUtcDate } from '@/lib/time'
+import { isPrivateIP, dnsResolve } from '@/lib/ssrf'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -285,6 +286,14 @@ export async function POST(
       if (!url || !/^https:\/\//i.test(url)) {
         throw new Error("URL ICS invalide (https requis)")
       }
+      // SSRF re-validation: DNS may have changed since initial subscribe.
+      const icsUrl = new URL(url)
+      const ips = await dnsResolve(icsUrl.hostname)
+      for (const ip of ips) {
+        if (isPrivateIP(ip)) {
+          throw new Error("L'URL pointe vers un réseau interne — synchronisation refusée")
+        }
+      }
       const controller = new AbortController()
       const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
       let raw: string
@@ -292,6 +301,7 @@ export async function POST(
         const res = await fetch(url, {
           signal: controller.signal,
           headers: { Accept: 'text/calendar' },
+          redirect: 'follow',
         })
         if (!res.ok) throw new Error(`Flux ICS inaccessible (${res.status})`)
         raw = await res.text()
@@ -392,6 +402,7 @@ export async function POST(
     if (syncingConnectionId) errQuery.eq('id', syncingConnectionId)
     else errQuery.eq('provider', provider)
     await errQuery
-    return Response.json({ error: message }, { status: 502 })
+    // Never expose internal error details to the client.
+    return Response.json({ error: "Erreur de synchronisation" }, { status: 502 })
   }
 }
