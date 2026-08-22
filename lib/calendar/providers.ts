@@ -18,7 +18,7 @@
  * the client id and the secret.
  */
 
-export type CalendarProviderId = 'google' | 'microsoft' | 'ics'
+export type CalendarProviderId = 'google' | 'ics'
 
 export interface CalendarProvider {
   id: CalendarProviderId
@@ -48,18 +48,7 @@ export const CALENDAR_PROVIDERS: CalendarProvider[] = [
     kind: 'oauth',
     docsUrl: '/docs/calendar-integrations.md',
   },
-  {
-    id: 'microsoft',
-    label: 'Microsoft Outlook / 365',
-    description:
-      'Vos calendriers Outlook ou Microsoft 365 dans Kininaru, via le flux OAuth officiel Microsoft.',
-    clientIdEnv: 'NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID',
-    serverConfigEnv: 'MICROSOFT_OAUTH_CLIENT_SECRET',
-    defaultSyncMode: 'read',
-    kind: 'oauth',
-    docsUrl: '/docs/calendar-integrations.md',
-  },
-  {
+{
     id: 'ics',
     label: 'Apple / iCloud · ICS',
     description:

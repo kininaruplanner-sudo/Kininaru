@@ -68,6 +68,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Link href="/" className="fixed top-4 left-4 text-xs text-muted-foreground hover:text-foreground transition-smooth z-10">
+        ← Retourner à l’accueil
+      </Link>
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-2xl shadow-kin-hover p-8 transition-smooth">
           <div className="text-center mb-8">

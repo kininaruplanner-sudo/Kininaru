@@ -3,9 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getProvider } from '@/lib/calendar/providers'
 import {
   googleOAuthConfig,
-  microsoftOAuthConfig,
   googleAuthorizeUrl,
-  microsoftAuthorizeUrl,
 } from '@/lib/calendar/oauth'
 import { createOAuthState } from '@/lib/oauth-state'
 
@@ -68,21 +66,6 @@ export async function GET(
       )
     }
     clientId = cfg.clientId
-  } else if (p.id === 'microsoft') {
-    const cfg = microsoftOAuthConfig()
-    if (!cfg) {
-      return Response.json(
-        {
-          error: `OAuth Microsoft non configuré pour ${p.label}`,
-          missing: ['NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID', 'MICROSOFT_OAUTH_CLIENT_SECRET'].filter(
-            (k) => !process.env[k]
-          ),
-          guide: '/docs/calendar-integrations.md',
-        },
-        { status: 503 }
-      )
-    }
-    clientId = cfg.clientId
   } else {
     return Response.json({ error: "Flux non implémenté" }, { status: 501 })
   }
@@ -102,8 +85,5 @@ export async function GET(
     )
   }
 
-  if (p.id === 'google') {
-    return Response.redirect(googleAuthorizeUrl(origin, clientId, state))
-  }
-  return Response.redirect(microsoftAuthorizeUrl(origin, clientId, state))
+  return Response.redirect(googleAuthorizeUrl(origin, clientId, state))
 }
