@@ -18,7 +18,6 @@ import { BetaBadge } from '@/components/beta-badge'
 import { BetaNotice } from '@/components/beta-notice'
 import { useAiSidePanel } from '@/lib/ai-side-panel-context'
 import { AIAssistantClient } from '@/app/(app)/ai/ai-client'
-import { VoiceCallProvider, useVoiceCallGlobal } from '@/lib/voice-call-provider'
 
 interface AppShellProps {
   displayName?: string
@@ -26,11 +25,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ displayName, children }: AppShellProps) {
-  return (
-    <VoiceCallProvider>
-      <AppShellInner displayName={displayName}>{children}</AppShellInner>
-    </VoiceCallProvider>
-  )
+  return <AppShellInner displayName={displayName}>{children}</AppShellInner>
 }
 
 function AppShellInner({ displayName, children }: AppShellProps) {
@@ -111,34 +106,6 @@ function AppShellInner({ displayName, children }: AppShellProps) {
           two navigations never stack. */}
       {!mobileOpen && <MobileNav />}
       <CoachBubble />
-      {/* Persistent voice call indicator — shown on ALL pages when a call is active */}
-      <VoiceCallIndicator />
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Persistent voice call indicator — compact bar at the bottom         */
-/* ------------------------------------------------------------------ */
-
-function VoiceCallIndicator() {
-  const voice = useVoiceCallGlobal()
-
-  if (!voice.callActive) return null
-
-  return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] rounded-2xl border border-primary/20 bg-card shadow-kin-hover px-4 py-2.5 flex items-center gap-3">
-      <span className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
-      <span className="text-sm font-medium text-foreground">
-        Appel IA en cours — {voice.callStatus === 'speaking' ? 'Le coach parle' : voice.callStatus === 'transcribing' ? 'Écoute…' : 'En ligne'}
-      </span>
-      <button
-        onClick={voice.endCall}
-        className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-destructive text-destructive-foreground px-3 py-1.5 text-xs font-medium hover:bg-destructive/90 active:scale-95 transition-smooth"
-        aria-label="Arrêter l'appel"
-      >
-        Arrêter
-      </button>
     </div>
   )
 }

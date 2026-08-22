@@ -239,27 +239,33 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
   // ---- family tasks ----
   const [taskTitle, setTaskTitle] = useState('')
   const [taskAssignee, setTaskAssignee] = useState('')
+  const [taskBusy, setTaskBusy] = useState(false)
 
   const addTask = async () => {
-    if (!selected || !taskTitle.trim()) return
-    const { data, error } = await supabase
-      .from('family_tasks')
-      .insert({
-        family_id: selected.id,
-        user_id: userId,
-        assignee_id: taskAssignee || null,
-        title: taskTitle.trim(),
-      })
-      .select()
-      .single()
-    if (error) {
-      setError('Impossible d\'ajouter la tâche. Réessayez.')
-      return
-    }
-    if (data) {
-      setTaskState((prev) => [data, ...prev])
-      setTaskTitle('')
-      setTaskAssignee('')
+    if (!selected || !taskTitle.trim() || taskBusy) return
+    setTaskBusy(true)
+    try {
+      const { data, error } = await supabase
+        .from('family_tasks')
+        .insert({
+          family_id: selected.id,
+          user_id: userId,
+          assignee_id: taskAssignee || null,
+          title: taskTitle.trim(),
+        })
+        .select()
+        .single()
+      if (error) {
+        setError('Impossible d\'ajouter la tâche. Réessayez.')
+        return
+      }
+      if (data) {
+        setTaskState((prev) => [data, ...prev])
+        setTaskTitle('')
+        setTaskAssignee('')
+      }
+    } finally {
+      setTaskBusy(false)
     }
   }
 
@@ -502,8 +508,8 @@ export function FamilyClient({ userId, families: initialFamilies, members, event
                           </option>
                         ))}
                       </select>
-                      <Button size="sm" onClick={addTask} className="gap-1">
-                        <Plus className="w-3.5 h-3.5" /> Ajouter
+                      <Button size="sm" onClick={addTask} disabled={taskBusy || !taskTitle.trim()} className="gap-1">
+                        <Plus className="w-3.5 h-3.5" /> {taskBusy ? 'Ajout...' : 'Ajouter'}
                       </Button>
                     </div>
 

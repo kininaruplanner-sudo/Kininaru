@@ -1,4 +1,4 @@
-import { googleOAuthConfig, microsoftOAuthConfig } from '@/lib/calendar/oauth'
+import { googleOAuthConfig } from '@/lib/calendar/oauth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,18 +17,11 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
   const google = googleOAuthConfig()
-  const microsoft = microsoftOAuthConfig()
   return Response.json({
     providers: {
       google: {
         configured: google !== null,
         missing: ['NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET'].filter(
-          (k) => !process.env[k]
-        ),
-      },
-      microsoft: {
-        configured: microsoft !== null,
-        missing: ['NEXT_PUBLIC_MICROSOFT_OAUTH_CLIENT_ID', 'MICROSOFT_OAUTH_CLIENT_SECRET'].filter(
           (k) => !process.env[k]
         ),
       },
