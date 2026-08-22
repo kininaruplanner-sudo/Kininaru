@@ -156,6 +156,7 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
         scheduleNext(alarm)
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleNext is a hoisted function declaration, not reactive state
     [showAlarm, supabase]
   )
 
@@ -167,8 +168,9 @@ export function AlarmClient({ alarms: initial, userId }: Props) {
       if (alarm.enabled) scheduleAlarm(alarm)
     }
     return () => {
-      for (const t of timersRef.current.values()) clearTimeout(t)
-      timersRef.current.clear()
+      const timers = timersRef.current
+      for (const t of timers.values()) clearTimeout(t)
+      timers.clear()
     }
   }, [alarms, scheduleAlarm])
 

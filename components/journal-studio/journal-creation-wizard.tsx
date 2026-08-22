@@ -24,7 +24,6 @@ import {
 import type { Journal, CoverType, PaperStyle } from '@/lib/journal-studio/types';
 import { COVER_PRESETS } from '@/lib/journal-studio/types';
 import { devLog } from '@/lib/journal-studio/sync/indexed-db';
-import { type JournalTemplate } from '@/lib/journal-studio/templates';
 
 interface JournalCreationWizardProps {
   onComplete: (journal: Journal) => void;
@@ -67,7 +66,6 @@ export function JournalCreationWizard({ onComplete, onCancel }: JournalCreationW
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
-  const [, setSelectedTemplate] = useState<JournalTemplate | null>(null);
   const [coverType, setCoverType] = useState<CoverType>('minimal');
   const [coverColor, setCoverColor] = useState('#E8D5C4');
   const [coverGradientFrom, setCoverGradientFrom] = useState<string | undefined>();

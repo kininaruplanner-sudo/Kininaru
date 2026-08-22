@@ -549,12 +549,6 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     markDirty();
   }, [markDirty]);
 
-  // ---- Lock / Unlock ----
-  const handleToggleLock = useCallback((id: string) => {
-    setElements((prev) => prev.map((el) => el.id === id ? { ...el, is_locked: !(el.is_locked ?? false) } : el));
-    markDirty();
-  }, [markDirty]);
-
   // ---- Layer management ----
   const handleBringForward = useCallback((id: string) => {
     setElements((prev) => {
