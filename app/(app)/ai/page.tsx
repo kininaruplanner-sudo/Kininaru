@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { AIAssistantClient } from './ai-client'
+import { AiSidePanelProvider } from '@/lib/ai-side-panel-context'
+import { AiPageContent } from './ai-page-content'
 
 export default async function AIPage() {
   const supabase = await createClient()
@@ -16,5 +17,9 @@ export default async function AIPage() {
     .eq('id', user.id)
     .single()
 
-  return <AIAssistantClient displayName={profile?.display_name ?? 'friend'} />
+  return (
+    <AiSidePanelProvider>
+      <AiPageContent displayName={profile?.display_name ?? 'friend'} />
+    </AiSidePanelProvider>
+  )
 }

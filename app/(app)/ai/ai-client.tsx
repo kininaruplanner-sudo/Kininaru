@@ -335,6 +335,18 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
     }
   }
 
+  // Listen for quick-action messages from the side panel (on /ai page)
+  useEffect(() => {
+    const onAiSend = (e: Event) => {
+      const msg = (e as CustomEvent).detail?.message
+      if (typeof msg === 'string' && msg.trim()) {
+        sendMessage(msg.trim())
+      }
+    }
+    window.addEventListener('kininaru:ai-send', onAiSend)
+    return () => window.removeEventListener('kininaru:ai-send', onAiSend)
+  }, [sendMessage])
+
   // Voice-call mode: speaks the coach's answers aloud and keeps listening,
   // like a hands-free phone call. Reuses the exact same chat pipeline above.
   // Voice prefs (voice / rate / volume) live in the shared settings page and
