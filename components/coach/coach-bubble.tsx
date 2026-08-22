@@ -19,6 +19,9 @@ export function CoachBubble() {
   const pathname = usePathname()
   const isAi = pathname === '/ai'
 
+  // Hide on the AI page — the assistant IS the page, no floating bubble needed.
+  if (isAi) return null
+
   return (
     <button
       onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
