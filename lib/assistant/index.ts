@@ -139,41 +139,6 @@ export type {
   BatchResult,
 } from './memory'
 
-// Agent Orchestration (Phase 11: Intent Routing & Multi-Step Planning)
-export {
-  routeIntent,
-  validatePlanStep,
-  getCapability,
-  getAllCapabilities,
-  getCapabilityNames,
-  resolveCapabilities,
-  canPerformAction,
-  buildPlan,
-  createBudget,
-  checkBudget,
-  validatePlan,
-  executePlan,
-  formatPlanForUI,
-  formatExecutionForUI,
-  CAPABILITIES,
-  DEFAULT_ROUTER_CONFIG,
-} from './agents'
-export type {
-  Intent,
-  IntentCategory,
-  CapabilityName,
-  AgentCapability,
-  PlanStep,
-  PlanStepAction,
-  StructuredPlan,
-  ExecutionBudget,
-  BudgetCheck,
-  AgentStepResult,
-  AgentExecutionResult,
-  AgentStepStatus,
-  RouterConfig,
-} from './agents'
-
 // Notification Center (Phase 12: Proactive Assistant + Notifications)
 export {
   getBestNotification,
