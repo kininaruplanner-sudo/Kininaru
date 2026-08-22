@@ -5,12 +5,10 @@ import { motion, type Variants } from 'framer-motion'
 import {
   format,
   isToday,
-  isTomorrow,
   isSameDay,
   differenceInMinutes,
   parseISO,
   eachDayOfInterval,
-  subDays,
   addDays,
 } from 'date-fns'
 import { fr as frLocale } from 'date-fns/locale'
@@ -19,7 +17,6 @@ import {
   CalendarDays,
   Timer,
   Repeat2,
-  TrendingUp,
   Zap,
   Award,
   ChevronRight,
@@ -171,9 +168,7 @@ export function DashboardClient({
     .reduce((a, s) => a + (s.duration_minutes || 0), 0)
   const weekFocusMinutes = focusSessions.reduce((a, s) => a + (s.duration_minutes || 0), 0)
   const todaySessionCount = focusSessions.filter((s) => s.created_at?.startsWith(todayUtcKey)).length
-  const avgSessionLength = focusSessions.length
-    ? Math.round(weekFocusMinutes / focusSessions.length)
-    : 0
+
 
   // ---- Next event ----
   const nextEvent = events.find((e) => new Date(e.start_at) > time)
@@ -198,18 +193,7 @@ export function DashboardClient({
   }))
 
   // ---- Weekly progress chart: tasks completed + habits logged, last 7 days ----
-  const weekDays = useMemo(() => eachDayOfInterval({ start: subDays(new Date(), 6), end: new Date() }), [])
-  const weeklyData = weekDays.map((day) => {
-    const dateStr = format(day, 'yyyy-MM-dd')
-    return {
-      label: format(day, 'EEE', { locale: frLocale }),
-      tasksCompleted: tasks.filter((t) => t.status === 'done' && t.completed_at?.startsWith(dateStr)).length,
-      habitsCompleted: habitLogs.filter((l) => l.logged_date === dateStr).length,
-      isToday: dateStr === todayLocalKey,
-    }
-  })
-  const maxWeekly = Math.max(...weeklyData.flatMap((d) => [d.tasksCompleted, d.habitsCompleted]), 1)
-  const weeklyHasActivity = weeklyData.some((d) => d.tasksCompleted > 0 || d.habitsCompleted > 0)
+
 
   // ---- Productivity score: blended, transparent heuristic ----
   const FOCUS_GOAL_MINUTES = 120
@@ -927,132 +911,40 @@ export function DashboardClient({
             )}
           </motion.div>
 
-          {/* Calendar preview */}
+          {/* Calendar + weekly progress: linked inline */}
           <motion.div
             custom={8}
             variants={fadeUp}
             initial="hidden"
             animate="visible"
-            className={cardVariants({ padding: 'lg' })}
+            className={cardVariants({ padding: 'md' })}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="kin-h3 text-foreground">Calendrier</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Les 7 prochains jours</p>
-              </div>
-              <Link href="/calendar" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                <Plus className="w-3.5 h-3.5" /> Événement
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="kin-h3 text-foreground">Calendrier</h2>
+              <Link href="/calendar" className="text-xs text-primary hover:underline">
+                Voir →
               </Link>
             </div>
-
-            <Link href="/calendar" className="grid grid-cols-7 gap-1.5 mb-4">
+            <Link href="/calendar" className="grid grid-cols-7 gap-1 mb-3">
               {eventsByDay.map(({ date, count }) => (
                 <div
                   key={date.toISOString()}
                   className={cn(
-                    'flex flex-col items-center gap-1 py-2 rounded-xl transition-smooth',
+                    'flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-smooth',
                     isToday(date) ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted'
                   )}
                 >
-                  <span className="text-[10px] text-muted-foreground uppercase">{format(date, 'EEEEE')}</span>
-                  <span className={cn('text-sm font-medium', isToday(date) ? 'text-primary' : 'text-foreground')}>
+                  <span className="text-[9px] text-muted-foreground uppercase">{format(date, 'EEEEE')}</span>
+                  <span className={cn('text-xs font-medium', isToday(date) ? 'text-primary' : 'text-foreground')}>
                     {format(date, 'd')}
                   </span>
-                  <span className={cn('w-1.5 h-1.5 rounded-full', count > 0 ? 'bg-primary' : 'bg-transparent')} />
                 </div>
               ))}
             </Link>
-
-            {events.length === 0 ? (
-              <div className="text-center py-6">
-                <CalendarDays className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                <p className="text-sm text-muted-foreground">Aucun événement à venir</p>
-                <Link href="/calendar" className="text-xs text-primary hover:underline mt-1 inline-block">
-                  Planifier quelque chose
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {events.slice(0, 3).map((event) => {
-                  const start = parseISO(event.start_at)
-                  const label = isToday(start)
-                    ? 'Aujourd’hui'
-                    : isTomorrow(start)
-                    ? 'Demain'
-                    : format(start, 'EEE d MMM', { locale: frLocale })
-                  return (
-                    <div
-                      key={event.id}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-smooth group"
-                    >
-                      <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: event.color ?? 'var(--kt-sage)' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {label} · {format(start, 'HH:mm')}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Weekly progress */}
-          <motion.div
-            custom={12}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'lg' })}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="kin-h3 text-foreground">Progression de la semaine</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Tâches et habitudes, jour par jour</p>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-kin-violet" /> Tâches
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-kin-sage" /> Habitudes
-                </span>
-              </div>
-            </div>
-
-            {!weeklyHasActivity ? (
-              <div className="text-center py-8">
-                <TrendingUp className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                <p className="text-sm text-muted-foreground">Aucune activité cette semaine — c’est le moment de commencer !</p>
-              </div>
-            ) : (
-              <div className="flex items-end gap-3 sm:gap-5 h-32">
-                {weeklyData.map((d, i) => (
-                  <div key={d.label} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                    <div className="flex items-end gap-1 h-full">
-                      <motion.div
-                        initial={{ scaleY: 0 }}
-                        animate={{ scaleY: 1 }}
-                        transition={{ delay: i * 0.04, duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                        style={{ height: `${Math.max((d.tasksCompleted / maxWeekly) * 100, d.tasksCompleted > 0 ? 6 : 2)}%` }}
-                        className="w-2.5 rounded-t-sm bg-kin-violet origin-bottom self-end"
-                      />
-                      <motion.div
-                        initial={{ scaleY: 0 }}
-                        animate={{ scaleY: 1 }}
-                        transition={{ delay: i * 0.04 + 0.03, duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                        style={{ height: `${Math.max((d.habitsCompleted / maxWeekly) * 100, d.habitsCompleted > 0 ? 6 : 2)}%` }}
-                        className="w-2.5 rounded-t-sm bg-kin-sage origin-bottom self-end"
-                      />
-                    </div>
-                    <span className={cn('text-[10px]', d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground')}>
-                      {d.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            {events.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {events.length} événement{events.length > 1 ? 's' : ''} cette semaine
+              </p>
             )}
           </motion.div>
         </div>
@@ -1162,67 +1054,25 @@ export function DashboardClient({
             )}
           </motion.div>
 
-          {/* Focus statistics */}
-          <motion.div
-            custom={10}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'lg' })}
-          >
-            <h2 className="kin-h3 text-foreground mb-4">Focus</h2>
-            {focusSessions.length === 0 ? (
-              <div className="text-center py-4">
-                <Timer className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                <p className="text-sm text-muted-foreground">Aucune session cette semaine</p>
-                <Link href="/focus" className="text-xs text-primary hover:underline mt-1 inline-block">
-                  Démarrer une session
-                </Link>
+          {/* Focus — compact stat */}
+          {focusSessions.length > 0 && (
+            <motion.div
+              custom={10}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className={cardVariants({ padding: 'md' })}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="kin-h3 text-foreground">Focus</h2>
+                <Link href="/focus" className="text-xs text-primary hover:underline">Voir →</Link>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Aujourd’hui', value: `${todayFocusMinutes}m` },
-                  { label: 'Cette semaine', value: `${Math.round(weekFocusMinutes / 60)}h` },
-                  { label: 'Sessions', value: todaySessionCount },
-                  { label: 'Moyenne', value: `${avgSessionLength}m` },
-                ].map((s) => (
-                  <div key={s.label} className="p-3 rounded-xl bg-muted/50">
-                    <p className="text-lg font-bold text-foreground">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </div>
-                ))}
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-bold text-foreground">{todayFocusMinutes}m</span>
+                <span className="text-xs text-muted-foreground">aujourd'hui · {Math.round(weekFocusMinutes / 60)}h cette semaine</span>
               </div>
-            )}
-          </motion.div>
-
-          {/* Quick actions */}
-          <motion.div
-            custom={11}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'lg' })}
-          >
-            <h2 className="kin-h3 text-foreground mb-3">Actions rapides</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Nouvelle tâche', href: '/tasks?new=1', icon: CheckSquare },
-                { label: 'Nouvel événement', href: '/calendar?new=1', icon: CalendarDays },
-                { label: 'Démarrer le focus', href: '/focus', icon: Timer },
-                { label: 'Écrire au journal', href: '/journal', icon: CloudSun },
-              ].map(({ label, href, icon: Icon }) => (
-                <Link
-                  key={label}
-                  href={href}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/50 hover:bg-muted hover:shadow-kin transition-smooth hover:-translate-y-0.5 text-center"
-                >
-                  <Icon className="w-5 h-5 text-primary" />
-                  <span className="text-xs font-medium text-foreground">{label}</span>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
