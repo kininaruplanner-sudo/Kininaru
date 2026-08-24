@@ -65,9 +65,10 @@ export function ElementRenderer({
       e.stopPropagation();
       e.preventDefault();
 
-      // Writing-first: single-click on a selected text element enters edit mode
-      // immediately. Double-click still works as a fallback.
-      if (isSelected && element.element_type === 'text') {
+      // Writing-first: a single click on any text element enters edit mode
+      // immediately — no double-click or pre-selection required.
+      if (element.element_type === 'text') {
+        onSelect(e as unknown as React.MouseEvent);
         setIsEditing(true);
         return;
       }
@@ -347,7 +348,31 @@ function TextInner({ element, isEditing, setIsEditing, onUpdateElement }: {
         onChange={(e) => setLocalText(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') { setIsEditing(false); setLocalText(props.content); }
+          // Ctrl/Cmd+S → save (dispatch event so journal-editor picks it up)
+          if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            e.stopPropagation();
+            window.dispatchEvent(new Event('kininaru:journal-save'));
+            return;
+          }
+          // Ctrl/Cmd+Z → let native textarea undo work (don't call journal undo)
+          if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            // Allow native undo — do NOT call e.preventDefault() or journal undo
+            e.stopPropagation();
+            return;
+          }
+          // Ctrl/Cmd+Shift+Z / Ctrl+Y → let native textarea redo work
+          if ((e.ctrlKey || e.metaKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+            e.stopPropagation();
+            return;
+          }
+          // Escape → cancel editing, revert to original content
+          if (e.key === 'Escape') {
+            setIsEditing(false);
+            setLocalText(props.content);
+            return;
+          }
+          // Prevent all other keystrokes from reaching the global journal handler
           e.stopPropagation();
         }}
         onClick={(e) => e.stopPropagation()}
@@ -390,7 +415,7 @@ function TextInner({ element, isEditing, setIsEditing, onUpdateElement }: {
       }}
     >
       {props.content || (
-        <span className="text-muted-foreground/50 italic">Double-cliquez pour écrire</span>
+        <span className="text-muted-foreground/50 italic">Cliquez pour écrire…</span>
       )}
     </div>
   );

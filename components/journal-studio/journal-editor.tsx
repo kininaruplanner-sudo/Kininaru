@@ -388,6 +388,14 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
     dirtyRef.current = true;
   }, []);
 
+  // Listen for Ctrl+S dispatched from text elements editing inside the canvas.
+  // This bridges the textarea onKeyDown → custom event → journal save pipeline.
+  useEffect(() => {
+    const onSave = () => { flushCurrentPage(); persistToServer(); };
+    window.addEventListener('kininaru:journal-save', onSave);
+    return () => window.removeEventListener('kininaru:journal-save', onSave);
+  }, [flushCurrentPage, persistToServer]);
+
   // ===================================================================
   // HISTORY (undo/redo) — via Command pattern
   // ===================================================================
