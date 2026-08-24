@@ -1069,7 +1069,7 @@ export function DashboardClient({
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-foreground">{todayFocusMinutes}m</span>
-                <span className="text-xs text-muted-foreground">aujourd'hui · {Math.round(weekFocusMinutes / 60)}h cette semaine</span>
+                <span className="text-xs text-muted-foreground">aujourd&apos;hui · {Math.round(weekFocusMinutes / 60)}h cette semaine</span>
               </div>
             </motion.div>
           )}
