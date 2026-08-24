@@ -19,7 +19,10 @@ export interface JournalCommand {
 async function insertElementToDB(payload: Record<string, unknown>): Promise<void> {
   const { createClient } = await import('@/lib/supabase/client');
   const supabase = createClient();
-  const { error } = await supabase.from('journal_elements').insert(payload);
+  // Always use the real authenticated user_id — never trust the caller.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { error } = await supabase.from('journal_elements').insert({ ...payload, user_id: user.id });
   if (error) throw error;
 }
 

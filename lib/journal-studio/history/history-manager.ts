@@ -71,9 +71,15 @@ export async function executeCommand(command: JournalCommand): Promise<void> {
 export async function undo(): Promise<boolean> {
   if (state.undoStack.length === 0) return false;
 
-  const command = state.undoStack.pop()!;
-  await command.undo();
-
+  const command = state.undoStack[state.undoStack.length - 1];
+  try {
+    await command.undo();
+  } catch (err) {
+    devLog('HISTORY', `Undo failed for ${command.type}`, err);
+    return false;
+  }
+  // Only move to redo stack after successful undo
+  state.undoStack.pop();
   state.redoStack.push(command);
 
   devLog('HISTORY', `Undid ${command.type} (undo: ${state.undoStack.length}, redo: ${state.redoStack.length})`);
@@ -87,9 +93,15 @@ export async function undo(): Promise<boolean> {
 export async function redo(): Promise<boolean> {
   if (state.redoStack.length === 0) return false;
 
-  const command = state.redoStack.pop()!;
-  await command.redo();
-
+  const command = state.redoStack[state.redoStack.length - 1];
+  try {
+    await command.redo();
+  } catch (err) {
+    devLog('HISTORY', `Redo failed for ${command.type}`, err);
+    return false;
+  }
+  // Only move to undo stack after successful redo
+  state.redoStack.pop();
   state.undoStack.push(command);
 
   devLog('HISTORY', `Redid ${command.type} (undo: ${state.undoStack.length}, redo: ${state.redoStack.length})`);
