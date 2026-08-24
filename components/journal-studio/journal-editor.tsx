@@ -436,10 +436,12 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         };
 
         // Execute creates the element in Supabase
+        let realId: string | null = null;
         const command = createElementCommand(
           newEl,
           (el) => {
-            // Replace temp with real element
+            // Replace temp with real element and capture the real DB id
+            realId = el.id;
             setElements((prev) => {
               const idx = prev.findIndex((p) => p.id === tempId);
               if (idx >= 0) {
@@ -454,10 +456,12 @@ export function JournalEditor({ journalId, onBack }: { journalId: string; onBack
         );
 
         await executeCommand(command);
-        setSelectedId(newEl.id);
+        // Use the real DB id (not the temp id) for selection and auto-edit
+        const finalId = realId ?? newEl.id;
+        setSelectedId(finalId);
         // Writing-first: auto-enter edit mode for text elements
         if (type === 'text') {
-          setAutoEditId(newEl.id);
+          setAutoEditId(finalId);
         }
         setActiveTool('select');
         markDirty();
