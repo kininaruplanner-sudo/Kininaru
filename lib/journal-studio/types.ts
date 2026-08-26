@@ -519,3 +519,160 @@ export function rowToElement(row: JournalElementRow): JournalElement {
     properties: row.properties as unknown as TextProperties | ShapeProperties | StickerProperties | ImageProperties | DrawingProperties,
   };
 }
+
+// =====================================================================
+// DOCUMENT MODEL — Block-based content (NEW)
+// =====================================================================
+// Each page stores content_blocks as JSONB. New journals use this model.
+// Old journals (with x/y positioned elements) keep working via LegacyRenderer.
+
+/** Block type discriminator */
+export type BlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'subheading'
+  | 'bullet_list'
+  | 'numbered_list'
+  | 'checklist'
+  | 'divider'
+  | 'quote';
+
+/** Inline formatting mark — spans within a paragraph */
+export interface InlineMark {
+  type: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code';
+  /** Character offset (0-based) within the block's text */
+  from: number;
+  to: number;
+}
+
+/** A single text segment with optional formatting */
+export interface TextSegment {
+  text: string;
+  marks?: InlineMark[];
+  color?: string;
+  highlight?: string;
+}
+
+/** Block-level formatting */
+export interface BlockStyle {
+  textAlign?: 'left' | 'center' | 'right';
+  indentLevel?: number;
+  /** Font family override (optional, defaults to document default) */
+  fontFamily?: string;
+  /** Font size override */
+  fontSize?: number;
+  /** Line height override */
+  lineHeight?: number;
+}
+
+/** A content block in a document page */
+export interface DocumentBlock {
+  id: string;
+  type: BlockType;
+  /** For checklist items */
+  checked?: boolean;
+  /** For bullet_list / numbered_list: nesting level */
+  level?: number;
+  /** For numbered_list: restart index */
+  startIndex?: number;
+  /** Block-level style overrides */
+  style?: BlockStyle;
+  /** Text content as segments (supports inline formatting) */
+  segments: TextSegment[];
+}
+
+/** Document page content — stored as JSONB in journal_pages.content_blocks */
+export interface DocumentPageContent {
+  /** Schema version for future migrations */
+  version: 1;
+  blocks: DocumentBlock[];
+  /** Optional: document-level defaults */
+  defaults?: {
+    fontFamily?: string;
+    fontSize?: number;
+    lineHeight?: number;
+  };
+}
+
+/** Journal page row with optional content_blocks */
+export interface JournalPageRowWithBlocks extends JournalPageRow {
+  content_blocks: DocumentPageContent | null;
+}
+
+// ---------------------------------------------------------------------
+// Helper: determine if a page uses document model vs canvas model
+// ---------------------------------------------------------------------
+/**
+ * Returns true if the page uses the new document model.
+ * A page is document-model if it has non-null content_blocks
+ * OR if it has zero canvas elements (brand new page).
+ */
+export function isDocumentModel(page: { content_blocks?: DocumentPageContent | null; elements?: JournalElement[] }): boolean {
+  // Explicitly marked as document model
+  if (page.content_blocks && page.content_blocks.blocks.length > 0) return true;
+  // Brand new page with no content at all — default to document model
+  if (page.content_blocks === undefined || page.content_blocks === null) {
+    // If there are canvas elements, it's legacy
+    if (page.elements && page.elements.length > 0) return false;
+    // No content_blocks and no elements = new page → document model
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------
+// Helper: create a new empty document page content
+// ---------------------------------------------------------------------
+export function createEmptyDocumentPageContent(): DocumentPageContent {
+  return {
+    version: 1,
+    blocks: [
+      {
+        id: crypto.randomUUID(),
+        type: 'paragraph',
+        segments: [{ text: '' }],
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------
+// Helper: create a document block
+// ---------------------------------------------------------------------
+export function createDocumentBlock(
+  type: BlockType,
+  text = '',
+  style?: BlockStyle
+): DocumentBlock {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    segments: [{ text }],
+    ...(style ? { style } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------
+// Helper: extract plain text from a document block
+// ---------------------------------------------------------------------
+export function blockPlainText(block: DocumentBlock): string {
+  return block.segments.map((s) => s.text).join('');
+}
+
+// ---------------------------------------------------------------------
+// Helper: create a TextSegment from a string with optional marks
+// ---------------------------------------------------------------------
+export function textSegment(text: string, marks?: InlineMark[], color?: string, highlight?: string): TextSegment {
+  const seg: TextSegment = { text };
+  if (marks && marks.length > 0) seg.marks = marks;
+  if (color) seg.color = color;
+  if (highlight) seg.highlight = highlight;
+  return seg;
+}
+
+// ---------------------------------------------------------------------
+// Helper: create an InlineMark
+// ---------------------------------------------------------------------
+export function inlineMark(type: InlineMark['type'], from: number, to: number): InlineMark {
+  return { type, from, to };
+}
