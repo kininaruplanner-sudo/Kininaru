@@ -167,9 +167,22 @@ interface Props {
   /** Rendered inside the floating assistant panel: no page header, no
       conversation sidebar (chips only) so it fits a narrow right drawer. */
   embedded?: boolean
+  /** Called when the voice call state changes, for the persistent indicator. */
+  onVoiceStateChange?: (state: {
+    callActive: boolean
+    callStatus: string
+    callError: string | null
+    interim: string
+    muted: boolean
+    callSeconds: number
+    speechSupported: boolean
+    startCall: () => void
+    endCall: () => void
+    toggleMute: () => void
+  }) => void
 }
 
-export function AIAssistantClient({ displayName, embedded }: Props) {
+export function AIAssistantClient({ displayName, embedded, onVoiceStateChange }: Props) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>(freshGreeting)
   const [input, setInput] = useState('')
@@ -359,6 +372,24 @@ export function AIAssistantClient({ displayName, embedded }: Props) {
     abortRef,
     prefs: voicePrefs.prefs,
   })
+
+  // Report voice state to parent (persistent indicator) whenever it changes.
+  useEffect(() => {
+    if (onVoiceStateChange) {
+      onVoiceStateChange({
+        callActive: voice.callActive,
+        callStatus: voice.callStatus,
+        callError: voice.callError,
+        interim: voice.interim,
+        muted: voice.muted,
+        callSeconds: voice.callSeconds,
+        speechSupported: voice.speechSupported,
+        startCall: voice.startCall,
+        endCall: voice.endCall,
+        toggleMute: voice.toggleMute,
+      })
+    }
+  }, [voice.callActive, voice.callStatus, voice.callError, voice.interim, voice.muted, voice.callSeconds, voice.speechSupported, voice.startCall, voice.endCall, voice.toggleMute, onVoiceStateChange])
 
   // The header button opens the pre-call home screen (tune the voice before
   // the call starts); "Démarrer" on that screen starts the actual call.

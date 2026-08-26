@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, PhoneOff } from 'lucide-react'
 import { Sidebar } from '@/components/sidebar'
 import { PageTransition } from '@/components/page-transition'
 import { CommandPalette } from '@/components/command-palette'
@@ -18,6 +18,7 @@ import { BetaBadge } from '@/components/beta-badge'
 import { BetaNotice } from '@/components/beta-notice'
 import { useAiSidePanel } from '@/lib/ai-side-panel-context'
 import { AIAssistantClient } from '@/app/(app)/ai/ai-client'
+import { cn } from '@/lib/utils'
 
 interface AppShellProps {
   displayName?: string
@@ -28,6 +29,48 @@ export function AppShell({ displayName, children }: AppShellProps) {
   return <AppShellInner displayName={displayName}>{children}</AppShellInner>
 }
 
+/**
+ * Context object shared between the hidden (voice-keep-alive) AIAssistantClient
+ * and the call indicator bar. We use a thin wrapper around the voice state so
+ * the indicator can call endCall even when the /ai page is not active.
+ */
+const VOICE_STATE_EVENT = 'kininaru:voice-state'
+
+interface VoiceStateSnapshot {
+  callActive: boolean
+  callStatus: string
+  callError: string | null
+  interim: string
+  muted: boolean
+  callSeconds: number
+  speechSupported: boolean
+  startCall: () => void
+  endCall: () => void
+  toggleMute: () => void
+}
+
+// Module-level mutable reference: the hidden AIAssistantClient writes its
+// voice state here, and the indicator bar reads it.  Because both are
+// rendered by AppShellInner (same tree), React batching keeps them in sync.
+let _voiceState: VoiceStateSnapshot | null = null
+let _voiceListeners: Set<() => void> = new Set()
+
+function notifyVoiceListeners() {
+  _voiceListeners.forEach((l) => l())
+}
+
+export function useVoiceIndicator() {
+  const [, forceUpdate] = useState(0)
+
+  useEffect(() => {
+    const handler = () => forceUpdate((n) => n + 1)
+    _voiceListeners.add(handler)
+    return () => { _voiceListeners.delete(handler) }
+  }, [])
+
+  return _voiceState
+}
+
 function AppShellInner({ displayName, children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -36,9 +79,6 @@ function AppShellInner({ displayName, children }: AppShellProps) {
   const sidePanel = useAiSidePanel()
 
   // Rappels temporels (PLAN → REMIND) : actifs tant que l'app est ouverte.
-  // Même anti-spam que le coach (heures silencieuses, fréquence, pause) ;
-  // quand l'app est fermée, le cron serveur /api/cron/reminders prend le relais
-  // via Web Push pour les appareils abonnés.
   useReminderScheduler(true)
 
   // Auto-close the mobile drawer whenever navigation happens
@@ -46,12 +86,14 @@ function AppShellInner({ displayName, children }: AppShellProps) {
     setMobileOpen(false)
   }, [pathname])
 
+  const voiceState = useVoiceIndicator()
+
   return (
     <div className="kin-surface-tint flex h-screen overflow-hidden">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg">
         Aller au contenu principal
       </a>
-      {/* Connection pill (hors ligne / synchronisation) — app-wide, calm. */}
+      {/* Connection pill (hors ligne / synchronisation) */}
       <ConnectionStatus />
       <Sidebar
         displayName={displayName}
@@ -62,10 +104,7 @@ function AppShellInner({ displayName, children }: AppShellProps) {
       />
 
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Mobile-only top bar: the sidebar is off-screen below lg, so this is
-            what gives small screens a persistent, fixed "header" with access
-            to navigation. Hidden entirely on desktop to avoid a redundant
-            second header stacked above each page's own title bar. */}
+        {/* Mobile-only top bar */}
         <header className="lg:hidden shrink-0 h-14 flex items-center gap-2 px-3 border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-20">
           <Button
             variant="ghost"
@@ -81,8 +120,29 @@ function AppShellInner({ displayName, children }: AppShellProps) {
 
         <BetaNotice />
 
-        {/* Bottom padding clears the fixed mobile nav bar (incl. the AI
-            composer and the end of every page) without affecting desktop. */}
+        {/* Persistent voice call indicator — visible on ALL pages when call is active */}
+        {voiceState?.callActive && (
+          <div className="shrink-0 flex items-center gap-3 px-4 py-2 bg-primary/5 border-b border-primary/20 text-sm">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+            </span>
+            <span className="flex-1 text-foreground font-medium truncate">
+              Appel IA en cours — {voiceState.callStatus === 'listening' ? "À l'écoute" : voiceState.callStatus === 'speaking' ? 'Le coach répond…' : 'Connexion…'}
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={voiceState.endCall}
+              className="gap-1.5 shrink-0 h-7"
+            >
+              <PhoneOff className="w-3 h-3" />
+              Arrêter
+            </Button>
+          </div>
+        )}
+
+        {/* Main content */}
         <main id="main-content" className="flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
           <PageTransition>{children}</PageTransition>
         </main>
@@ -95,15 +155,21 @@ function AppShellInner({ displayName, children }: AppShellProps) {
         </div>
       )}
 
+      {/* Hidden AIAssistantClient — keeps the voice call alive across route changes.
+          It's always mounted, never visible, and its voice state is exposed to the
+          indicator bar via the module-level _voiceState ref.  The voice call ONLY
+          starts when the user explicitly clicks "Start" on /ai, so this hidden
+          instance does NOT auto-start anything. */}
+      <div className="sr-only" aria-hidden="true" style={{ position: 'fixed', pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
+        <AIAssistantClient
+          displayName={displayName ?? 'toi'}
+          onVoiceStateChange={(vs) => { _voiceState = vs; notifyVoiceListeners() }}
+        />
+      </div>
+
       <CommandPalette />
-      {/* Floating Settings window — opened from the sidebar gear, the
-          command palette or the coach (event kininaru:open-settings). */}
       <SettingsModal />
-      {/* Floating conversational assistant — opened by the CoachBubble
-          (only when the AI side panel is NOT active, i.e. not on /ai). */}
       {!sidePanel.active && <AssistantPanel displayName={displayName} />}
-      {/* Bottom tab bar on phones — hidden while the drawer is open so the
-          two navigations never stack. */}
       {!mobileOpen && <MobileNav />}
       <CoachBubble />
     </div>
