@@ -1,7 +1,16 @@
 -- =====================================================================
--- Kininaru Planner — Supabase schema
+-- Kininaru Planner — Supabase schema (DEVELOPMENT ONLY)
+-- =====================================================================
+-- ⚠️  WARNING: This file DESTROYS all data in the listed tables.
+--
+-- NEVER run this file against a production database.
+-- NEVER run this file against a database with real user data.
+--
+-- For production deployments, use schema-bootstrap-safe.sql instead.
+-- =====================================================================
+--
 -- Supprime les anciennes tables puis recrée tout ce dont l'app a besoin.
--- À exécuter dans Supabase Dashboard → SQL Editor.
+-- À exécuter dans Supabase Dashboard → SQL Editor (dev uniquement).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------

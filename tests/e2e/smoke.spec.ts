@@ -81,15 +81,13 @@ test.describe('Protected routes', () => {
   for (const route of protectedRoutes) {
     test(`${route} redirects to auth when not logged in`, async ({ page }) => {
       await page.goto(route, { waitUntil: 'domcontentloaded' })
-      // Wait for redirect
-      await page.waitForTimeout(2000)
+      // Wait for redirect (SSR middleware may redirect)
+      await page.waitForTimeout(3000)
       const url = page.url()
-      // Should redirect to /auth (with returnTo) or stay on the route
-      // (if SSR renders the page before redirect)
-      const isAuthRedirect = url.includes('/auth')
-      const isOnRoute = url.includes(route)
-      // Either redirect happened or page rendered (SSR)
-      expect(isAuthRedirect || isOnRoute).toBeTruthy()
+      // Must end up on an /auth page — never remain on the protected
+      // route without authentication (SSR may render, but middleware
+      // should redirect the client).
+      expect(url).toContain('/auth')
     })
   }
 })

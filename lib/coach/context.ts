@@ -71,11 +71,29 @@ export interface CoachContext {
 
 const HIGH_PRIORITIES = ['high', 'urgent'] as const
 
+function todayInTz(tz: string): Date {
+  const str = new Date().toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD
+  return new Date(str + 'T12:00:00Z')
+}
+
+function localHourInTz(tz: string): number {
+  return Number(
+    new Date().toLocaleString('en-GB', { timeZone: tz, hour: 'numeric', hour12: false })
+  )
+}
+
 export async function buildCoachContext(
   supabase: SupabaseClient,
   userId: string
 ): Promise<CoachContext> {
-  const now = new Date()
+  // Fetch the user's timezone to compute "today" correctly.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', userId)
+    .maybeSingle()
+  const tz = (profile?.timezone as string | undefined) ?? 'UTC'
+  const now = todayInTz(tz)
   const todayKey = format(now, 'yyyy-MM-dd')
   const startOfDay = `${todayKey}T00:00:00`
   const tomorrowKey = format(new Date(now.getTime() + 86_400_000), 'yyyy-MM-dd')
@@ -162,7 +180,7 @@ export async function buildCoachContext(
   const priorityList = (priorityTasks ?? []) as { id: string; title: string }[]
 
   return {
-    hour: now.getHours(),
+    hour: localHourInTz(tz),
     tasksToday: tasksDueToday?.length ?? 0,
     tasksCompleted: tasksCompletedToday?.length ?? 0,
     tasksOverdue: tasksOverdue?.length ?? 0,

@@ -23,8 +23,9 @@ export const runtime = 'nodejs'
 const MAX_TITLE = 120
 const MAX_BODY = 500
 const MAX_LINK = 200
-const MAX_KIND = 10
 const DAILY_PUSH_CAP = 6
+/** Strict whitelist of allowed notification kinds. Any other value is rejected. */
+const ALLOWED_KINDS = new Set(['push', 'test'])
 
 export async function POST(req: Request) {
   try {
@@ -46,7 +47,11 @@ export async function POST(req: Request) {
     const title = typeof body.title === 'string' ? body.title.trim().slice(0, MAX_TITLE) : ''
     if (!title) return Response.json({ error: 'Titre manquant' }, { status: 400 })
 
-    const kind = typeof body.kind === 'string' ? body.kind.slice(0, MAX_KIND) : 'push'
+    const rawKind = typeof body.kind === 'string' ? body.kind : 'push'
+    if (!ALLOWED_KINDS.has(rawKind)) {
+      return Response.json({ error: 'Type de notification invalide' }, { status: 400 })
+    }
+    const kind = rawKind
     const isTest = kind === 'test'
     const message =
       typeof body.body === 'string' ? body.body.trim().slice(0, MAX_BODY) : undefined

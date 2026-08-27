@@ -42,13 +42,26 @@ export interface AiContext {
 }
 
 /** Gathers a minimal, useful snapshot of the user's own data. */
+function todayInTz(tz: string): Date {
+  // Format today's date in the user's timezone
+  const str = new Date().toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD
+  return new Date(str + 'T12:00:00Z')
+}
+
 export async function buildUserContext(
   supabase: SupabaseClient,
   userId: string,
-  opts?: { includeMemory?: boolean }
-): Promise<AiContext> {
-  const todayKey = format(new Date(), 'yyyy-MM-dd')
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  opts?: { includeMemory?: boolean }): Promise<AiContext> {
+  // Fetch the user's timezone to compute "today" correctly.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', userId)
+    .maybeSingle()
+  const tz = (profile?.timezone as string | undefined) ?? 'UTC'
+  const now = todayInTz(tz)
+  const todayKey = format(now, 'yyyy-MM-dd')
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const [
     { data: openTasks },
