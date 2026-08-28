@@ -19,6 +19,7 @@ import {
   Search,
   X,
   AlarmClock,
+  Timer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/notification-bell'
@@ -44,13 +45,19 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.space',
     items: [
       { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
-      { href: '/calendar', key: 'nav.calendar', icon: CalendarDays },
       { href: '/tasks', key: 'nav.tasks', icon: CheckSquare },
-      { href: '/habits', key: 'nav.habits', icon: Repeat2 },
       { href: '/journal', key: 'nav.journal', icon: BookOpen },
+      { href: '/focus', key: 'nav.focus', icon: Timer },
+    ],
+  },
+  {
+    labelKey: 'nav.group.explore',
+    items: [
+      { href: '/calendar', key: 'nav.calendar', icon: CalendarDays },
+      { href: '/habits', key: 'nav.habits', icon: Repeat2 },
       { href: '/ai', key: 'nav.ai', icon: Sparkles, highlight: true },
-      { href: '/alarms', key: 'nav.alarms', icon: AlarmClock },
       { href: '/family', key: 'nav.family', icon: Users },
+      { href: '/alarms', key: 'nav.alarms', icon: AlarmClock },
     ],
   },
 ]

@@ -8,8 +8,6 @@ import {
   isSameDay,
   differenceInMinutes,
   parseISO,
-  eachDayOfInterval,
-  addDays,
 } from 'date-fns'
 import { fr as frLocale } from 'date-fns/locale'
 import {
@@ -18,34 +16,27 @@ import {
   Timer,
   Repeat2,
   Zap,
-  Award,
   ChevronRight,
   Plus,
   CloudSun,
   Sparkles,
   Flame,
   RefreshCw,
-  Users,
   ArrowRight,
-  Target,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { CoachMascot } from '@/components/coach-mascot'
 import { cardVariants } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { streamChatResponse } from '@/lib/ai-stream'
-import { computeInsights } from '@/lib/coach/insights'
 
-// Fallback pool for the Daily AI Insight card if the live request fails —
-// keeps the card useful (and avoids an alarming error state) either way.
 const FALLBACK_INSIGHTS = [
-  '« Le secret pour avancer, c’est de commencer. » — Mark Twain',
+  '« Le secret pour avancer, c\'est de commencer. » — Mark Twain',
   '« De petits pas chaque jour mènent à de grands changements. »',
   '« Concentrez-vous sur le progrès, pas sur la perfection. »',
   '« Vos habitudes façonnent votre identité. » — James Clear',
-  '« Ce que vous faites aujourd’hui dessine votre demain. »',
+  '« Ce que vous faites aujourd\'hui dessine votre demain. »',
 ]
 
 const fadeUp: Variants = {
@@ -137,76 +128,109 @@ export function DashboardClient({
     return () => clearInterval(timer)
   }, [])
 
-  // Habit logs are stored as plain dates and compared with the same local
-  // key everywhere (habits page included) so check-ins never land on the
-  // wrong calendar day for users outside UTC.
   const todayLocalKey = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [])
-  // Focus sessions store full UTC timestamps — keep the UTC day key for them.
   const todayUtcKey = useMemo(() => new Date().toISOString().split('T')[0], [])
 
   const [localHabitLogs, setLocalHabitLogs] = useState<string[]>(
     habitLogs.filter((l) => l.logged_date === todayLocalKey).map((l) => l.habit_id)
   )
 
-  // ---- Tasks ----
+  // Tasks
   const todoTasks = tasks.filter((t) => t.status === 'todo' || t.status === 'in_progress')
   const doneTasks = tasks.filter((t) => t.status === 'done')
   const completionRate = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0
-  const priorityTasks = todoTasks
-    .filter((t) => t.priority === 'high' || t.priority === 'urgent')
-    .slice(0, 4)
-  // Tasks due today (or overdue) — the real "what should I do today" answer.
   const todayTasks = todoTasks.filter((t) => {
     if (!t.due_date) return false
     const d = new Date(t.due_date)
     return isToday(d) || d < new Date()
   })
 
-  // ---- Focus ----
+  // Focus
   const todayFocusMinutes = focusSessions
     .filter((s) => s.created_at?.startsWith(todayUtcKey))
     .reduce((a, s) => a + (s.duration_minutes || 0), 0)
-  const weekFocusMinutes = focusSessions.reduce((a, s) => a + (s.duration_minutes || 0), 0)
-  const todaySessionCount = focusSessions.filter((s) => s.created_at?.startsWith(todayUtcKey)).length
 
-
-  // ---- Next event ----
+  // Next event
   const nextEvent = events.find((e) => new Date(e.start_at) > time)
   const nextEventMinutes = nextEvent
     ? differenceInMinutes(parseISO(nextEvent.start_at), time)
     : null
 
-  // ---- Calendar preview: next 7 days, event count per day ----
-  const next7Days = useMemo(
-    () => eachDayOfInterval({ start: new Date(), end: addDays(new Date(), 6) }),
-    []
+  // Next action
+  const NEXT_ACTION_KEY = `kininaru-nextaction-${todayLocalKey}`
+  const [nextAction, setNextAction] = useState<{
+    title: string
+    taskId: string
+    reason?: string
+  } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const cached = sessionStorage.getItem(NEXT_ACTION_KEY)
+    if (cached) {
+      try { setNextAction(JSON.parse(cached)) } catch { /* ignore */ }
+      return
+    }
+    fetch('/api/coach/observe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 'dashboard', style: 'encouraging', notify: false }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { nextAction?: { title: string; taskId: string; reason?: string } } | null) => {
+        if (cancelled || !d?.nextAction) return
+        setNextAction(d.nextAction)
+        try { sessionStorage.setItem(NEXT_ACTION_KEY, JSON.stringify(d.nextAction)) } catch { /* ignore */ }
+      })
+      .catch(() => { /* best-effort */ })
+    return () => { cancelled = true }
+  }, [NEXT_ACTION_KEY])
+
+  // Daily insight
+  const INSIGHT_KEY = `kininaru-insight-${todayLocalKey}`
+  const [insight, setInsight] = useState('')
+  const [insightLoading, setInsightLoading] = useState(true)
+  const [insightFailed, setInsightFailed] = useState(false)
+  const [fallbackInsight] = useState(
+    () => FALLBACK_INSIGHTS[Math.floor(Math.random() * FALLBACK_INSIGHTS.length)]
   )
-  const eventsByDay = next7Days.map((day) => ({
-    date: day,
-    count: events.filter((e) => isSameDay(parseISO(e.start_at), day)).length,
-  }))
 
-  // ---- Habit progress (weekly count per habit, from the 7-day habitLogs window) ----
-  const habitsWithWeekly = habits.map((h) => ({
-    ...h,
-    weekCount: habitLogs.filter((l) => l.habit_id === h.id).length,
-  }))
+  const runInsight = useCallback(
+    async (force = false) => {
+      const cached = force ? null : sessionStorage.getItem(INSIGHT_KEY)
+      if (cached) {
+        setInsight(cached)
+        setInsightLoading(false)
+        setInsightFailed(false)
+        return
+      }
+      setInsightLoading(true)
+      setInsightFailed(false)
+      setInsight('')
+      let full = ''
+      let received = false
+      try {
+        const summary = `Tâches: ${doneTasks.length}/${tasks.length} terminées. Habitudes: ${localHabitLogs.length}/${habits.length} faites. Focus: ${todayFocusMinutes} min.`
+        await streamChatResponse(
+          [{ role: 'user', content: `${summary} Donne un seul conseil court et encourageant (1-2 phrases max).` }],
+          (chunk) => { received = true; full += chunk; setInsight(full) }
+        )
+        if (!received) throw new Error('empty response')
+      } catch {
+        setInsightFailed(true)
+      } finally {
+        setInsightLoading(false)
+        if (received && full.trim()) {
+          try { sessionStorage.setItem(INSIGHT_KEY, full) } catch { /* storage unavailable */ }
+        }
+      }
+    },
+    [doneTasks.length, tasks.length, localHabitLogs.length, habits.length, todayFocusMinutes, INSIGHT_KEY]
+  )
 
-  // ---- Weekly progress chart: tasks completed + habits logged, last 7 days ----
+  useEffect(() => { runInsight() }, [runInsight])
 
-
-  // ---- Productivity score: blended, transparent heuristic ----
-  const FOCUS_GOAL_MINUTES = 120
-  const taskComponent = tasks.length > 0 ? completionRate : 50
-  const habitComponent = habits.length > 0 ? Math.round((localHabitLogs.length / habits.length) * 100) : 50
-  const focusComponent = Math.min(100, Math.round((todayFocusMinutes / FOCUS_GOAL_MINUTES) * 100))
-  const productivityScore = Math.round((taskComponent + habitComponent + focusComponent) / 3)
-  const scoreLabel =
-    productivityScore >= 80 ? 'Excellente journée' :
-    productivityScore >= 60 ? 'Belle dynamique' :
-    productivityScore >= 40 ? 'Ça avance' : 'On démarre'
-  const scoreCircumference = 2 * Math.PI * 52
-
+  // Habit toggle
   const toggleHabit = async (habitId: string) => {
     if (localHabitLogs.includes(habitId)) {
       await supabase
@@ -233,293 +257,61 @@ export function DashboardClient({
     return 'Bonsoir'
   }
 
-  // ---- Daily AI Insight ----
-  // Cost control (§15.5 §20): the insight is cached for the whole day in
-  // sessionStorage, so navigating to the dashboard does NOT trigger a Groq
-  // call every time. The refresh button re-generates it explicitly.
-  const INSIGHT_KEY = `kininaru-insight-${todayLocalKey}`
-  const [insight, setInsight] = useState('')
-  const [insightLoading, setInsightLoading] = useState(true)
-  const [insightFailed, setInsightFailed] = useState(false)
-  const [fallbackInsight] = useState(
-    () => FALLBACK_INSIGHTS[Math.floor(Math.random() * FALLBACK_INSIGHTS.length)]
-  )
-
-  const runInsight = useCallback(
-    async (force = false) => {
-      const cached = force ? null : sessionStorage.getItem(INSIGHT_KEY)
-      if (cached) {
-        setInsight(cached)
-        setInsightLoading(false)
-        setInsightFailed(false)
-        return
-      }
-      setInsightLoading(true)
-      setInsightFailed(false)
-      setInsight('')
-      let full = ''
-      let received = false
-      try {
-        const summary = `Tâches: ${doneTasks.length}/${tasks.length} terminées aujourd'hui. Habitudes: ${localHabitLogs.length}/${habits.length} faites. Focus: ${todayFocusMinutes} minutes aujourd'hui.`
-        await streamChatResponse(
-          [{
-            role: 'user',
-            content: `${summary} En te basant sur ces chiffres, donne-moi une seule observation ou un seul conseil court (1-2 phrases maximum) et encourageant pour aujourd'hui.`,
-          }],
-          (chunk) => {
-            received = true
-            full += chunk
-            setInsight(full)
-          }
-        )
-        if (!received) throw new Error('empty response')
-      } catch {
-        setInsightFailed(true)
-      } finally {
-        setInsightLoading(false)
-        // Cache only complete answers (never cache partial or failed ones).
-        if (received && full.trim()) {
-          try {
-            sessionStorage.setItem(INSIGHT_KEY, full)
-          } catch {
-            // storage unavailable
-          }
-        }
-      }
-    },
-    [doneTasks.length, tasks.length, localHabitLogs.length, habits.length, todayFocusMinutes, INSIGHT_KEY]
-  )
-
-  useEffect(() => {
-    runInsight()
-  }, [runInsight])
-
-  // ---- Smart Next Action (§15.5 §8) — ONE relevant action, deterministic
-  // (local rules over the daily context, never a Groq call), cached per day. */
-  const NEXT_ACTION_KEY = `kininaru-nextaction-${todayLocalKey}`
-  const [nextAction, setNextAction] = useState<{
-    title: string
-    taskId: string
-    reason?: string
-  } | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const cached = sessionStorage.getItem(NEXT_ACTION_KEY)
-    if (cached) {
-      try {
-        setNextAction(JSON.parse(cached))
-      } catch {
-        // ignore malformed cache
-      }
-      return
-    }
-    fetch('/api/coach/observe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page: 'dashboard', style: 'encouraging', notify: false }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { nextAction?: { title: string; taskId: string; reason?: string } } | null) => {
-        if (cancelled || !d?.nextAction) return
-        setNextAction(d.nextAction)
-        try {
-          sessionStorage.setItem(NEXT_ACTION_KEY, JSON.stringify(d.nextAction))
-        } catch {
-          // storage unavailable
-        }
-      })
-      .catch(() => {
-        // Best-effort — the card simply does not appear.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [NEXT_ACTION_KEY])
-
-  // First-run onboarding: a brand-new account (nothing created yet) gets a
-  // compact 3-step guide instead of a wall of empty states.
-  const isFirstRun =
-    tasks.length === 0 &&
-    habits.length === 0 &&
-    events.length === 0 &&
-    focusSessions.length === 0
-
-  const stats = [
-    {
-      label: 'Tâches terminées',
-      value: doneTasks.length,
-      sub: `sur ${tasks.length}`,
-      icon: CheckSquare,
-      color: 'text-kin-rose-dark',
-      bg: 'bg-kin-rose/20',
-    },
-    {
-      label: 'Focus aujourd’hui',
-      value: `${todayFocusMinutes}m`,
-      sub: `${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''}`,
-      icon: Timer,
-      color: 'text-primary',
-      bg: 'bg-primary/10',
-    },
-    {
-      label: 'Habitudes faites',
-      value: `${localHabitLogs.length}/${habits.length}`,
-      sub: 'aujourd’hui',
-      icon: Repeat2,
-      color: 'text-kin-violet',
-      bg: 'bg-kin-violet/15',
-    },
-    {
-      label: 'Prochain événement',
-      value:
-        nextEventMinutes !== null
-          ? nextEventMinutes < 60
-            ? `dans ${nextEventMinutes} min`
-            : `dans ${Math.round(nextEventMinutes / 60)} h`
-          : '—',
-      sub: nextEvent?.title ?? 'Rien de prévu',
-      icon: CalendarDays,
-      color: 'text-kin-blue',
-      bg: 'bg-kin-blue/15',
-    },
-  ]
-
-  // ---- « Ma journée évolue » (§3-4) — the product identity. The narrative
-  // is rebuilt from REAL data only (never invented) and changes with the
-  // time of day: morning = plan, afternoon = progress, evening = bilan +
-  // a SUGGESTION for tomorrow (never an automatic replan).
-  const hour = time.getHours()
-  const overdueTasks = todoTasks.filter((t) => t.due_date && isPastDate(t.due_date))
-  const prioritiesLeft = priorityTasks.length
-  const dayPhase = hour >= 19 ? 'evening' : hour >= 12 ? 'afternoon' : 'morning'
-  const dayNarrative =
-    dayPhase === 'morning'
-      ? 'Ta journée commence.'
-      : dayPhase === 'afternoon'
-      ? doneTasks.length > 0
-        ? `Tu as déjà terminé ${doneTasks.length} tâche${doneTasks.length > 1 ? 's' : ''}.`
-        : 'La journée avance — une petite action suffit pour la lancer.'
-      : doneTasks.length > 0 || localHabitLogs.length > 0 || todayFocusMinutes > 0
-      ? 'Bilan de ta journée.'
-      : 'Journée calme — pas grave. On reprend demain.'
-  const tomorrowSuggestion =
-    overdueTasks.length > 0
-      ? `Reprendre ${overdueTasks.length} tâche${overdueTasks.length > 1 ? 's' : ''} reportée${overdueTasks.length > 1 ? 's' : ''}`
-      : prioritiesLeft > 0
-      ? 'Attaquer tes priorités restantes'
-      : null
-
-  // ---- LEARN / ADAPT — insights calculés sur les données RÉELLES des 7
-  // derniers jours (tâches terminées, sessions Focus, habitudes). Le plan de
-  // demain est une SUGGESTION : jamais de modification automatique.
-  const insights = useMemo(
-    () =>
-      computeInsights({
-        tasks: tasks.map((t) => ({
-          title: t.title,
-          priority: t.priority ?? null,
-          status: t.status,
-          due_date: t.due_date ?? null,
-          scheduled_time: t.scheduled_time ?? null,
-          completed_at: t.completed_at ?? null,
-        })),
-        focusSessions: focusSessions.map((s) => ({
-          duration_minutes: s.duration_minutes ?? null,
-          created_at: s.created_at ?? null,
-        })),
-        habitLogs: habitLogs.map((l) => ({ logged_date: l.logged_date })),
-        today: format(new Date(), 'yyyy-MM-dd'),
-        tomorrow: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-      }),
-    [tasks, focusSessions, habitLogs]
-  )
-  // Le plan de demain d'abord (identité produit), puis les tendances.
-  const orderedInsights = [...insights].sort((a, b) =>
-    (a.id === 'tomorrow_plan' ? 0 : 1) - (b.id === 'tomorrow_plan' ? 0 : 1)
-  )
+  const isFirstRun = tasks.length === 0 && habits.length === 0 && events.length === 0 && focusSessions.length === 0
 
   return (
-    <div className="p-5 sm:p-6 lg:p-8 max-w-[1280px] mx-auto space-y-5 lg:space-y-7">
-      {/* Header */}
-      <motion.div
-        custom={0}
-        variants={fadeUp}
-        initial="hidden"
-        animate="visible"
-        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
-      >
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">
-            {mounted ? format(time, 'EEEE d MMMM', { locale: frLocale }) : '…'}
-          </p>
-          <h1 className="kin-h1 text-foreground">
-            {greeting()}, {profile?.display_name ?? 'ami'} 👋
-          </h1>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            href="/focus"
-            className="group flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl bg-warm/15 text-warm text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
-          >
-            <Timer className="w-4 h-4" />
-            Mode Focus
-            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-          <button
-            onClick={() => window.dispatchEvent(new Event('kininaru:open-assistant'))}
-            className="group flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
-          >
-            <CoachMascot mood="calm" variant="onPrimary" className="w-4.5 h-4.5" />
-            Parler au coach
-            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </button>
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-xl">
-            <Zap className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Niv. {profile?.level ?? 1}</span>
+    <div className="p-5 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-5">
+      {/* ── HEADER ── */}
+      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
+        <p className="text-xs text-muted-foreground mb-1">
+          {mounted ? format(time, 'EEEE d MMMM', { locale: frLocale }) : '…'}
+        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="kin-h1 text-foreground">
+              {greeting()}, {profile?.display_name ?? 'ami'} 👋
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {doneTasks.length} tâche{doneTasks.length > 1 ? 's' : ''} terminée{doneTasks.length > 1 ? 's' : ''} · {todayFocusMinutes > 0 ? `${todayFocusMinutes} min focus` : 'aucun focus'}
+            </p>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/70 rounded-xl">
-            <Award className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">{profile?.xp ?? 0} XP</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/focus"
+              className="group flex items-center gap-1.5 px-3 min-h-9 rounded-xl bg-warm/15 text-warm text-sm font-medium shadow-kin hover:scale-[1.02] hover:shadow-kin-hover transition-smooth"
+            >
+              <Timer className="w-4 h-4" />
+              Focus
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </motion.div>
 
-      {/* First-run welcome (empty account) — guides to first task → focus → coach */}
+      {/* ── FIRST RUN ── */}
       {isFirstRun && (
-        <motion.div
-          custom={1}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
+        <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
           className={cn(cardVariants({ padding: 'lg', variant: 'accent' }), 'relative overflow-hidden')}
         >
           <div className="absolute inset-0 kin-glow pointer-events-none" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold text-primary uppercase tracking-wide">
-                Bienvenue sur Kininaru
-              </span>
+              <span className="text-xs font-semibold text-primary uppercase tracking-wide">Bienvenue</span>
             </div>
-            <p className="text-sm text-muted-foreground mb-4 max-w-xl leading-relaxed">
-              Commençons par une première action. Le coach s’occupe du reste : il
-              prépare votre journée, vos priorités et vos rappels.
+            <p className="text-sm text-muted-foreground mb-4 max-w-md">
+              Commencez par une première action — le coach s&apos;occupe du reste.
             </p>
             <div className="grid sm:grid-cols-3 gap-2">
               {[
                 { step: '1', label: 'Créer une tâche', href: '/tasks?new=1', icon: CheckSquare },
                 { step: '2', label: 'Lancer un Focus', href: '/focus', icon: Timer },
-                { step: '3', label: 'Parler au coach', href: '/ai', icon: CoachMascot },
+                { step: '3', label: 'Parler au coach', href: '/ai', icon: Sparkles },
               ].map((s) => (
-                <Link
-                  key={s.step}
-                  href={s.href}
+                <Link key={s.step} href={s.href}
                   className="flex items-center gap-2.5 p-2.5 min-h-10 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-smooth"
                 >
-                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                    {s.step}
-                  </span>
+                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">{s.step}</span>
                   <s.icon className="w-4 h-4 text-primary shrink-0" />
                   <span className="text-sm font-medium text-foreground">{s.label}</span>
                 </Link>
@@ -529,15 +321,9 @@ export function DashboardClient({
         </motion.div>
       )}
 
-      {/* Smart Next Action (§15.5 §8) — deterministic, cached, opens Focus.
-          Kept at the TOP of the dashboard so “what should I do now?” is the
-          first thing answered, before scores and statistics. */}
+      {/* ── NEXT ACTION (hero) ── */}
       {nextAction && (
-        <motion.div
-          custom={1.1}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
+        <motion.div custom={1.1} variants={fadeUp} initial="hidden" animate="visible"
           className={cn(cardVariants({ padding: 'lg' }), 'border-l-4 border-l-kin-sage')}
         >
           <div className="flex items-center justify-between mb-3">
@@ -546,288 +332,166 @@ export function DashboardClient({
             </span>
             <Zap className="w-4 h-4 text-kin-sage" />
           </div>
-          <p className="text-base font-semibold text-foreground leading-snug">
-            {nextAction.title}
-          </p>
+          <p className="text-lg font-semibold text-foreground leading-snug">{nextAction.title}</p>
           {nextAction.reason && (
-            <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
-              Pourquoi ? {nextAction.reason}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1.5">{nextAction.reason}</p>
           )}
-          <div className="flex flex-wrap gap-2 mt-3.5">
-            <Link
-              href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(nextAction.title)}`}
-            >
-              <Button size="sm" className="gap-1.5">
-                ▶ Commencer
-              </Button>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Link href={`/focus?taskId=${nextAction.taskId}&task=${encodeURIComponent(nextAction.title)}`}>
+              <Button size="sm" className="gap-1.5">▶ Commencer</Button>
             </Link>
             <Link href="/tasks">
-              <Button variant="outline" size="sm">
-                Voir mes tâches
-              </Button>
+              <Button variant="outline" size="sm">Toutes les tâches</Button>
             </Link>
           </div>
         </motion.div>
       )}
 
-      {/* Ma journée évolue — the product identity: a calm narrative built
-          from REAL data, refreshed with the time of day. The evening block
-          ends with a SUGGESTION for tomorrow — never an automatic replan. */}
-      <motion.div
-        custom={1.05}
-        variants={fadeUp}
-        initial="hidden"
-        animate="visible"
-        className={cn(cardVariants({ padding: 'lg', variant: 'accent' }), 'relative overflow-hidden')}
-      >
-        <div className="absolute inset-0 kin-glow pointer-events-none" />
-        <div className="relative">
-          <span className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide mb-2">
-            <CloudSun className="w-4 h-4" />
-            Ma journée évolue
-          </span>
-          <p className="text-base font-semibold text-foreground leading-snug">
-            {dayNarrative}
-          </p>
-
-          {dayPhase === 'evening' ? (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {[
-                { label: `${doneTasks.length} accomplie${doneTasks.length > 1 ? 's' : ''}`, show: doneTasks.length > 0 },
-                { label: `${overdueTasks.length} reportée${overdueTasks.length > 1 ? 's' : ''}`, show: overdueTasks.length > 0 },
-                { label: `${localHabitLogs.length} habitude${localHabitLogs.length > 1 ? 's' : ''}`, show: localHabitLogs.length > 0 },
-                { label: `${todayFocusMinutes} min de Focus`, show: todayFocusMinutes > 0 },
-              ]
-                .filter((c) => c.show)
-                .map((c) => (
-                  <span
-                    key={c.label}
-                    className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin"
-                  >
-                    {c.label}
-                  </span>
-                ))}
-              {tomorrowSuggestion && (
-                <Link
-                  href="/tasks"
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary hover:bg-primary/15 transition-smooth"
-                >
-                  Demain pourrait être : {tomorrowSuggestion} →
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {prioritiesLeft > 0 && (
-                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
-                  🎯 {prioritiesLeft} priorité{prioritiesLeft > 1 ? 's' : ''}
-                </span>
-              )}
-              {localHabitLogs.length < habits.length && habits.length > 0 && (
-                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
-                  🌱 {habits.length - localHabitLogs.length} habitude{(habits.length - localHabitLogs.length) > 1 ? 's' : ''} à faire
-                </span>
-              )}
-              {todayFocusMinutes > 0 && (
-                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
-                  🧠 {todayFocusMinutes} min de concentration
-                </span>
-              )}
-              {nextEvent && (
-                <span className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin">
-                  📅 {nextEvent.title} ·{' '}
-                  {nextEventMinutes !== null && nextEventMinutes < 60
-                    ? `dans ${nextEventMinutes} min`
-                    : nextEventMinutes !== null
-                    ? `dans ${Math.round(nextEventMinutes / 60)} h`
-                    : 'à venir'}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* LEARN / ADAPT — tendances réelles + « Demain pourrait être… ».
-          Deux cartes maximum, toujours issues des données du compte. */}
-      {orderedInsights.length > 0 && (
-        <motion.div
-          custom={1.06}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          className="grid gap-3 sm:grid-cols-2"
-        >
-          {orderedInsights.slice(0, 2).map((ins) => (
-            <div
-              key={ins.id}
-              className={cn(
-                cardVariants({ padding: 'md' }),
-                'flex flex-col justify-between min-h-[104px]',
-                ins.id === 'tomorrow_plan' && 'border-l-4 border-l-kin-yellow'
-              )}
-            >
-              <p className="text-sm font-semibold text-foreground leading-snug">
-                {ins.emoji} {ins.title}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{ins.detail}</p>
-              {ins.action && (
-                <Link
-                  href={ins.action.href}
-                  className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline w-fit"
-                >
-                  {ins.action.label} <ArrowRight className="w-3 h-3" />
-                </Link>
-              )}
-            </div>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Objectifs — direction du jour, progression calculée sur les vraies
-          tâches rattachées (jamais de chiffre inventé). */}
-      {goals.length > 0 && (
-        <motion.div
-          custom={1.07}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          className={cn(cardVariants({ padding: 'md' }))}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
-              <Target className="w-3.5 h-3.5 text-primary" /> Objectifs en cours
-            </span>
-            <Link href="/tasks" className="text-xs font-medium text-primary hover:underline">
-              Tout voir →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {goals.slice(0, 3).map((goal) => {
-              const linked = tasks.filter((t) => t.goal_id === goal.id)
-              const doneCount = linked.filter((t) => t.status === 'done').length
-              const pct = linked.length > 0 ? Math.round((doneCount / linked.length) * 100) : null
-              return (
-                <div key={goal.id}>
-                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
-                    <span className="font-medium text-foreground truncate">{goal.title}</span>
-                    {pct !== null && (
-                      <span className="text-muted-foreground shrink-0">
-                        {doneCount}/{linked.length}
-                      </span>
-                    )}
-                  </div>
-                  {pct !== null && (
-                    <div className="h-1 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Hero row: score + today's stats */}
-      <motion.div
-        custom={1}
-        variants={fadeUp}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4"
-      >
-        <div className={cn(cardVariants({ padding: 'lg' }), 'flex flex-col items-center justify-center text-center relative overflow-hidden')}>
-          <div className="absolute inset-0 kin-glow pointer-events-none" />
-          <p className="text-xs font-medium text-muted-foreground mb-3">Score de productivité</p>
-          {/* Compact ring on phones so the score never dominates the
-              “what should I do now” answer above it. */}
-          <div className="relative w-20 h-20 lg:w-28 lg:h-28">
-            <svg viewBox="0 0 112 112" className="w-20 h-20 lg:w-28 lg:h-28 -rotate-90">
-              <circle cx="56" cy="56" r="46" fill="none" stroke="currentColor" strokeWidth="9" className="text-muted" />
-              <motion.circle
-                cx="56" cy="56" r="46"
-                fill="none"
-                stroke="var(--kt-primary)"
-                strokeWidth="9"
-                strokeLinecap="round"
-                strokeDasharray={scoreCircumference}
-                initial={{ strokeDashoffset: scoreCircumference }}
-                animate={{ strokeDashoffset: scoreCircumference * (1 - productivityScore / 100) }}
-                transition={{ duration: 1, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-lg lg:text-2xl font-bold text-foreground tabular-nums">{productivityScore}</span>
-              <span className="text-[10px] text-muted-foreground">/ 100</span>
-            </div>
-          </div>
-          <p className="text-sm font-medium text-foreground mt-3">{scoreLabel}</p>
-          <p className="text-xs text-muted-foreground mt-1">Tâches · Habitudes · Focus</p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              custom={i + 2}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className={cn(cardVariants({ padding: 'md' }), 'flex flex-col justify-between min-h-[104px]')}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
-                <div className={cn('p-1.5 rounded-lg shrink-0', stat.bg)}>
-                  <stat.icon className={cn('w-4 h-4', stat.color)} />
-                </div>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl font-bold text-foreground leading-tight truncate">{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{stat.sub}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Daily AI Insight */}
-      <motion.div
-        custom={6}
-        variants={fadeUp}
-        initial="hidden"
-        animate="visible"
-        className={cn(cardVariants({ variant: 'accent', padding: 'lg' }), 'relative overflow-hidden')}
+      {/* ── TODAY'S TASKS ── */}
+      <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible"
+        className={cardVariants({ padding: 'lg' })}
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <CoachMascot mood="calm" className="w-4.5 h-4.5" />
+            <CheckSquare className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Aujourd&apos;hui</h2>
+          </div>
+          <Link href="/tasks" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+            Tout voir <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {tasks.length > 0 && (
+          <div className="h-1 bg-muted rounded-full overflow-hidden mb-4">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${completionRate}%` }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="h-full bg-primary rounded-full"
+            />
+          </div>
+        )}
+
+        {todayTasks.length === 0 && todoTasks.filter((t) => t.priority === 'high' || t.priority === 'urgent').length === 0 ? (
+          <div className="text-center py-6">
+            <CheckSquare className="w-7 h-7 text-muted-foreground mx-auto mb-2 opacity-40" />
+            <p className="text-sm text-muted-foreground">Aucune tâche urgente — profitez de la matinée !</p>
+            <Link href="/tasks?new=1" className="text-xs text-primary hover:underline mt-1 inline-block">
+              <Plus className="w-3 h-3 inline mr-0.5" />Créer une tâche
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {todayTasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted/50 transition-smooth">
+                <div className={cn('w-2 h-2 rounded-full shrink-0', task.priority === 'urgent' ? 'bg-destructive' : 'bg-kin-coral')} />
+                <span className="text-sm text-foreground flex-1 truncate">{task.title}</span>
+                {task.due_date && (
+                  <span className={cn('text-xs', new Date(task.due_date) < new Date() ? 'text-destructive font-medium' : 'text-muted-foreground')}>
+                    {format(new Date(task.due_date), 'd MMM')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Habits — inline toggle, very compact */}
+        {habits.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Habitudes</span>
+              <Link href="/habits" className="text-xs text-primary hover:underline">Voir →</Link>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {habits.slice(0, 6).map((habit) => {
+                const done = localHabitLogs.includes(habit.id)
+                return (
+                  <button
+                    key={habit.id}
+                    onClick={() => toggleHabit(habit.id)}
+                    aria-pressed={done}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-smooth border',
+                      done
+                        ? 'bg-primary/10 border-primary/20 text-primary'
+                        : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    {done ? (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <span className="w-3 h-3 rounded-full border border-current opacity-50" />
+                    )}
+                    {habit.title}
+                    {(habit.streak ?? 0) > 0 && (
+                      <span className="flex items-center gap-0.5 text-kin-coral">
+                        <Flame className="w-2.5 h-2.5" />{habit.streak}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+              {habits.length > 6 && (
+                <Link href="/habits" className="flex items-center px-2.5 py-1.5 rounded-full text-xs text-primary border border-primary/20 hover:bg-primary/10 transition-smooth">
+                  +{habits.length - 6}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ── NEXT EVENT ── */}
+      {nextEvent && (
+        <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
+          className={cn(cardVariants({ padding: 'md' }), 'flex items-center gap-3')}
+        >
+          <div className="w-8 h-8 rounded-lg bg-kin-blue/15 flex items-center justify-center shrink-0">
+            <CalendarDays className="w-4 h-4 text-kin-blue" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{nextEvent.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {nextEventMinutes !== null && nextEventMinutes < 60
+                ? `dans ${nextEventMinutes} min`
+                : nextEventMinutes !== null
+                ? `dans ${Math.round(nextEventMinutes / 60)} h`
+                : 'bientôt'}
+            </p>
+          </div>
+          <Link href="/calendar" className="text-xs text-primary hover:underline shrink-0">
+            Calendrier →
+          </Link>
+        </motion.div>
+      )}
+
+      {/* ── DAILY INSIGHT ── */}
+      <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
+        className={cn(cardVariants({ variant: 'accent', padding: 'md' }), 'relative overflow-hidden')}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <CloudSun className="w-4 h-4 text-primary" />
             <span className="text-xs font-semibold text-primary uppercase tracking-wide">Conseil du jour</span>
           </div>
           <div className="flex items-center gap-2">
             {insightFailed && (
-              <button
-                onClick={() => void runInsight(true)}
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Réessayer
+              <button onClick={() => void runInsight(true)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                <RefreshCw className="w-3 h-3" />Réessayer
               </button>
             )}
             <Link href="/ai" className="text-xs text-muted-foreground hover:text-primary transition-smooth">
-              Ouvrir le chat →
+              Chat →
             </Link>
           </div>
         </div>
-
         {insightLoading && !insight ? (
-          <div className="space-y-2">
-            <div className="h-4 w-11/12 rounded bg-muted/70 animate-pulse" />
-            <div className="h-4 w-2/3 rounded bg-muted/70 animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-11/12 rounded bg-muted/70 animate-pulse" />
+            <div className="h-3.5 w-2/3 rounded bg-muted/70 animate-pulse" />
           </div>
         ) : (
           <p className="text-sm text-foreground leading-relaxed italic">
@@ -835,254 +499,8 @@ export function DashboardClient({
           </p>
         )}
       </motion.div>
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* Left 2/3 */}
-        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
-          {/* Today's tasks */}
-          <motion.div
-            custom={7}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'lg' })}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="kin-h3 text-foreground">Aujourd’hui</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {doneTasks.length} terminée{doneTasks.length > 1 ? 's' : ''} · {todoTasks.length} en cours · {completionRate} %
-                </p>
-              </div>
-              <Link href="/tasks" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                Tout voir <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-4">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${completionRate}%` }}
-                transition={{ duration: 0.8, delay: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="h-full bg-primary rounded-full"
-              />
-            </div>
-
-            {todayTasks.length === 0 && priorityTasks.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                <p className="text-sm text-muted-foreground">Aucune tâche urgente — profitez de la matinée !</p>
-                <Link href="/tasks?new=1" className="text-xs text-primary hover:underline mt-1 inline-block">
-                  Créer une tâche
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {todayTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-smooth"
-                  >
-                    <div className={cn('w-2 h-2 rounded-full shrink-0', task.priority === 'urgent' ? 'bg-destructive' : 'bg-kin-coral')} />
-                    <span className="text-sm text-foreground flex-1 truncate">{task.title}</span>
-                    {task.due_date && (
-                      <span className={cn('text-xs', isPastDate(task.due_date) ? 'text-destructive font-medium' : 'text-muted-foreground')}>
-                        {format(new Date(task.due_date), 'd MMM')}
-                      </span>
-                    )}
-                  </div>
-                ))}
-                {priorityTasks
-                  .filter((t) => !todayTasks.some((x) => x.id === t.id))
-                  .slice(0, 2)
-                  .map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted transition-smooth"
-                    >
-                      <div className={cn('w-2 h-2 rounded-full shrink-0', task.priority === 'urgent' ? 'bg-destructive' : 'bg-kin-coral')} />
-                      <span className="text-sm text-foreground flex-1 truncate">{task.title}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground shrink-0">
-                        {task.priority === 'urgent' ? 'Urgent' : 'Prioritaire'}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Calendar + weekly progress: linked inline */}
-          <motion.div
-            custom={8}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'md' })}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="kin-h3 text-foreground">Calendrier</h2>
-              <Link href="/calendar" className="text-xs text-primary hover:underline">
-                Voir →
-              </Link>
-            </div>
-            <Link href="/calendar" className="grid grid-cols-7 gap-1 mb-3">
-              {eventsByDay.map(({ date, count }) => (
-                <div
-                  key={date.toISOString()}
-                  className={cn(
-                    'flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-smooth',
-                    isToday(date) ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted'
-                  )}
-                >
-                  <span className="text-[9px] text-muted-foreground uppercase">{format(date, 'EEEEE')}</span>
-                  <span className={cn('text-xs font-medium', isToday(date) ? 'text-primary' : 'text-foreground')}>
-                    {format(date, 'd')}
-                  </span>
-                </div>
-              ))}
-            </Link>
-            {events.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {events.length} événement{events.length > 1 ? 's' : ''} cette semaine
-              </p>
-            )}
-          </motion.div>
-        </div>
-
-        {/* Right 1/3 */}
-        <div className="space-y-4 lg:space-y-6">
-          {/* Family summary */}
-          {families.length > 0 && (
-            <motion.div
-              custom={13}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className={cardVariants({ padding: 'lg', variant: 'accent' })}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="kin-h3 text-foreground flex items-center gap-2">
-                  <Users className="w-4 h-4 text-primary" /> Famille
-                </h2>
-                <Link href="/family" className="text-xs text-primary hover:underline">
-                  Ouvrir →
-                </Link>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {families.map((m) => (
-                  <span
-                    key={m.family_id}
-                    className="px-2.5 py-1.5 rounded-full bg-card border border-border text-xs font-medium text-foreground shadow-kin"
-                  >
-                    {m.families?.name ?? 'Famille'}
-                    {m.role === 'parent' && <span className="ml-1 text-primary">· parent</span>}
-                  </span>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Habit progress */}
-          <motion.div
-            custom={9}
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            className={cardVariants({ padding: 'lg' })}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="kin-h3 text-foreground">Habitudes du jour</h2>
-              <Link href="/habits" className="text-xs text-primary hover:underline">Tout voir</Link>
-            </div>
-            {habits.length === 0 ? (
-              <div className="text-center py-4">
-                <Repeat2 className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                <p className="text-sm text-muted-foreground">Aucune habitude</p>
-                <Link href="/habits?new=1" className="text-xs text-primary hover:underline mt-1 inline-block">
-                  Ajouter la première
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {habitsWithWeekly.map((habit) => {
-                  const done = localHabitLogs.includes(habit.id)
-                  return (
-                    <button
-                      key={habit.id}
-                      onClick={() => toggleHabit(habit.id)}
-                      aria-pressed={done}
-                      className={cn(
-                        'w-full flex items-center gap-3 p-2.5 rounded-xl transition-smooth text-left',
-                        done ? 'bg-primary/10 ring-1 ring-primary/15' : 'hover:bg-muted'
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-smooth',
-                          done ? 'border-primary bg-primary' : 'border-border bg-background'
-                        )}
-                      >
-                        {done && (
-                          <svg className="w-3.5 h-3.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={cn('text-sm truncate', done ? 'text-primary line-through opacity-60' : 'text-foreground')}>
-                            {habit.title}
-                          </span>
-                          {(habit.streak ?? 0) > 0 && (
-                            <span className="flex items-center gap-0.5 text-xs text-kin-coral shrink-0">
-                              <Flame className="w-3 h-3" />
-                              {habit.streak}
-                            </span>
-                          )}
-                        </div>
-                        <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
-                          <div
-                            className="h-full rounded-full bg-accent transition-all duration-500"
-                            style={{ width: `${(habit.weekCount / 7) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Focus — compact stat */}
-          {focusSessions.length > 0 && (
-            <motion.div
-              custom={10}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className={cardVariants({ padding: 'md' })}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="kin-h3 text-foreground">Focus</h2>
-                <Link href="/focus" className="text-xs text-primary hover:underline">Voir →</Link>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-foreground">{todayFocusMinutes}m</span>
-                <span className="text-xs text-muted-foreground">aujourd&apos;hui · {Math.round(weekFocusMinutes / 60)}h cette semaine</span>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
 
-function isPastDate(dateStr: string) {
-  const d = new Date(dateStr)
-  d.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return d < today
-}
+

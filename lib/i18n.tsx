@@ -37,6 +37,7 @@ const fr = {
   'nav.habits': 'Habitudes',
   'nav.journal': 'Journal',
   'nav.ai': 'Assistant IA',
+  'nav.focus': 'Focus',
   'nav.alarms': 'Alarmes',
   'nav.family': 'Famille',
   'common.search': 'Rechercher...',
@@ -46,6 +47,7 @@ const fr = {
   'common.openMenu': 'Ouvrir le menu',
   'nav.group.space': 'Espace',
   'nav.group.together': 'Ensemble',
+  'nav.group.explore': 'Découvrir',
 
   // Notifications
   'notif.title': 'Notifications',
@@ -276,6 +278,7 @@ const en: Record<TranslationKey, string> = {
   'nav.habits': 'Habits',
   'nav.journal': 'Journal',
   'nav.ai': 'AI Assistant',
+  'nav.focus': 'Focus',
   'nav.alarms': 'Alarms',
   'nav.family': 'Family',
   'common.search': 'Search...',
@@ -285,6 +288,7 @@ const en: Record<TranslationKey, string> = {
   'common.openMenu': 'Open menu',
   'nav.group.space': 'Workspace',
   'nav.group.together': 'Together',
+  'nav.group.explore': 'Explore',
 
   'notif.title': 'Notifications',
   'notif.unread': 'unread',
