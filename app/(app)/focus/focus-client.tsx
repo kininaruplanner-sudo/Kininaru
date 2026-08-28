@@ -570,7 +570,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
             className={cn('w-1.5 h-1.5 rounded-full transition-smooth', i < focusCycles % 4 ? 'bg-primary' : 'bg-border')}
           />
         ))}
-        <span className="text-[10px] text-muted-foreground ml-1">until long break</span>
+        <span className="text-[10px] text-muted-foreground ml-1">jusqu'à la longue pause</span>
       </div>
 
       {/* Circular timer */}
@@ -746,12 +746,12 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
             </motion.div>
 
             {/* Stats + Sessions */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.3 }}
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-2 gap-2.5"
               >
                 {[
                   {
@@ -783,7 +783,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
                       {stat.icon && <stat.icon className="w-3 h-3 text-kin-coral" />}
                       {stat.label}
                     </p>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.sub}</p>
                   </Card>
                 ))}
@@ -796,7 +796,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
                 transition={{ delay: 0.13, duration: 0.3 }}
                 className={cardVariants({ padding: 'sm' })}
               >
-                <h3 className="text-sm font-semibold text-foreground mb-3">This Week</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Cette semaine</h3>
                 <WeeklyChart sessions={allSessionsState} />
               </motion.div>
 
@@ -820,7 +820,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
                 transition={{ delay: 0.2, duration: 0.3 }}
                 className={cardVariants({ padding: 'sm' })}
               >
-                <h3 className="text-sm font-semibold text-foreground mb-3">Session History</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Historique</h3>
                 <SessionHistory sessions={allSessionsState} onDelete={deleteSession} />
               </motion.div>
             </div>

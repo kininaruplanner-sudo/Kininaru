@@ -11,6 +11,7 @@ import { useI18n } from '@/lib/i18n'
 import { KinLogo } from '@/components/kin-logo'
 import AuthConfigRequired from '@/components/auth-config-required'
 import { getAuthErrorMessage } from '@/lib/auth-errors'
+import { AuthBackground } from '@/components/auth-bg'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -68,6 +69,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden px-4">
+      <AuthBackground />
       <Link href="/" className="fixed top-4 left-4 text-xs text-muted-foreground hover:text-foreground transition-smooth z-10">
         ← Retourner à l’accueil
       </Link>
