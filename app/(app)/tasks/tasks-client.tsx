@@ -74,27 +74,27 @@ interface Props {
 }
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; border: string }> = {
-  urgent: { label: 'Urgent', color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-l-destructive' },
-  high: { label: 'High', color: 'text-kin-coral', bg: 'bg-kin-coral/20', border: 'border-l-kin-coral' },
-  medium: { label: 'Medium', color: 'text-kin-yellow', bg: 'bg-kin-yellow/20', border: 'border-l-kin-yellow' },
-  low: { label: 'Low', color: 'text-muted-foreground', bg: 'bg-muted', border: 'border-l-border' },
+  urgent: { label: 'Urgente', color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-l-destructive' },
+  high: { label: 'Haute', color: 'text-kin-coral', bg: 'bg-kin-coral/20', border: 'border-l-kin-coral' },
+  medium: { label: 'Moyenne', color: 'text-kin-yellow', bg: 'bg-kin-yellow/20', border: 'border-l-kin-yellow' },
+  low: { label: 'Basse', color: 'text-muted-foreground', bg: 'bg-muted', border: 'border-l-border' },
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'due', label: 'Due date' },
-  { value: 'alpha', label: 'Alphabetical' },
+  { value: 'newest', label: 'Plus récent' },
+  { value: 'oldest', label: 'Plus ancien' },
+  { value: 'priority', label: 'Priorité' },
+  { value: 'due', label: 'Échéance' },
+  { value: 'alpha', label: 'Alphabétique' },
 ]
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'todo', label: 'To do' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'done', label: 'Done' },
+  { value: 'all', label: 'Toutes' },
+  { value: 'todo', label: 'À faire' },
+  { value: 'in_progress', label: 'En cours' },
+  { value: 'done', label: 'Terminées' },
 ]
 
 const KANBAN_COLUMNS: { status: Status; label: string; color: string }[] = [
@@ -630,7 +630,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
       <PageHeader
         icon={CheckSquare}
         title="Tâches"
-        subtitle={`${doneTasks} terminées sur ${topLevelTasks.length} · ${completionRate} %`}
+        subtitle={`${doneTasks}/${topLevelTasks.length} terminées · ${completionRate} %`}
         actions={
           <>
             <div className="relative">
@@ -811,18 +811,18 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                 <div className="text-center py-16">
                   <CheckSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
                   <p className="text-muted-foreground">
-                    {hasActiveFilters ? 'No tasks match your filters' : 'No tasks yet'}
+                    {hasActiveFilters ? 'Aucune tâche ne correspond à vos filtres' : 'Aucune tâche pour le moment'}
                   </p>
                   {hasActiveFilters ? (
                     <button onClick={clearFilters} className="mt-2 text-sm text-primary hover:underline">
-                      Clear filters
+                      Réinitialiser les filtres
                     </button>
                   ) : (
                     <button
                       onClick={() => openNewTask()}
                       className="mt-2 text-sm text-primary hover:underline"
                     >
-                      Create your first task
+                      Créer votre première tâche
                     </button>
                   )}
                 </div>
@@ -891,21 +891,32 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                     >
                       <div className="flex items-start gap-3">
                         {/* Status toggle */}
-                        <button
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          whileHover={{ scale: 1.15 }}
                           onClick={() => updateStatus(task.id, task.status === 'done' ? 'todo' : 'done')}
                           className={cn(
-                            'mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-smooth hover:scale-110',
+                            'mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-smooth',
                             task.status === 'done'
                               ? 'bg-kin-sage border-kin-sage'
                               : 'border-border hover:border-primary'
                           )}
                         >
-                          {task.status === 'done' && (
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
+                          <AnimatePresence mode="wait">
+                            {task.status === 'done' && (
+                              <motion.svg
+                                key="check"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ duration: 0.15, ease: 'easeOut' }}
+                                className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </motion.svg>
+                            )}
+                          </AnimatePresence>
+                        </motion.button>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">

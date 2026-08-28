@@ -49,7 +49,7 @@ export function MobileNav() {
             )
           }
           const href = tab.href
-          const active = pathname === href
+          const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
               key={href}

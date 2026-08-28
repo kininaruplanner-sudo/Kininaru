@@ -752,13 +752,13 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
         subtitle="Vos événements et rendez-vous"
         actions={
           <>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <Button variant="ghost" size="icon-sm" onClick={goToPrevious} disabled={view === 'agenda'} aria-label="Période précédente">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm font-medium rounded-lg hover:bg-muted text-foreground transition-smooth min-w-[8rem] text-center"
+                className="px-2 py-1 text-xs font-medium rounded-lg hover:bg-muted text-foreground transition-smooth min-w-[7rem] text-center"
               >
                 {viewLabel()}
               </button>
@@ -766,23 +766,23 @@ export function CalendarClient({ events: initialEvents, userId }: Props) {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex bg-muted rounded-xl p-1 gap-1">
+            <div className="flex bg-muted rounded-xl p-0.5 gap-0.5">
               {(['month', 'week', 'day', 'agenda'] as ViewMode[]).map((v) => (
                 <button
                   key={v}
                   onClick={() => setView(v)}
                   className={cn(
-                    'px-3 py-1.5 text-sm font-medium rounded-lg capitalize transition-smooth',
+                    'px-2 py-1 text-xs font-medium rounded-lg capitalize transition-smooth',
                     view === v ? 'bg-card text-foreground shadow-kin' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {v === 'month' ? 'Mois' : v === 'week' ? 'Semaine' : v === 'day' ? 'Jour' : 'Agenda'}
+                  {v === 'month' ? 'Mois' : v === 'week' ? 'Sem.' : v === 'day' ? 'Jour' : 'Ag.'}
                 </button>
               ))}
             </div>
             <Button onClick={() => openNewEvent()} size="sm" className="gap-1.5 transition-smooth hover:scale-[1.02]">
               <Plus className="w-4 h-4" />
-              Nouvel événement
+              Nouvel
             </Button>
           </>
         }
