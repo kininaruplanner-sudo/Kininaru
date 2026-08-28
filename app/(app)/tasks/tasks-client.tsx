@@ -636,17 +636,17 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
             <div className="relative">
               <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
               <Input
-                placeholder="Rechercher une tâche..."
+                placeholder="Rechercher..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 w-40 sm:w-52 pl-8 transition-smooth"
+                className="h-8 w-36 sm:w-48 pl-8 transition-smooth"
               />
             </div>
-            <div className="flex bg-muted rounded-xl p-1 gap-1">
+            <div className="flex bg-muted rounded-xl p-0.5 gap-0.5">
               <button
                 onClick={() => setView('list')}
                 className={cn(
-                  'p-2 rounded-lg transition-smooth',
+                  'p-1.5 rounded-lg transition-smooth',
                   view === 'list' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
                 aria-label="Vue liste"
@@ -656,7 +656,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
               <button
                 onClick={() => setView('kanban')}
                 className={cn(
-                  'p-2 rounded-lg transition-smooth',
+                  'p-1.5 rounded-lg transition-smooth',
                   view === 'kanban' ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
                 aria-label="Vue kanban"
@@ -665,18 +665,9 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
               </button>
             </div>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={openNewGoal}
-              className="gap-1.5 transition-smooth hover:scale-[1.02]"
-            >
-              <Target className="w-4 h-4 text-warm" />
-              Ajouter un objectif
-            </Button>
-            <Button
               size="sm"
               onClick={() => openNewTask()}
-              className="gap-1.5 transition-smooth hover:scale-[1.02]"
+              className="gap-1.5"
             >
               <Plus className="w-4 h-4" />
               Nouvelle tâche
@@ -685,8 +676,8 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
         }
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-border bg-card/50">
+      {/* Filters — single clean row */}
+      <div className="flex items-center gap-2 px-6 py-2.5 border-b border-border bg-card/50">
         {view === 'list' && (
           <div className="flex bg-muted rounded-full p-0.5 gap-0.5 shrink-0">
             {STATUS_FILTERS.map((s) => (
@@ -694,7 +685,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                 key={s.value}
                 onClick={() => setStatusFilter(s.value)}
                 className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium transition-smooth',
+                  'px-2 py-1 rounded-full text-xs font-medium transition-smooth',
                   statusFilter === s.value ? 'bg-card shadow-kin text-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -704,52 +695,57 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
           </div>
         )}
 
+        <div className="h-4 w-px bg-border shrink-0" />
+
         {(['all', 'urgent', 'high', 'medium', 'low'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setPriorityFilter(f)}
             className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-smooth shrink-0',
+              'px-2 py-1 rounded-full text-xs font-medium capitalize transition-smooth shrink-0',
               priorityFilter === f
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
             )}
           >
-            {f === 'all' ? 'All tasks' : f}
+            {f === 'all' ? 'Toutes' : f}
           </button>
         ))}
 
         {allTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium transition-smooth',
-                  selectedTags.includes(tag)
-                    ? 'bg-accent text-accent-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/70'
-                )}
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="h-4 w-px bg-border shrink-0" />
+            <div className="flex items-center gap-1 flex-wrap">
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={cn(
+                    'px-2 py-0.5 rounded-full text-xs font-medium transition-smooth',
+                    selectedTags.includes(tag)
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {hasActiveFilters && (
-          <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-smooth shrink-0">
-            Clear filters
+          <button onClick={clearFilters} className="text-xs text-primary hover:underline shrink-0 ml-auto">
+            Réinitialiser
           </button>
         )}
 
         <div className="ml-auto relative shrink-0">
-          <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ArrowUpDown className="w-3 h-3 text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="h-8 pl-8 pr-6 text-xs bg-muted rounded-full border-none focus:outline-none focus:ring-2 focus:ring-ring transition-smooth appearance-none cursor-pointer"
+            className="h-7 pl-7 pr-5 text-[11px] bg-muted rounded-full border-none focus:outline-none focus:ring-2 focus:ring-ring transition-smooth appearance-none cursor-pointer"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>

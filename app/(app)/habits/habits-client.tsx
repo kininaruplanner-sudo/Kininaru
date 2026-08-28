@@ -512,60 +512,39 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
             )}
           </AnimatePresence>
 
-          {/* Summary stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Total Habits', value: habits.length, icon: Target, color: 'text-primary' },
-              { label: 'Done Today', value: totalDoneToday, icon: Star, color: 'text-kin-sage' },
-              { label: 'Best Streak', value: `${bestStreak}d`, icon: Flame, color: 'text-accent' },
-              { label: 'Completion', value: habits.length ? `${Math.round((totalDoneToday / habits.length) * 100)}%` : '0%', icon: TrendingUp, color: 'text-secondary-foreground' },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06, duration: 0.25 }}
-                className={cardVariants({ padding: 'sm' })}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <stat.icon className={cn('w-4 h-4', stat.color)} />
-                </div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
+          {/* Compact summary bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-4 px-4 py-3 rounded-xl bg-muted/50 border border-border"
+          >
+            <span className="text-xs text-muted-foreground">
+              {totalDoneToday}/{habits.length} aujourd&apos;hui
+            </span>
+            <div className="h-4 w-px bg-border" />
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Flame className="w-3 h-3 text-kin-coral" />{bestStreak}j meilleur
+            </span>
+            <div className="h-4 w-px bg-border" />
+            <span className="text-xs text-muted-foreground">
+              {habits.length > 0 ? `${Math.round((totalDoneToday / habits.length) * 100)}%` : '0%'}
+            </span>
+            <div className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+              <Award className="w-3 h-3 text-kin-yellow" />Niv. {level}
+            </div>
+          </motion.div>
 
-          {/* Level / XP + Weekly + Monthly progress */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Weekly + Monthly progress */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.25 }}>
-              <Card padding="sm" className={cn('transition-smooth', leveledUp && 'ring-2 ring-kin-yellow shadow-kin-hover')}>
-                <div className="flex items-center gap-2 mb-2">
-                  <motion.span animate={leveledUp ? { rotate: [0, -12, 12, -8, 8, 0], scale: [1, 1.3, 1] } : {}} transition={{ duration: 0.6 }}>
-                    <Award className="w-4 h-4 text-kin-yellow" />
-                  </motion.span>
-                  <h3 className="text-sm font-semibold text-foreground">Level {level}</h3>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${xpProgress * 100}%` }}
-                    transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-                    className="h-full rounded-full bg-kin-yellow"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1.5">{xp} / {xpForNext} XP to level {level + 1}</p>
-              </Card>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.25 }}>
               <Card padding="sm">
                 <h3 className="text-sm font-semibold text-foreground mb-3">This Week</h3>
                 <WeeklyProgress habits={habits} isLoggedOn={isLoggedOn} />
               </Card>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.25 }}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.25 }}>
               <Card padding="sm">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-foreground">
