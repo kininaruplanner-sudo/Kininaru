@@ -487,7 +487,7 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
                 className={cn(cardVariants({ variant: 'accent', padding: 'sm' }), 'flex items-center gap-3 text-center justify-center')}
               >
                 <Sparkles className="w-5 h-5 text-kin-yellow shrink-0" />
-                <p className="text-sm font-medium text-foreground">Level up! You&apos;re now Level {level} 🎉</p>
+                <p className="text-sm font-medium text-foreground">Niveau supérieur ! Vous êtes maintenant Niv. {level} 🎉</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -506,7 +506,7 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
                   <Flame className="w-5 h-5 text-kin-coral shrink-0" />
                 </motion.span>
                 <p className="text-sm font-medium text-foreground">
-                  {milestoneHit.days}-day streak on &ldquo;{milestoneHit.title}&rdquo; 🔥
+                  Série de {milestoneHit.days} jours sur « {milestoneHit.title} » 🔥
                 </p>
               </motion.div>
             )}
@@ -517,7 +517,7 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="flex items-center gap-4 px-4 py-3 rounded-xl bg-muted/50 border border-border"
+            className="flex items-center flex-wrap gap-x-4 gap-y-1 px-4 py-3 rounded-xl bg-muted/50 border border-border"
           >
             <span className="text-xs text-muted-foreground">
               {totalDoneToday}/{habits.length} aujourd&apos;hui
@@ -536,10 +536,10 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
           </motion.div>
 
           {/* Weekly + Monthly progress */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.25 }}>
               <Card padding="sm">
-                <h3 className="text-sm font-semibold text-foreground mb-3">This Week</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Cette semaine</h3>
                 <WeeklyProgress habits={habits} isLoggedOn={isLoggedOn} />
               </Card>
             </motion.div>
@@ -548,7 +548,7 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
               <Card padding="sm">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-foreground">
-                    {isSameMonth(monthCursor, new Date()) ? 'This Month' : format(monthCursor, 'MMMM')}
+                    {isSameMonth(monthCursor, new Date()) ? 'Ce mois-ci' : format(monthCursor, 'MMMM')}
                   </h3>
                   <span className="text-sm font-bold text-primary">{monthlyRate}%</span>
                 </div>
@@ -571,12 +571,12 @@ export function HabitsClient({ habits: initialHabits, logs, userId, profile }: P
               className="text-center py-16"
             >
               <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
-              <p className="text-foreground font-medium">No habits yet</p>
+              <p className="text-foreground font-medium">Aucune habitude</p>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Build consistency with daily habits
+                Créez des habitudes quotidiennes pour bâtir une routine solide.
               </p>
               <Button onClick={() => setShowModal(true)} size="sm">
-                <Plus className="w-4 h-4 mr-1.5" /> Create your first habit
+                <Plus className="w-4 h-4 mr-1.5" /> Créer votre première habitude
               </Button>
             </motion.div>
           ) : (

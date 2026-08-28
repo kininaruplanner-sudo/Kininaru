@@ -261,6 +261,15 @@
     border-bottom: 1px solid var(--kt-border);
   }
 
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* AI Assistant brand palette — gradient derived from the KP logo colors. */
   .kin-ai-gradient {
     background: linear-gradient(135deg, #8fb5a1 0%, #b0a5d4 50%, #e0a89a 100%);

@@ -667,7 +667,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
             <Button
               size="sm"
               onClick={() => openNewTask()}
-              className="gap-1.5"
+              className="gap-1.5 hidden sm:inline-flex"
             >
               <Plus className="w-4 h-4" />
               Nouvelle tâche
@@ -676,8 +676,8 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
         }
       />
 
-      {/* Filters — single clean row */}
-      <div className="flex items-center gap-2 px-6 py-2.5 border-b border-border bg-card/50">
+      {/* Filters — single clean row, scrollable on mobile */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 border-b border-border bg-card/50 overflow-x-auto scrollbar-none">
         {view === 'list' && (
           <div className="flex bg-muted rounded-full p-0.5 gap-0.5 shrink-0">
             {STATUS_FILTERS.map((s) => (
@@ -1051,7 +1051,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubtask(task.id)
                           }}
-                          placeholder="Add subtask..."
+                          placeholder="Ajouter une sous-tâche..."
                           className="flex-1 text-xs bg-transparent border-none focus:outline-none placeholder:text-muted-foreground py-1"
                         />
                       </div>
@@ -1444,6 +1444,15 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mobile FAB — quick add task on small screens */}
+      <button
+        onClick={() => openNewTask()}
+        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-kin-hover flex items-center justify-center transition-smooth hover:scale-105 active:scale-95"
+        aria-label="Nouvelle tâche"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   )
 }

@@ -591,8 +591,7 @@ export function AIAssistantClient({ displayName, embedded, onVoiceStateChange }:
           >
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-kin" style={{ background: 'linear-gradient(135deg, #8fb5a1 0%, #b0a5d4 50%, #e0a89a 100%)' }}>
               <CoachMascot mood="calm" className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="kin-h2 text-foreground mb-2"><span className="kin-ai-gradient">Comment puis-je vous aider</span>, {displayName} ?</h2>
+            </div>              <h2 className="text-xl sm:text-2xl font-serif font-bold text-foreground mb-2"><span className="kin-ai-gradient">Comment puis-je vous aider</span>, {displayName} ?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Je peux planifier votre journée, fixer vos priorités, analyser votre semaine,
               découper un objectif en étapes — et créer des tâches, habitudes ou événements
@@ -777,9 +776,7 @@ export function AIAssistantClient({ displayName, embedded, onVoiceStateChange }:
             supported={voice.speechSupported}
           />
         </motion.div>
-      )}
-
-      {/* Suggestions */}
+      )}        {/* Suggestions */}
       {!hasStartedChat && !voice.callActive && !showCallHome && (
         <div className="px-4 sm:px-6 pb-4">
           <p className="text-xs text-muted-foreground mb-2.5">Essayez :</p>
@@ -790,7 +787,7 @@ export function AIAssistantClient({ displayName, embedded, onVoiceStateChange }:
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.2 }}
-                onClick={() => sendMessage(s.text)}                      className="flex items-center gap-2 px-3 py-1.5 min-h-9 sm:min-h-9 rounded-full border border-border bg-card text-sm text-foreground hover:border-kp-lavender hover:bg-kp-lavender/10 hover:-translate-y-0.5 transition-smooth shadow-kin"
+                onClick={() => sendMessage(s.text)}                      className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-9 rounded-full border border-border bg-card text-xs sm:text-sm text-foreground hover:border-kp-lavender hover:bg-kp-lavender/10 hover:-translate-y-0.5 transition-smooth shadow-kin"
               >
                 <s.icon className="w-3.5 h-3.5 shrink-0" style={{ color: '#b0a5d4' }} />
                 {s.text}
