@@ -4,8 +4,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Check, Copy, Settings2 } from 'lucide-react'
 import { KinLogo } from '@/components/kin-logo'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 
 const ENV_SNIPPET = `NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
@@ -69,11 +70,12 @@ export default function AuthConfigRequired() {
           </p>
 
           <div className="mt-6">
-            <Button
-              render={<Link href="/">{t('auth.configRequiredHome')}</Link>}
-              variant="outline"
-              className="w-full transition-smooth"
-            />
+            <Link
+              href="/"
+              className={cn(buttonVariants({ variant: 'outline' }), 'w-full transition-smooth text-center block')}
+            >
+              {t('auth.configRequiredHome')}
+            </Link>
           </div>
         </div>
       </div>

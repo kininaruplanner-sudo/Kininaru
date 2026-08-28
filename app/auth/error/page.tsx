@@ -3,9 +3,10 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 
 function AuthErrorInner() {
   const { t } = useI18n()
@@ -29,15 +30,18 @@ function AuthErrorInner() {
           <p className="text-muted-foreground mb-8 leading-relaxed">{description}</p>
 
           <div className="flex gap-3">
-            <Button
-              render={<Link href="/auth/login">{t('auth.backToLogin')}</Link>}
-              variant="outline"
-              className="flex-1 transition-smooth"
-            />
-            <Button
-              render={<Link href="/auth/sign-up">{t('auth.signUp')}</Link>}
-              className="flex-1 transition-smooth hover:scale-[1.02]"
-            />
+            <Link
+              href="/auth/login"
+              className={cn(buttonVariants({ variant: 'outline' }), 'flex-1 transition-smooth')}
+            >
+              {t('auth.backToLogin')}
+            </Link>
+            <Link
+              href="/auth/sign-up"
+              className={cn(buttonVariants({ variant: 'default' }), 'flex-1 transition-smooth hover:scale-[1.02]')}
+            >
+              {t('auth.signUp')}
+            </Link>
           </div>
         </div>
       </div>

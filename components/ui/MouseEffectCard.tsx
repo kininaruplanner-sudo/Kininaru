@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useReducedMotion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface MouseEffectCardProps {
@@ -225,21 +225,20 @@ export default function MouseEffectCard({
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {primaryCtaUrl && (
-            <Button
-              className="h-11 px-6 text-sm gap-1.5 w-full sm:w-auto"
-              render={<Link href={primaryCtaUrl}>{primaryCtaText}</Link>}
+            <Link
+              href={primaryCtaUrl}
+              className={cn(buttonVariants({ variant: 'default' }), 'h-11 px-6 text-sm gap-1.5 w-full sm:w-auto')}
             >
               {primaryCtaText} <ArrowRight className="w-4 h-4" />
-            </Button>
+            </Link>
           )}
           {secondaryCtaUrl && secondaryCtaText && (
-            <Button
-              variant="outline"
-              className="h-11 px-6 text-sm w-full sm:w-auto"
-              render={<Link href={secondaryCtaUrl}>{secondaryCtaText}</Link>}
+            <Link
+              href={secondaryCtaUrl}
+              className={cn(buttonVariants({ variant: 'outline' }), 'h-11 px-6 text-sm w-full sm:w-auto')}
             >
               {secondaryCtaText}
-            </Button>
+            </Link>
           )}
         </div>
       </div>

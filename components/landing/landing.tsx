@@ -27,7 +27,7 @@ import {
 import { KinLogo } from '@/components/kin-logo'
 import { CoachMascot } from '@/components/coach-mascot'
 import { BetaBadge } from '@/components/beta-badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { InstallAppButton } from '@/components/install-app-button'
 import { InstallBanner } from '@/components/install-banner'
 import { HeroShapes } from '@/components/landing/elegant-shapes'
@@ -348,8 +348,8 @@ export function Landing() {
           </nav>
 
           <div className="hidden md:flex items-center gap-2.5">
-            <Button variant="ghost" render={<Link href="/auth/login">Connexion</Link>} />
-            <Button render={<Link href="/auth/sign-up">Commencer gratuitement</Link>} />
+            <Link href="/auth/login" className={cn(buttonVariants({ variant: 'ghost' }))}>Connexion</Link>
+            <Link href="/auth/sign-up" className={cn(buttonVariants({ variant: 'default' }))}>Commencer gratuitement</Link>
           </div>
 
           {/* Contrepoids — équilibre le burger à droite sur mobile */}
@@ -369,8 +369,8 @@ export function Landing() {
               </a>
             ))}
             <div className="flex gap-3 pt-3">
-              <Button variant="outline" className="flex-1 h-11" render={<Link href="/auth/login">Connexion</Link>} />
-              <Button className="flex-1 h-11" render={<Link href="/auth/sign-up">Commencer</Link>} />
+              <Link href="/auth/login" className={cn(buttonVariants({ variant: 'outline' }), 'flex-1 h-11')}>Connexion</Link>
+              <Link href="/auth/sign-up" className={cn(buttonVariants({ variant: 'default' }), 'flex-1 h-11')}>Commencer</Link>
             </div>
           </div>
         )}
@@ -434,11 +434,7 @@ export function Landing() {
             transition={{ duration: 0.55, delay: 0.19 }}
             className="flex flex-col sm:flex-row gap-3 mb-10 items-center justify-center"
           >
-            <Button
-              size="lg"
-              className="h-11 sm:h-11 px-6 gap-2 text-base"
-              render={<Link href="/auth/sign-up">Commencer gratuitement</Link>}
-            />
+            <Link href="/auth/sign-up" className={cn(buttonVariants({ size: 'lg' }), 'h-11 sm:h-11 px-6 gap-2 text-base')}>Commencer gratuitement</Link>
             {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
                 peut réellement installer la PWA (beforeinstallprompt) ;
                 disparaît une fois installée ou en mode standalone. */}
@@ -641,9 +637,9 @@ export function Landing() {
           </Reveal>
 
           <Reveal delay={0.24}>
-            <Button render={<Link href="/auth/sign-up">Vivre une journée avec Kininaru</Link>} className="gap-2 h-11 sm:h-8">
+            <Link href="/auth/sign-up" className={cn(buttonVariants({ variant: 'default' }), 'gap-2 h-11 sm:h-8')}>
               Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
-            </Button>
+            </Link>
           </Reveal>
 
           <Reveal delay={0.1}>

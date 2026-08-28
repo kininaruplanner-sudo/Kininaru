@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { CheckCircle2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 
 export default function SignUpSuccessPage() {
   const { t } = useI18n()
@@ -25,10 +26,12 @@ export default function SignUpSuccessPage() {
             {t('auth.signUpSuccessDesc')}
           </p>
 
-          <Button
-            render={<Link href="/auth/login">{t('auth.backToLogin')}</Link>}
-            className="transition-smooth hover:scale-[1.02]"
-          />
+          <Link
+            href="/auth/login"
+            className={cn(buttonVariants({ variant: 'default' }), 'transition-smooth hover:scale-[1.02] w-full text-center')}
+          >
+            {t('auth.backToLogin')}
+          </Link>
         </div>
       </div>
     </div>

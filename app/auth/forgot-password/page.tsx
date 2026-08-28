@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import AuthConfigRequired from '@/components/auth-config-required'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, CheckCircle2, ArrowLeft } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { getAuthErrorMessage } from '@/lib/auth-errors'
+import { cn } from '@/lib/utils'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -56,10 +57,12 @@ export default function ForgotPasswordPage() {
             <p className="text-muted-foreground mb-8 leading-relaxed">
               {t('auth.resetSent', { email })}
             </p>
-            <Button
-              render={<Link href="/auth/login">{t('auth.backToLogin')}</Link>}
-              className="w-full transition-smooth"
-            />
+            <Link
+              href="/auth/login"
+              className={cn(buttonVariants({ variant: 'default' }), 'w-full transition-smooth text-center')}
+            >
+              {t('auth.backToLogin')}
+            </Link>
           </div>
         </div>
       </div>
