@@ -98,9 +98,9 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 ]
 
 const KANBAN_COLUMNS: { status: Status; label: string; color: string }[] = [
-  { status: 'todo', label: 'To Do', color: 'bg-muted' },
-  { status: 'in_progress', label: 'In Progress', color: 'bg-primary/10' },
-  { status: 'done', label: 'Done', color: 'bg-kin-sage/10' },
+  { status: 'todo', label: 'À faire', color: 'bg-muted' },
+  { status: 'in_progress', label: 'En cours', color: 'bg-primary/10' },
+  { status: 'done', label: 'Terminé', color: 'bg-kin-sage/10' },
 ]
 
 // ---- Small shared pieces (previously duplicated between List and Kanban) ----
@@ -944,7 +944,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                               <span className={cn('flex items-center gap-1 text-xs', overdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
                                 <Calendar className="w-3 h-3" />
                                 {format(new Date(task.due_date), 'MMM d')}
-                                {overdue && ' · overdue'}
+                                {overdue && ' · en retard'}
                               </span>
                             )}
                             {task.scheduled_time && (
@@ -974,7 +974,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                             size="icon-sm"
                             onClick={() => openEditTask(task)}
                             className="hover:bg-primary/10 hover:text-primary"
-                            title="Edit task"
+                            title="Modifier"
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
@@ -984,7 +984,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                               size="icon-sm"
                               onClick={() => updateStatus(task.id, 'in_progress')}
                               className="hover:bg-primary/10 hover:text-primary"
-                              title="Mark in progress"
+                              title="En cours"
                             >
                               <ChevronDown className="w-4 h-4" />
                             </Button>
@@ -1164,7 +1164,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                                   }
                                   className="flex-1 text-xs text-center py-1 rounded-lg bg-muted hover:bg-primary hover:text-primary-foreground transition-smooth"
                                 >
-                                  Move to {col.status === 'todo' ? 'In Progress' : 'Done'}
+                                  {col.status === 'todo' ? '▶ Commencer' : '✓ Terminer'}
                                 </button>
                                 <Link
                                   href={`/focus?taskId=${task.id}&task=${encodeURIComponent(task.title)}`}
@@ -1183,7 +1183,7 @@ export function TasksClient({ tasks: initialTasks, goals: initialGoals, userId }
                         className="w-full p-3 border-2 border-dashed border-border rounded-xl text-xs text-muted-foreground hover:border-primary hover:text-primary transition-smooth flex items-center justify-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        Add task
+                        Ajouter une tâche
                       </button>
                     </div>
                   </div>
