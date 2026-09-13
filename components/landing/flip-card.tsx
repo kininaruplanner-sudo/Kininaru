@@ -4,7 +4,6 @@ import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Repeat2, Target, Repeat, Timer, TrendingUp, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 
 /**
  * Card Flip — adapté du concept Kokonut UI au langage Kininaru.
@@ -161,19 +160,16 @@ export function FlipCard({
           </div>
 
           <div className="mt-6 border-t border-border pt-5">
-            <Button
-              size="lg"
-              className="w-full"
-              render={
-                <Link href={ctaHref} className="inline-flex w-full items-center justify-center gap-1.5">
-                  {ctaLabel}
-                  <ArrowRight
-                    aria-hidden
-                    className="w-4 h-4 transition-transform duration-300 group-hover/button:translate-x-0.5"
-                  />
-                </Link>
-              }
-            />
+            <Link
+              href={ctaHref}
+              className="inline-flex w-full items-center justify-center gap-1.5 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-kin hover:bg-kin-rose-dark hover:scale-[1.02] hover:shadow-kin-hover transition-all duration-[250ms]"
+            >
+              {ctaLabel}
+              <ArrowRight
+                aria-hidden
+                className="w-4 h-4 transition-transform duration-300 group-hover/button:translate-x-0.5"
+              />
+            </Link>
             <p className="mt-2.5 text-center text-[11px] text-muted-foreground">
               Gratuit pour commencer · aucune carte requise
             </p>

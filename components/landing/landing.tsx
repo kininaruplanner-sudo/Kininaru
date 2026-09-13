@@ -27,7 +27,7 @@ import {
 import { KinLogo } from '@/components/kin-logo'
 import { CoachMascot } from '@/components/coach-mascot'
 import { BetaBadge } from '@/components/beta-badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { InstallAppButton } from '@/components/install-app-button'
 import { InstallBanner } from '@/components/install-banner'
 import { HeroShapes } from '@/components/landing/elegant-shapes'
@@ -537,16 +537,10 @@ export function Landing() {
                   </li>
                 ))}
               </ul>
-              <Button
-                variant="outline"
-                className="h-11 sm:h-9"
-                render={
-                  <Link href="#features" className="inline-flex items-center gap-1.5">
-                    Découvrir les fonctionnalités
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                }
-              />
+              <Link href="#features" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 sm:h-9 inline-flex items-center gap-1.5')}>
+                Découvrir les fonctionnalités
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </Reveal>
 
