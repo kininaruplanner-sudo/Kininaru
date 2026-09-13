@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, CheckSquare, Timer, BookOpen, Sparkles } from 'lucide-react'
 import { CoachMascot } from '@/components/coach-mascot'
@@ -51,9 +50,9 @@ export function MobileNav() {
           const href = tab.href
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
-            <Link
+            <button
               key={href}
-              href={href}
+              onClick={(e) => { e.preventDefault(); window.location.href = href; }}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-14 py-1.5 text-[10px] font-medium transition-smooth',
@@ -64,7 +63,7 @@ export function MobileNav() {
             >
               <Icon className="w-4.5 h-4.5" strokeWidth={active ? 2.4 : 2} />
               {tab.label}
-            </Link>
+            </button>
           )
         })}
       </div>

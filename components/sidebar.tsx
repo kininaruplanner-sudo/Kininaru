@@ -179,13 +179,13 @@ export function Sidebar({
                 const label = t(key)
                 const active = pathname === href || pathname.startsWith(href + '/')
                 return (
-                  <Link
+                  <button
                     key={href}
-                    href={href}
+                    onClick={(e) => { e.preventDefault(); router.push(href); }}
                     title={collapsed ? label : undefined}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group',
+                      'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group text-left w-full',
                       active
                         ? 'text-foreground [&_svg]:text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5',
@@ -215,7 +215,7 @@ export function Sidebar({
                         IA
                       </span>
                     )}
-                  </Link>
+                  </button>
                 )
               })}
             </div>
