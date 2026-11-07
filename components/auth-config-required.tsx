@@ -47,7 +47,11 @@ export default function AuthConfigRequired() {
           </div>
 
           <div className="relative">
-            <pre className="bg-muted/60 border border-border rounded-xl p-4 pr-14 text-xs leading-relaxed overflow-x-auto font-mono text-foreground/90">
+            <pre
+              tabIndex={0}
+              aria-label={t('auth.configRequiredTitle')}
+              className="bg-muted/60 border border-border rounded-xl p-4 pr-14 text-xs leading-relaxed overflow-x-auto font-mono text-foreground/90"
+            >
               {ENV_SNIPPET}
             </pre>
             <button

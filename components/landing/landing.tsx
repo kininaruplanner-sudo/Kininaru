@@ -307,6 +307,15 @@ export function Landing() {
   return (
     <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      {/* Lien d'évitement : premier élément focusable de la page (avant la
+          navbar), visible uniquement au clavier, il saute la navigation. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:inline-flex focus:items-center focus:h-10 focus:px-4 focus:rounded-xl focus:bg-primary focus:text-primary-foreground focus:text-sm focus:font-medium focus:shadow-kin"
+      >
+        Aller au contenu principal
+      </a>
+
       {/* ---------------- Navbar ---------------- */}
       <header
         className={cn(
@@ -377,6 +386,11 @@ export function Landing() {
         )}
       </header>
 
+      {/* Contenu principal : landmark unique de la page, il englobe toutes
+          les sections de la landing (le header et le footer restent en
+          dehors). Sans lui, les lecteurs d'écran n'ont aucun repère
+          principal et l'audit a11y remonte des dizaines de blocs isolés. */}
+      <main id="main-content" tabIndex={-1}>
       {/* ---------------- Hero — « Ma journée évolue. » ---------------- */}
       <section className="relative overflow-hidden">
         {/* Formes géométriques flottantes + halos — couleurs de la palette du
@@ -491,7 +505,7 @@ export function Landing() {
                   {i > 0 && (
                     <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mx-1.5" aria-hidden />
                   )}
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 shadow-kin text-xs sm:text-sm font-medium text-foreground/90">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card shadow-kin text-xs sm:text-sm font-medium text-foreground">
                     <step.icon className={cn('w-3.5 h-3.5', step.color)} />
                     {step.label}
                   </span>
@@ -925,6 +939,7 @@ export function Landing() {
           </Reveal>
         </div>
       </section>
+      </main>
 
       {/* ---------------- Footer ---------------- */}
       <footer className="relative overflow-hidden border-t border-border bg-card/60">

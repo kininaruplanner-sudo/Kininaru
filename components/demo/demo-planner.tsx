@@ -290,6 +290,7 @@ export function DemoPlanner() {
               />
               <button
                 type="submit"
+                aria-label="Ajouter la tâche"
                 disabled={!draft.trim()}
                 className={cn(buttonVariants({ variant: 'default' }), 'h-10 px-3 gap-1.5')}
               >

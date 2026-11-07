@@ -71,7 +71,7 @@ export function KinLogo({
           >
             kininaru
           </span>
-          <span className="text-[0.55em] tracking-[0.25em] text-muted-foreground/70 mt-0.5">PLAN · FOCUS · GROW</span>
+          <span className="text-[0.55em] tracking-[0.25em] text-muted-foreground mt-0.5">PLAN · FOCUS · GROW</span>
         </span>
       )}
     </span>
