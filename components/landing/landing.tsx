@@ -301,6 +301,7 @@ export function Landing() {
     { href: '#day', label: 'Une journée' },
     { href: '#family', label: 'Famille' },
     { href: '#progress', label: 'Progression' },
+    { href: '/demo', label: 'Démo' },
   ]
 
   return (
@@ -435,6 +436,15 @@ export function Landing() {
             className="flex flex-col sm:flex-row gap-3 mb-10 items-center justify-center"
           >
             <Link href="/auth/sign-up" className={cn(buttonVariants({ size: 'lg' }), 'h-11 sm:h-11 px-6 gap-2 text-base')}>Commencer gratuitement</Link>
+            {/* Démo publique — utilisable sans compte, elle sert de premier pas
+                aux visiteurs qui ne veulent pas s'inscrire tout de suite. */}
+            <Link
+              href="/demo"
+              className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-11 sm:h-11 px-6 gap-2 text-base')}
+            >
+              Voir la démo
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
             {/* 📲 Installer Kininaru — visible uniquement quand le navigateur
                 peut réellement installer la PWA (beforeinstallprompt) ;
                 disparaît une fois installée ou en mode standalone. */}
@@ -631,8 +641,8 @@ export function Landing() {
           </Reveal>
 
           <Reveal delay={0.24}>
-            <Link href="/auth/sign-up" className={cn(buttonVariants({ variant: 'default' }), 'gap-2 h-11 sm:h-8')}>
-              Vivre une journée avec Kininaru <ArrowRight className="w-4 h-4" />
+            <Link href="/demo" className={cn(buttonVariants({ variant: 'default' }), 'gap-2 h-11 sm:h-8')}>
+              Vivre une journée dans la démo <ArrowRight className="w-4 h-4" />
             </Link>
           </Reveal>
 

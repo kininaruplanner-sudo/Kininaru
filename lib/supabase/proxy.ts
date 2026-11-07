@@ -46,11 +46,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    request.nextUrl.pathname !== '/'
-  ) {
+  // Pages publiques : accueil, parcours d'authentification et démo interactive
+  // (la démo ne dépend pas de Supabase et doit rester accessible sans compte).
+  const isPublicPage =
+    request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/auth') ||
+    request.nextUrl.pathname.startsWith('/demo')
+
+  if (!user && !isPublicPage) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'

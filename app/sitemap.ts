@@ -10,6 +10,7 @@ const baseUrl = SITE_URL
 
 const PUBLIC_ROUTES: { path: string; priority: number }[] = [
   { path: '', priority: 1 },
+  { path: '/demo', priority: 0.8 },
   { path: '/legal/conditions', priority: 0.4 },
   { path: '/legal/confidentialite', priority: 0.4 },
   { path: '/legal/suppression-compte', priority: 0.4 },
