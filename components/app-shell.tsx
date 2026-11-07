@@ -53,7 +53,7 @@ interface VoiceStateSnapshot {
 // voice state here, and the indicator bar reads it.  Because both are
 // rendered by AppShellInner (same tree), React batching keeps them in sync.
 let _voiceState: VoiceStateSnapshot | null = null
-let _voiceListeners: Set<() => void> = new Set()
+const _voiceListeners: Set<() => void> = new Set()
 
 function notifyVoiceListeners() {
   _voiceListeners.forEach((l) => l())

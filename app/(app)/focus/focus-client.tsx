@@ -570,7 +570,7 @@ export function FocusClient({ userId, todaySessions, allSessions, initialTask, i
             className={cn('w-1.5 h-1.5 rounded-full transition-smooth', i < focusCycles % 4 ? 'bg-primary' : 'bg-border')}
           />
         ))}
-        <span className="text-[10px] text-muted-foreground ml-1">jusqu'à la longue pause</span>
+        <span className="text-[10px] text-muted-foreground ml-1">jusqu&apos;à la longue pause</span>
       </div>
 
       {/* Circular timer */}
