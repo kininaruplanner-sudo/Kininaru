@@ -179,13 +179,18 @@ export function Sidebar({
                 const label = t(key)
                 const active = pathname === href || pathname.startsWith(href + '/')
                 return (
-                  <button
+                  <a
                     key={href}
-                    onClick={(e) => { e.preventDefault(); router.push(href); }}
+                    href={href}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      onMobileClose()
+                      router.push(href)
+                    }}
                     title={collapsed ? label : undefined}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group text-left w-full',
+                      'relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-smooth group',
                       active
                         ? 'text-foreground [&_svg]:text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted hover:translate-x-0.5',
@@ -197,25 +202,25 @@ export function Sidebar({
                       <motion.span
                         layoutId="sidebar-active-pill"
                         transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                        className="absolute inset-0 rounded-xl bg-primary/15"
+                        className="absolute inset-0 rounded-xl bg-primary/15 pointer-events-none"
                       />
                     )}
-                    {highlight && !active && <span className="absolute inset-0 rounded-xl bg-primary/[0.06]" />}
+                    {highlight && !active && <span className="absolute inset-0 rounded-xl bg-primary/[0.06] pointer-events-none" />}
                     <Icon
                       className={cn(
-                        'relative shrink-0 transition-smooth',
+                        'relative shrink-0 transition-smooth pointer-events-none',
                         collapsed ? 'lg:w-5 lg:h-5 w-4 h-4' : 'w-4 h-4',
                         active && 'scale-105',
                         highlight && !active && 'text-primary'
                       )}
                     />
-                    <span className={cn('relative truncate', collapsed && 'lg:hidden')}>{label}</span>
+                    <span className={cn('relative truncate pointer-events-none', collapsed && 'lg:hidden')}>{label}</span>
                     {highlight && !active && (
-                      <span className={cn('relative ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold', collapsed && 'lg:hidden')}>
+                      <span className={cn('relative ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold pointer-events-none', collapsed && 'lg:hidden')}>
                         IA
                       </span>
                     )}
-                  </button>
+                  </a>
                 )
               })}
             </div>
